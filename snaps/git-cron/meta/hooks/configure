@@ -1,0 +1,51 @@
+#!/bin/sh
+if ! username=$(snapctl get username); then
+    echo "Username is required"
+    exit 1
+fi
+
+if ! password=$(snapctl get password); then
+    echo "Password is required"
+    exit 1
+fi
+
+if ! project_url=$(snapctl get project-url); then
+    echo "Project url is required"
+    exit 1
+fi
+
+if ! project_name=$(snapctl get project-name); then
+    echo "Project name is required"
+    exit 1
+fi
+
+if ! jobs_dir=$(snapctl get jobs-dir); then
+    echo "Jobs directory is required"
+    exit 1
+fi
+
+# remove double quotes
+username=$(echo "$username" | sed -e 's/^"//' -e 's/"$//')
+password=$(echo "$password" | sed -e 's/^"//' -e 's/"$//')
+
+project_url=$(echo "$project_url" | sed -e 's/^"//' -e 's/"$//')
+project_name=$(echo "$project_name" | sed -e 's/^"//' -e 's/"$//')
+jobs_dir=$(echo "$jobs_dir" | sed -e 's/^"//' -e 's/"$//')
+
+CREDENTIALS_FILE=$SNAP_COMMON/git-credentials
+PROJECT_FILE=$SNAP_COMMON/git-project
+
+# write credentials file
+echo "https://$username:$password@github.com" > "$CREDENTIALS_FILE"
+chmod 600 "$CREDENTIALS_FILE"
+
+GIT_BINARY="$SNAP/usr/bin/git"
+"$GIT_BINARY" config --global credential.helper "store --file=$CREDENTIALS_FILE"
+"$GIT_BINARY" config --global user.name "Snappy Developers"
+"$GIT_BINARY" config --global user.email snappy-dev@lists.launchpad.net
+
+# write project file
+echo "project-url=$project_url" > "$PROJECT_FILE"
+echo "project-name=$project_name" >> "$PROJECT_FILE"
+echo "jobs-dir=$jobs_dir" >> "$PROJECT_FILE"
+chmod 600 "$PROJECT_FILE"
