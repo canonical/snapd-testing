@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# in canonistack
+
+git clone https://github.com/snapcore/snapd-testing.git
+
+sudo apt update
+sudo apt install -y awscli snapcraft python3-pip
+sudo pip3 install psutil
+sudo snap install ubuntu-image --classic
+sudo snap install google-cloud-sdk --classic
+
+# sudo su
+# gcloud auth application-default login
+# gcloud config set project snapd-spread
+# exit
+
+# in prodstack
+
+echo HTTPS_PROXY=http://squid.internal:3128 | sudo tee -a /etc/environment
+echo HTTP_PROXY=http://squid.internal:3128 | sudo tee -a /etc/environment
+echo https_proxy=http://squid.internal:3128 | sudo tee -a /etc/environment
+echo http_proxy=http://squid.internal:3128 | sudo tee -a /etc/environment
+
+export HTTPS_PROXY=http://squid.internal:3128
+git clone https://github.com/snapcore/snapd-testing.git
+
+sudo apt update
+sudo apt install -y awscli snapcraft python3-pip
+sudo pip3 install psutil
+sudo snap install ubuntu-image --classic
+sudo snap install google-cloud-sdk --classic
+
+# sudo su
+# HTTPS_PROXY=http://squid.internal:3128 gcloud auth application-default login
+# HTTPS_PROXY=http://squid.internal:3128 gcloud config set project snapd-spread
+# gcloud config set proxy/type http
+# gcloud config set proxy/address http://squid.internal
+# gcloud config set proxy/port 8080
+# exit
+
+

@@ -1,0 +1,21 @@
+type: model
+authority-id: canonical
+series: 16
+brand-id: canonical
+model: cm3
+architecture: armhf
+gadget: cm3
+kernel: pi2-kernel
+timestamp: 2017-06-12T00:00:00.0Z
+sign-key-sha3-384: 9tydnLa6MTJ-jaQTFUXEwHl1yRx7ZS4K5cyFDhYDcPzhS7uyEkDxdUjg9g08BtNn
+
+AcLBXAQAAQoABgUCWUJO5gAKCRDgT5vottzAEvfmD/97VpABFgNpsXnIFlKq6Wx5OMjcm3G5OLxK
+tSf1Fx8+2L/saxbZDFLxur2J312dZxYQWSCzvs3pKjM7SzfbfhUduDXs5fs1NB8mX8Qwz4pSpttY
+LyZvGyTcydFZM3IpTQgtRYzIQZKT6BRVV8fjKGsypY6fCJL1MpatBZNwM1NJCC301IDjKvQGepwz
+nDCNKI1TbM2y7n7Gd0IhYXwcmoFeHnwMWe+SfE2zyVLw+dTs5EVfqV/MIv+P+vGPTv9vumKet/BD
+cmsYkPQNE+ii7ueFz8nS4IKcuGYvxbBg138hMFXlrvxC2Hk7beVaMAx71bJQwgVwrNB3AnCh7koO
+vCoI+toV0m1msdtx3Q5pxTTmR1mi8W9QtE5UNjFUYTWoVyxhup7NjfbU0lB23HU6TZ+K3VxAG/IC
+s7VBSapGFitNkpC51EC7FdyTTQkVbFHUgAVfeWUPyw+/NxOPsdZKnVn6iS/dtx3Rot6vI1PrPI5m
+skxfIKTZus3pzafwqTxm6GUJqfr0bgJeuogPPxtyczi7B0W3RQEvpPXmEKAsxT+UfGQqRR2jq50I
+syrlJMnW45ay2rX3QJL3n/l8qL2RxW8KTsJphvXQ0nx8iiWbQYV/HwZ8pZRbter5MToufys7ov/t
+1R2jGM9axSy09qIM8eNKdsfDIWCaJs2HwZcthEkYqA==
