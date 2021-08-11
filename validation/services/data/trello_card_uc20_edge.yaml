@@ -1,0 +1,35 @@
+name: testing snap workflow for edge image from cdimage
+checklists:
+    Sign-Off:
+        - name: Clear for Landing
+          default: true
+        - name: Ready for Edge
+          default: true
+        - name: Ready for Beta
+          default: false
+        - name: Ready for Candidate
+          default: false
+        - name: Ready for Stable
+          default: false
+        - name: Can be Archived
+          default: false
+    Results:
+        - name: pi3
+          default: false
+        - name: pi4
+          default: false
+        - name: pc-amd64
+          default: false
+    Executions:
+        - name: pi3
+          default: false
+        - name: pi4
+          default: false
+        - name: pc-amd64
+          default: false
+complete:
+    sign:
+        sign-checklist: Sign-Off
+        sign-actions:
+            - source: Results
+              target: Ready for Beta

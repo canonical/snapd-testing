@@ -1,0 +1,43 @@
+name: testing snap workflow for core snap on edge channel
+checklists:
+    Sign-Off:
+        - name: Clear for Landing
+          default: true
+        - name: Ready for Edge
+          default: true
+        - name: Ready for Beta
+          default: false
+        - name: Ready for Candidate
+          default: false
+        - name: Ready for Stable
+          default: false
+        - name: Can be Archived
+          default: false
+    Results:
+        - name: pi2-refresh
+          default: false
+        - name: pi3-refresh
+          default: false
+        - name: dragonboard-refresh
+          default: false
+        - name: pc-amd64-refresh
+          default: false
+        - name: pc-i386-refresh
+          default: false
+    Executions:
+        - name: pi2-refresh
+          default: false
+        - name: pi3-refresh
+          default: false
+        - name: dragonboard-refresh
+          default: false
+        - name: pc-amd64-refresh
+          default: false
+        - name: pc-i386-refresh
+          default: false
+complete:
+    sign:
+        sign-checklist: Sign-Off
+        sign-actions:
+            - source: Results
+              target: Ready for Beta

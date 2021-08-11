@@ -1,0 +1,50 @@
+#!/bin/bash
+
+set -x
+
+PROJECT=$1
+SERVICE_ENV=$2
+TESTS_ENV=$3
+TESTS_SCRIPT=$4
+TESTS_CONFIG=$5
+WORKSPACE=$6
+
+if [ ! "$PROJECT" ]; then
+	echo "Porject not defined, exiting..."
+	exit 1
+fi
+
+# Load environment variables
+. "${WORKSPACE}/snapd-testing/validation/services/env/common.sh" "$WORKSPACE"
+if [ ! -f "${WORKSPACE}/snapd-testing/validation/services/env/${SERVICE_ENV}.sh" ]; then
+	echo "configuration file does not exist, exiting"
+	exit 1
+fi
+. "${WORKSPACE}/snapd-testing/validation/services/env/${SERVICE_ENV}.sh"
+
+# Prepare tests environment
+if [ "$PROJECT" == snapd ]; then
+	VERSION=$("${WORKSPACE}/snapd-testing/validation/services/utils/get_version" "$SNAP_UT" "$TARGET_CHANNEL")
+	export HTTPS_PROXY=https://squid.internal:3128
+	export BRANCH=$("${WORKSPACE}/snapd-testing/validation/services/utils/get_branch" "$VERSION")
+else
+	export HTTPS_PROXY=https://squid.internal:3128	
+fi
+export $TESTS_ENV
+
+# Run spread tests
+"${WORKSPACE}/snapd-testing/validation/scripts/${TESTS_SCRIPT}.sh" "$TESTS_CONFIG" | tee "$SPREAD_LOG"
+
+if [ -z "$IMAGE_UT" ]; then
+	# Get version and revision for snap under test
+	OBJECT_UT="$SNAP_UT"
+	VERSION_UT=$(snap info "$SNAP_UT" | grep "${TARGET_CHANNEL}:" | awk '{print $2}')
+	REVISION_UT=$(snap info "$SNAP_UT" | grep "${TARGET_CHANNEL}:" | awk '{print $4}')
+else
+	OBJECT_UT="$IMAGE_UT"
+	VERSION_UT="$TARGET_CHANNEL"
+	REVISION_UT="($(date +%Y%m%d))"
+fi
+
+# Integrate results with trello board
+"${WORKSPACE}/snapd-testing/validation/services/trello-integrator" "$OBJECT_UT" "$VERSION_UT" "$REVISION_UT" "$TARGET_CHANNEL" "$TRELLO_CONFIG" "$BOARD_UT" "$ARCH_UT" "$SPREAD_LOG" "$SUMMARY_LOG" "$ATTACH_LOG"

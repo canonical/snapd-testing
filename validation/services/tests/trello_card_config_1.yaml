@@ -1,0 +1,21 @@
+name: testing snap workflow
+checklists:
+    Sign-Off:
+        - name: ready
+          default: false
+    Results:
+        - name: test item 1
+          default: false
+        - name: test item 2
+          default: true
+    Executions:
+        - name: test item 1
+          default: false
+        - name: test item 2
+          default: true
+complete:
+    sign:
+        sign-checklist: Sign-Off
+        sign-actions:
+            - source: Results
+              target: ready

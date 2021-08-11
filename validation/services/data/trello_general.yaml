@@ -1,0 +1,19 @@
+name: general configuration for snaps
+
+archive-time:
+    Edge: 1w3d
+    Beta: 2w
+    Candidate: 2w
+    Stable: 8w
+
+archive-list: Complete
+
+delete-time:
+    Complete: 1w
+
+snaps-auto-move:
+  - core
+  - core16
+  - core18
+  - core20
+  - snapd

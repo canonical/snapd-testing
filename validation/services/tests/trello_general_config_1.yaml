@@ -1,0 +1,15 @@
+name: test configuration for snaps
+
+archive-time:
+    Edge: 1w3d
+    Beta: 2w
+    Candidate: 1s
+    Stable: 2w
+
+archive-list: Complete
+
+delete-time:
+    Complete: 1w
+
+snaps-auto-move:
+  - core

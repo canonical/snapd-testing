@@ -1,0 +1,12 @@
+job_queue: caracalla-media
+global_timeout: 36000
+provision_data:
+  url: http://10.101.47.1/plano/caracalla-current.img.xz
+reserve_data:
+  ssh_keys:
+    - lp:sergio-j-cazzolato
+test_data:
+  test_username: admin
+  test_password: admin
+  test_cmds: |
+    echo ready

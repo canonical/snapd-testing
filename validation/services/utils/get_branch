@@ -1,0 +1,15 @@
+#!/bin/bash	
+set -x
+
+VERSION=$1
+
+if git ls-remote --tags https://github.com/snapcore/snapd.git "$VERSION" | grep -q "$VERSION"; then
+    echo "$VERSION"
+elif git ls-remote --heads https://github.com/snapcore/snapd.git "release/$VERSION" | grep -q "$VERSION"; then
+    echo "release/$VERSION"
+elif echo "$VERSION" | grep -q '+git'; then
+	echo "$VERSION" | sed 's/\+git.*//'
+else
+    echo "branch not found"
+    exit 1
+fi
