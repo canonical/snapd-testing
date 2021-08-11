@@ -1,0 +1,7 @@
+expect {
+    "Ubuntu Core" {
+        exit 0
+    } default {
+        exit 1
+    }
+}

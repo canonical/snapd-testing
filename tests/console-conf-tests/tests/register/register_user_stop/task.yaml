@@ -1,0 +1,5 @@
+summary: Ensure console does not register the user in case the console conf is stopped
+
+execute: |
+    expect -f task.exp
+    $HELPERS/check_no_registered_user_snapd

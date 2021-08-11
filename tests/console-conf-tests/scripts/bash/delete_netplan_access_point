@@ -1,0 +1,3 @@
+#!/bin/bash
+sed -i "/access-points:/d" /etc/netplan/00-snapd-config.yaml
+sed -i "/$WIFI_SSID: {password/d" /etc/netplan/00-snapd-config.yaml

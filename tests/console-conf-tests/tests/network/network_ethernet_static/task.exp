@@ -1,0 +1,6 @@
+source $env(CCONF)/spawn
+source $env(WELCOME)/press_ok
+source $env(NETWORK)/press_ethernet
+source $env(ETHERNET)/set_ipv4_static
+source $env(NETWORK)/press_done
+source $env(FINISH)/check_finish

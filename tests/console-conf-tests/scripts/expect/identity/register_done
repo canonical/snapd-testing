@@ -1,0 +1,10 @@
+expect {
+    "Profile setup" {
+        sleep 5
+        send $env(REGISTER_USER_EMAIL)
+        sleep 5
+        send "\t\r"
+    } default {
+        exit 1
+    }
+}

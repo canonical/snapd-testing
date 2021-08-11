@@ -1,0 +1,8 @@
+#!/bin/bash
+
+NUM_SSID=$(cat /etc/netplan/00-snapd-config.yaml | grep -c $WIFI_SSID)
+NUM_PASS=$(cat /etc/netplan/00-snapd-config.yaml | grep -c $WIFI_PASSWORD)
+
+if [ $NUM_SSID != 1 ] || [ $NUM_PASS != 1 ]; then
+    exit 1
+fi

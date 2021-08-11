@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [ ! -e /etc/netplan/00-snapd-config.yaml ]; then
+	echo "Failed to read netplan config for ssh"
+	echo "ls -al /etc/netplan/"
+	ls -al /etc/netplan/
+	exit 1
+fi
+
+$HELPERS/yaml2json /etc/netplan/00-snapd-config.yaml | jq ".network.$1"

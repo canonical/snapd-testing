@@ -1,0 +1,15 @@
+#!/bin/bash
+
+for i in $(seq 5); do
+	LAST_MODIFICATION=$($HELPERS/get_netplan_last_modification)
+	if [ $LAST_MODIFICATION -le $1 ]; then
+		echo "Change not done yet, retrying ..."
+	else
+		exit 0
+	fi
+	sleep 1
+done
+
+echo "Last modification $LAST_MODIFICATION"
+echo "Current modification $1"
+exit 1

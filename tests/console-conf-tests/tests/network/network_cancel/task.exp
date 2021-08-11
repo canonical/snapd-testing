@@ -1,0 +1,5 @@
+source $env(CCONF)/spawn
+source $env(WELCOME)/press_ok
+source $env(NETWORK)/press_cancel
+source $env(WELCOME)/check_title
+

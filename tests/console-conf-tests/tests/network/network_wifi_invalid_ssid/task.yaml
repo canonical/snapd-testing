@@ -1,0 +1,12 @@
+summary: Check the initial ethernet network cofiguration with ipv4 dhcp enabled
+
+manual: true
+
+execute: |
+    if [ $WIFI_READY == "true" ]; then
+        echo "Test failing and leaving the device in irrecoverable wifi connection state"
+        exit 1
+        expect -f task.exp
+        expect -f task_2.exp
+    fi
+

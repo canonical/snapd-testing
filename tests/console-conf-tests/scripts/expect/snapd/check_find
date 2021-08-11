@@ -1,0 +1,7 @@
+send "snap find hello-world \n"
+expect {
+    -re "hello-world(.*)(C|c)anonical" {
+    } default {
+        exit 1
+    }
+}

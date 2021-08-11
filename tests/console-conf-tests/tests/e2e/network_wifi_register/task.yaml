@@ -1,0 +1,14 @@
+summary: Configure the wifi with valid data and register a user
+
+priority: 1000
+
+execute: |
+    if [ $WIFI_READY == "true" ]; then
+        $HELPERS/check_wifi_variables
+        $HELPERS/delete_netplan_access_point
+        INITIAL_TIME=$($HELPERS/get_netplan_last_modification)
+        expect -f task.exp
+        $HELPERS/check_netplan_ssid
+        $HELPERS/check_netplan_modified $INITIAL_TIME
+        expect -f task_2.exp
+    fi

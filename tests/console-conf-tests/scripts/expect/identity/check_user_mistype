@@ -1,0 +1,7 @@
+expect {
+    -re 'Profile setup(.*)cannot create user "$env(NOEXIST_USER_EMAIL)": cannot find user "$env(NOEXIST_USER_EMAIL)"' {
+        exit 0
+    } default {
+        exit 1
+    }
+}

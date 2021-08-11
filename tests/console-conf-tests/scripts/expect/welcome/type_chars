@@ -1,0 +1,7 @@
+expect {
+    "Ubuntu Core" {
+        send "asdfg\t:_ %&/+*<@"
+    } default {
+        exit 1
+    }
+}

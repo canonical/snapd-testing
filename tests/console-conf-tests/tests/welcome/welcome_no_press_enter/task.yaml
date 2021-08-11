@@ -1,0 +1,6 @@
+summary: Ensure welcome screen does not move to next screen when other keys then enter are pressed
+
+manual: true
+
+execute: |
+    expect -f task.exp

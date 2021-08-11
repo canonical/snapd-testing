@@ -1,0 +1,128 @@
+project: console-conf-tests
+
+environment:
+    #PATHS
+    PROJECT_PATH: /home/test/console-conf-tests
+    HELPERS: $PROJECT_PATH/scripts/bash
+    CCONF: $PROJECT_PATH/scripts/expect/console_conf
+    WELCOME: $PROJECT_PATH/scripts/expect/welcome
+    NETWORK: $PROJECT_PATH/scripts/expect/network
+    IDENTITY: $PROJECT_PATH/scripts/expect/identity
+    FINISH: $PROJECT_PATH/scripts/expect/finish
+    ETHERNET: $PROJECT_PATH/scripts/expect/ethernet
+    WIFI: $PROJECT_PATH/scripts/expect/wifi
+    SNAPD: $PROJECT_PATH/scripts/expect/snapd
+    #USERS
+    REGISTER_USER_USERNAME: sergio-j-cazzolato
+    REGISTER_USER_EMAIL: sergio.cazzolato@canonical.com
+    NOEXIST_USER_EMAIL: noexist@canonical.com
+    NOKEY_USER_EMAIL: indioss@hotmail.com
+    #NETWORK
+    WIFI_SSID: "$(HOST: echo $WIFI_SSID)"
+    WIFI_PASSWORD: "$(HOST: echo $WIFI_PASSWORD)"
+    STATIC_DNS: 8.8.8.8
+
+backends:
+    external:
+        type: adhoc
+        environment:
+            SPREAD_EXTERNAL_ADDRESS: "$(HOST: echo ${SPREAD_EXTERNAL_ADDRESS:-localhost:8022})"
+            MANAGED_DEVICE: "true"
+        allocate: |
+            ADDRESS $SPREAD_EXTERNAL_ADDRESS
+        systems:
+            - ubuntu-core-16-64:
+                environment:
+                    TRUST_TEST_KEYS: "false"
+                    ETHERNET_READY: "$(HOST: echo ${ETHERNET_READY:-true})"
+                    ETHERNET_IFACE: "$(HOST: echo ${ETHERNET_IFACE:-eth0})"
+                    ETHERNET_POSITION: "$(HOST: echo ${ETHERNET_POSITION:-1})"
+                    WIFI_READY: "$(HOST: echo ${WIFI_READY:-false})"
+                    WIFI_IFACE: "$(HOST: echo ${WIFI_IFACE:-wlan0})"
+                    WIFI_POSITION: "$(HOST: echo ${WIFI_POSITION:-1})"
+                username: test
+                password: ubuntu
+            - ubuntu-core-16-32:
+                environment:
+                    TRUST_TEST_KEYS: "false"
+                    ETHERNET_READY: "$(HOST: echo ${ETHERNET_READY:-true})"
+                    ETHERNET_IFACE: "$(HOST: echo ${ETHERNET_IFACE:-eth0})"
+                    ETHERNET_POSITION: "$(HOST: echo ${ETHERNET_POSITION:-1})"
+                    WIFI_READY: "$(HOST: echo ${WIFI_READY:-false})"
+                    WIFI_IFACE: "$(HOST: echo ${WIFI_IFACE:-wlan0})"
+                    WIFI_POSITION: "$(HOST: echo ${WIFI_POSITION:-1})"
+                username: test
+                password: ubuntu
+            - ubuntu-core-16-arm-64:
+                environment:
+                    ETHERNET_READY: "$(HOST: echo ${ETHERNET_READY:-false})"
+                    ETHERNET_IFACE: "$(HOST: echo ${ETHERNET_IFACE:-eth0})"
+                    ETHERNET_POSITION: "$(HOST: echo ${ETHERNET_POSITION:-1})"
+                    WIFI_READY: "$(HOST: echo ${WIFI_READY:-true})"
+                    WIFI_IFACE: "$(HOST: echo ${WIFI_IFACE:-wlan0})"
+                    WIFI_POSITION: "$(HOST: echo ${WIFI_POSITION:-1})"
+                username: test
+                password: ubuntu
+            - ubuntu-core-16-arm-32:
+                 environment:
+                    ETHERNET_READY: "$(HOST: echo ${ETHERNET_READY:-true})"
+                    ETHERNET_IFACE: "$(HOST: echo ${ETHERNET_IFACE:-eth0})"
+                    ETHERNET_POSITION: "$(HOST: echo ${ETHERNET_POSITION:-1})"
+                    WIFI_READY: "$(HOST: echo ${WIFI_READY:-true})"
+                    WIFI_IFACE: "$(HOST: echo ${WIFI_IFACE:-wlan0})"
+                    WIFI_POSITION: "$(HOST: echo ${WIFI_POSITION:-2})"
+                 username: test
+                 password: ubuntu
+
+path: /home/test/console-conf-tests
+
+exclude:
+    - .git
+
+prepare: |
+    snap install --devmode expect
+    snap install --devmode jq
+
+restore: |
+    snap remove expect jq
+    rm -rf /home/test/console-conf-tests
+
+prepare-each: |
+    echo "Preparing test"
+
+suites:
+    tests/register/:
+        summary: Tests for registration
+        prepare: |
+            $HELPERS/clean_netplan
+        prepare-each: |
+            $HELPERS/delete_extrauser $REGISTER_USER_USERNAME
+            $HELPERS/unregister_user_snapd
+        restore-each: |
+            $HELPERS/restore_extrauser
+            $HELPERS/restore_user_snapd
+
+    tests/network/:
+        summary: Tests for network configuration
+        prepare: |
+            $HELPERS/clean_netplan
+        prepare-each: |
+            $HELPERS/save_netplan
+        restore-each: |
+            $HELPERS/restore_netplan
+
+    tests/e2e/:
+        summary: Tests for e2e scenarios
+        prepare: |
+            $HELPERS/clean_netplan
+        prepare-each: |
+            $HELPERS/delete_extrauser $REGISTER_USER_USERNAME
+            $HELPERS/unregister_user_snapd
+            $HELPERS/save_netplan
+        restore-each: |
+            $HELPERS/restore_netplan
+            $HELPERS/restore_extrauser
+            $HELPERS/restore_user_snapd
+
+    tests/welcome/:
+        summary: Tests for welcome screen

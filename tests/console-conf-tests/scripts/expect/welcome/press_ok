@@ -1,0 +1,7 @@
+expect {
+    "Ubuntu Core" {
+        send "\r"
+    } default {
+        exit 1
+    }
+}

@@ -1,0 +1,23 @@
+expect {
+    "Network interface $env(WIFI_IFACE)" {
+        send "\r"
+    } default {
+        exit 1
+    }
+}
+
+expect {
+    "Choose a visible network" {
+        send "\t\r"
+    } default {
+        exit 1
+    }
+}
+
+expect {
+    -re "Select a network(.*)$env(WIFI_SSID)" {
+        exit 0
+    } default {
+        exit 1
+    }
+}

@@ -1,0 +1,13 @@
+summary: Check the network cofiguration with ipv6 enabled with dhcp
+
+manual: true
+
+execute: |
+    if [ $ETHERNET_READY == "true" ]; then
+        expect -f task.exp
+        if [ $($HELPERS/get_netplan_value ethernets.$ETHERNET_IFACE.dhcp6) == true ]; then
+            exit 0
+        else
+            exit 1
+        fi
+    fi

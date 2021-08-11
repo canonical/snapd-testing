@@ -1,0 +1,7 @@
+#!/bin/bash
+
+if [ ! -e /etc/netplan/00-snapd-config.yaml ]; then
+	echo "0000000000"
+else
+	stat -c %Y /etc/netplan/00-snapd-config.yaml
+fi

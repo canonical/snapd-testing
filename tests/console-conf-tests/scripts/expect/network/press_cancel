@@ -1,0 +1,7 @@
+expect {
+    "Network connections" {
+        send "\t\t\r"
+    } default {
+        exit 1
+    }
+}

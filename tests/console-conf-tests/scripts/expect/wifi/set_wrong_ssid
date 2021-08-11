@@ -1,0 +1,26 @@
+expect {
+    "Network interface $env(WIFI_IFACE)" {
+        send "\r"
+    } default {
+        exit 1
+    }
+}
+
+expect {
+    "Network interface $env(WIFI_IFACE) WIFI configuration" {
+        send "bdfuyba2387d"
+        send "\t\t\t"
+        send "bad"
+        send "\t\r"
+    } default {
+        exit 1
+    }
+}
+
+expect {
+    "Network interface $env(WIFI_IFACE)" {
+        send "\t\t\t\t\t\t\t\r"
+    } default {
+        exit 1
+    }
+}

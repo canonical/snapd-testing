@@ -1,0 +1,8 @@
+expect {
+    "Profile setup" {
+        send $env(NOEXIST_USER_EMAIL)
+        send "\t\r"
+    } default {
+        exit 1
+    }
+}

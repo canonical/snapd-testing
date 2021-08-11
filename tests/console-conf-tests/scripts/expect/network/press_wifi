@@ -1,0 +1,11 @@
+expect {
+    "Network connections" {
+        send "\t\t"
+        for {set i 0} {$i < $env(WIFI_POSITION)} {incr i} {
+            send "\t"
+        }
+        send "\r"
+     } default {
+        exit 1
+    }
+}

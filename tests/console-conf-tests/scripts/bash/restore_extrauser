@@ -1,0 +1,8 @@
+#!/bin/bash
+
+declare -a arr=("group" "gshadow" "passwd" "shadow" "subgid" "subuid")
+
+for i in "${arr[@]}"
+do
+   mv /var/lib/extrausers/$i.bak /var/lib/extrausers/$i
+done

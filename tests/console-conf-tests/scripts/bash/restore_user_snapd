@@ -1,0 +1,5 @@
+#!/bin/bash
+
+systemctl stop snapd.service snapd.socket
+mv /var/lib/snapd/state.json.bak /var/lib/snapd/state.json
+systemctl start snapd.service snapd.socket

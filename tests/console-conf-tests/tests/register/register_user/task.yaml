@@ -1,0 +1,6 @@
+summary: Ensure console conf register a user
+
+execute: |
+    expect -f task.exp
+    $HELPERS/check_user_registered_snapd $REGISTER_USER_USERNAME $REGISTER_USER_EMAIL
+    expect -f task_2.exp

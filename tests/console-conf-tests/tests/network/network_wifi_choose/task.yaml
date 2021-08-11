@@ -1,0 +1,11 @@
+summary: Check the initial ethernet network cofiguration with ipv4 dhcp enabled
+
+execute: |
+    if [ $WIFI_READY == "true" ]; then
+        if [ -z "$WIFI_SSID" ]; then
+            echo "Variable WIFI_SSID has to be defined"
+            exit 1
+        fi
+        $HELPERS/delete_netplan_access_point
+        expect -f task.exp
+    fi

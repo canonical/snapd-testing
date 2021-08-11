@@ -1,0 +1,7 @@
+expect {
+    "Network interface $env(ETHERNET_IFACE)" {
+        send "\t\t\t\t\r\t\t\r"
+    } default {
+        exit 1
+    }
+}

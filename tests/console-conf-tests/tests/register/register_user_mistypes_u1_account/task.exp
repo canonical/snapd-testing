@@ -1,0 +1,6 @@
+source $env(CCONF)/spawn
+source $env(WELCOME)/press_ok
+source $env(NETWORK)/press_done
+source $env(IDENTITY)/register_user_mistype
+source $env(IDENTITY)/check_user_mistype
+

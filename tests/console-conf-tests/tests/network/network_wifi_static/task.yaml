@@ -1,0 +1,18 @@
+summary: Check the initial ethernet network cofiguration with ipv4 dhcp enabled
+
+execute: |
+    if [ $WIFI_READY == "true" ]; then
+        export SUBNET=$($HELPERS/get_subnet $WIFI_IFACE)
+        export ADDRESS=$($HELPERS/get_ip $WIFI_IFACE)
+        export GATEWAY=$($HELPERS/get_gateway $WIFI_IFACE)
+        expect -f task.exp
+        if [ $($HELPERS/get_netplan_value wifis.$WIFI_IFACE.addresses[0]) == \"$ADDRESS/24\" ] && \
+           [ $($HELPERS/get_netplan_value wifis.$WIFI_IFACE.gateway4) == \"$GATEWAY\" ] && \
+           [ $($HELPERS/get_netplan_value wifis.$WIFI_IFACE.nameservers.addresses[0]) == \"$STATIC_DNS\" ] && \
+           [ $($HELPERS/get_ip $WIFI_IFACE) == $ADDRESS ]
+        then
+            exit 0
+        else
+            exit 1
+        fi
+    fi

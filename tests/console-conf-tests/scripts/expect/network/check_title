@@ -1,0 +1,7 @@
+expect {
+    "Network connections" {
+        exit 0
+    } default {
+        exit 1
+    }
+}

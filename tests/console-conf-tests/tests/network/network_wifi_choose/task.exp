@@ -1,0 +1,4 @@
+source $env(CCONF)/spawn
+source $env(WELCOME)/press_ok
+source $env(NETWORK)/press_wifi
+source $env(WIFI)/check_choose_network

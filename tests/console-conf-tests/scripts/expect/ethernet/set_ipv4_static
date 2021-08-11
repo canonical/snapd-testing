@@ -1,0 +1,27 @@
+expect {
+    "Network interface $env(ETHERNET_IFACE)" {
+        send "\r"
+    } default {
+        exit 1
+    }
+}
+
+expect {
+    "Network interface $env(ETHERNET_IFACE) manual IPv4 configuration" {
+        send "$env(SUBNET)\t\t"
+        send "$env(ADDRESS)\t"
+        send "$env(GATEWAY)\t"
+        send "$env(STATIC_DNS)\t\t"
+        send "\t\t\r"
+    } default {
+        exit 1
+    }
+}
+
+expect {
+    "Will use static address for IPv4" {
+        send "\t\t\t\t\t\t\r"
+    } default {
+        exit 1
+    }
+}

@@ -1,0 +1,16 @@
+summary: Check the initial ethernet network cofiguration with ipv4 dhcp enabled
+
+execute: |
+    if [ $ETHERNET_READY == "true" ]; then
+        INITIAL_TIME=$($HELPERS/get_netplan_last_modification)
+        expect -f task.exp
+        $HELPERS/check_netplan_modified $INITIAL_TIME
+
+        for i in $(seq 5); do
+            if [ $(ifconfig $ETHERNET_IFACE | grep -c "inet addr:") -ge 1 ]; then
+                exit 0
+            fi
+            sleep 2
+        done
+        exit 1
+    fi

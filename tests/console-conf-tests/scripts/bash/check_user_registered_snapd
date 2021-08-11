@@ -1,0 +1,8 @@
+#!/bin/bash
+
+USER=$(cat /var/lib/snapd/state.json| jq '.data.auth.users[0].username')
+EMAIL=$(cat /var/lib/snapd/state.json| jq '.data.auth.users[0].email')
+
+if [ "$USER" != "\"$1"\" ] || [ "$EMAIL" != "\"$2"\" ]; then
+    exit 1
+fi

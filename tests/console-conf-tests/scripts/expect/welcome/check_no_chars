@@ -1,0 +1,11 @@
+expect {
+    "Ubuntu Core" {
+        expect -re "asdfg | & | +" {
+            exit 1
+        } default {
+            exit 0
+        }
+    } default {
+            exit 1
+    }
+}

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+systemctl stop snapd.service snapd.socket
+cp /var/lib/snapd/state.json /var/lib/snapd/state.json.bak
+cat /var/lib/snapd/state.json.bak | jq -r '.data.auth.users=[]' > /var/lib/snapd/state.json
+systemctl start snapd.service snapd.socket
