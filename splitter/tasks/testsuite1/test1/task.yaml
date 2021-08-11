@@ -1,0 +1,17 @@
+summary: test1
+
+details: test1
+
+environment:
+    VAR1: val1
+
+tags: [tag1]
+
+prepare: |
+    echo "Prepare1"
+
+restore: |
+    echo "Restore1"
+
+execute: |
+    echo "Execute1"

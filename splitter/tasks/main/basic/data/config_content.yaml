@@ -1,0 +1,16 @@
+name: test
+project: splitter
+backend: google
+system: ubuntu-18.04-64
+levels:
+    level-1:
+        include:
+            content: ['Prepare2']
+    level-2:
+        include:
+            content: ['VAR3']
+    level-3:
+        include:
+            content: ['VAR3']
+        exclude:
+            content: ['val3']

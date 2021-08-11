@@ -1,0 +1,318 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import re
+import subprocess
+import shutil
+import yaml
+
+SUPPORTED_FILTERS = ['tests','content', 'tags']
+TEST_FILENAME = 'task.yaml'
+TAGS_NAME= 'tags'
+
+def _make_parser():
+    parser = argparse.ArgumentParser()
+
+    subparser = parser.add_subparsers(help='commands', dest='command')
+
+    parser_tests = subparser.add_parser("print-tests")
+    parser_tests.add_argument('-c', '--config', help="path to the config file for the device", required=True)
+    parser_tests.add_argument('-p', '--project', help="path to the project to scan", required=True)
+    parser_tests.add_argument('-l', '--level', help="level to request")
+    parser_tests.add_argument('-s', '--spread', help="Path to the spread binary")
+
+    parser_spread = subparser.add_parser("print-spread")
+    parser_spread.add_argument('-c', '--config', help="path to the config file for the device", required=True)
+    parser_spread.add_argument('-p', '--project', help="path to the project to scan", required=True)
+    parser_spread.add_argument('-l', '--level', help="level to request", required=True)
+    parser_spread.add_argument('-s', '--spread', help="Path to the spread binary")
+
+    parser_levels = subparser.add_parser("print-levels")
+    parser_levels.add_argument('-c', '--config', help="path to the config file for the device", required=True)
+
+    return parser
+
+
+class TestsFilter:
+    def __init__(self, projectpath, regexlist):
+        self.projectpath = projectpath
+        if not isinstance(regexlist, list):
+            raise RuntimeError('Tests filter {} needs to be a list of strings: {}'.format(regexlist, type(regexlist)))
+        self.regexlist = regexlist
+
+    def filter_tests(self, tests):
+        filtered = []
+        for test in tests:
+            for regex in self.regexlist:
+                if re.search(regex, test):
+                    filtered.append(test)
+                    break
+        return filtered
+
+
+class TagsFilter:
+    def __init__(self, projectpath, tags):
+        self.projectpath = projectpath
+        if not isinstance(tags, list):
+            raise RuntimeError('Content filter {} needs to be a list of strings: {}'.format(tags, type(tags)))
+        self.tags = tags
+
+    def filter_tests(self, tests):
+        filtered = []
+        for test in tests:
+            # Remove the variant
+            testname = test.split(':')[0]
+            with open(os.path.join(self.projectpath, testname, TEST_FILENAME)) as task:
+                data = yaml.safe_load(task)
+                test_tags = data.get(TAGS_NAME, [])
+                for tag in self.tags:
+                    if tag in test_tags:
+                        filtered.append(test)
+                        break
+        return filtered
+
+
+class ContentFilter:
+    def __init__(self, projectpath, regexlist):
+        self.projectpath = projectpath
+        if not isinstance(regexlist, list):
+            raise RuntimeError('Content filter {} needs to be a list of strings: {}'.format(regexlist, type(regexlist)))
+        self.regexlist = regexlist
+
+    def filter_tests(self, tests):
+        filtered = []
+        for test in tests:
+            # Remove the variant
+            testname = test.split(':')[0]
+            with open(os.path.join(self.projectpath, testname, TEST_FILENAME)) as task:
+                for regex in self.regexlist:
+                    if re.search(regex, task.read(), re.MULTILINE):
+                        filtered.append(test)
+                        break
+        return filtered
+
+
+class FilterSet:
+    def __init__(self, projectpath, definition=None):
+        self.projectpath = projectpath
+        self.filters = []
+        if not definition:
+            return
+
+        for filter in definition.keys():
+            if filter not in SUPPORTED_FILTERS:
+                raise RuntimeError('Filter not supported {}, filtes allowed: {}'.format(filter, SUPPORTED_FILTERS))
+
+        for filter in definition.keys():
+            if filter == 'tests':
+                self.filters.append(TestsFilter(projectpath, definition.get(filter)))
+            elif filter == 'content':
+                self.filters.append(ContentFilter(projectpath, definition.get(filter)))
+            elif filter == 'tags':
+                self.filters.append(TagsFilter(projectpath, definition.get(filter)))
+
+    def filter_tests(self, tests):
+        filtered_tests = []
+        for filter in self.filters:
+            filtered_tests.extend(filter.filter_tests(tests))
+        return filtered_tests
+
+class Level:
+    def __init__(self, projectpath, definition=None):
+        self.projectpath = projectpath
+        self.include = FilterSet(projectpath, definition.get('include'))
+        self.exclude = FilterSet(projectpath, definition.get('exclude'))
+
+    def filter_tests(self, tests):
+        inclueded_tests = self.include.filter_tests(tests)
+        exclueded_tests = self.exclude.filter_tests(tests)
+        for excluded in exclueded_tests:
+            if excluded in inclueded_tests:
+                inclueded_tests.remove(excluded)
+
+        return inclueded_tests
+
+class SplitLevels:
+    def __init__(self, projectpath, definition=None):
+        self.projectpath = projectpath
+        self.levels = {}
+
+        if not definition:
+           raise RuntimeError('Levels section not found')
+
+        levels = definition.keys()
+        for level in levels:
+            self.levels[level] = Level(projectpath, definition.get(level))
+
+    def get_sorted_levels_names(self):
+        return sorted(self.levels.keys())
+
+    def _remove_repeated_tests(self, filtered_tests):
+        cleaned_tests = {}
+        sorted_levels_keys = self.get_sorted_levels_names()
+
+        for level_key in sorted_levels_keys:
+
+            cleaned_tests[level_key] = []
+            position = sorted_levels_keys.index(level_key)
+            upper_keys = sorted_levels_keys[:position]
+
+            if not upper_keys:
+                cleaned_tests[level_key] = filtered_tests[level_key].copy()
+            else:
+                for test in filtered_tests[level_key]:
+                    duplicated = False
+                    for upper_key in upper_keys:
+                        if test in filtered_tests[upper_key]:
+                            duplicated = True
+                            break
+                    if not duplicated:
+                        cleaned_tests[level_key].append(test)
+
+        return cleaned_tests
+
+
+    def filter_tests(self, tests, level):
+        filtered_tests = {}
+        sorted_levels_keys = self.get_sorted_levels_names()
+        for level_key in sorted_levels_keys:
+            level = self.levels.get(level_key)
+            filtered_tests[level_key] = level.filter_tests(tests)
+
+        return self._remove_repeated_tests(filtered_tests)
+
+class Spread:
+    def __init__(self, spreadpath, projectpath, backend, system):
+        if not spreadpath or not self._check_spread(spreadpath):
+            self.spread = shutil.which('spread')
+            if not self.spread:         
+                raise RuntimeError('Spread not in path, exiting...')
+        else:
+            self.spread = spreadpath
+
+        self.projectpath = projectpath
+        self.backend = backend
+        self.system = system
+        self.tests = []
+
+    def _check_spread(spreadpath):
+        return os.path.exists(spreadpath) and os.access(spreadpath, os.X_OK)
+
+    def _load_tests(self):
+        cmd = '{} -list {}:{}:'.format(self.spread, self.backend, self.system)
+        process = subprocess.Popen(cmd, 
+            shell=True,
+            universal_newlines= True,
+            cwd=self.projectpath,
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE)
+        out, err = process.communicate()
+        
+        if err:
+            if "nothing matches provider filter" in err:
+                return
+            else:
+                raise RuntimeError('Spread failed to list tests: "{}"'.format(err))
+
+        # Expected format: BACKEND:SYSTEM:<PATH-TO-TEST>[:VARIANT]
+        tests = out.split('\n')
+        for test in tests:
+            if ':' in test:
+                test_variant = test.split(':')[2:]
+                self.tests.append(':'.join(test_variant))
+
+    def get_tests(self):
+        self._load_tests()
+        return self.tests
+
+    def get_spread(self):
+        return self.spread
+
+
+class Splitter:
+    def __init__(self, configfile, projectpath=None, spreadpath=None):
+        config = self._load_config(configfile)
+        self.projectpath = projectpath
+        self.name = config.get('name')
+        self.project = config.get('project')
+        self.backend = config.get('backend')
+        self.system = config.get('system')
+        self.levels = SplitLevels(projectpath, config.get('levels'))
+        self.spread = Spread(spreadpath, projectpath, self.backend, self.system)
+
+    def _load_config(self, configfile):
+        if not os.path.exists(configfile):
+            raise RuntimeError('Config file does not exist: {}'.format(configfile))
+
+        with open(configfile) as handle:
+            data = yaml.safe_load(handle)
+
+        return data
+
+    def _print_tests(self, backend, system, level, tests):
+        for test in tests:
+            print('{}:{}:{}'.format(backend, system, test))
+
+    def _print_all_tests(self, backend, system, tests_by_level):
+        sorted_levels = self.levels.get_sorted_levels_names()
+        for level in sorted_levels:
+            print('-'*20)
+            print(level)
+            print('-'*20)
+            self._print_tests(backend, system, level, tests_by_level[level])
+
+    def _print_spread(self, spreadpath, backend, system, tests):
+        command = spreadpath
+        for test in tests:
+            command = '{} {}:{}:{}'.format(command, backend, system, test)
+
+        print(command)
+
+    def print_tests(self, level):
+        tests = self.spread.get_tests()
+        tests_by_level = self.levels.filter_tests(tests, level)
+
+        if not level:
+            self._print_all_tests(self.backend, self.system, tests_by_level)
+        elif level not in tests_by_level.keys():
+            raise ValueError('Level {} was not found in the config'.format(level))
+        else:
+            self._print_tests(self.backend, self.system, level, tests_by_level[level])
+
+    def print_spread(self, level):
+        tests = self.spread.get_tests()
+        tests_by_level = self.levels.filter_tests(tests, level)
+
+        if not tests_by_level:
+            return
+        elif level not in tests_by_level.keys():
+            raise ValueError('Level {} was not found in the config'.format(level))
+        else:
+            self._print_spread(self.spread.get_spread(), self.backend, self.system, tests_by_level[level])
+
+    def print_levels(self):
+        sorted_levels = self.levels.get_sorted_levels_names()
+        for level in sorted_levels:
+            print(level)
+
+
+def main():
+    parser = _make_parser()
+    args = parser.parse_args()
+
+    if args.command == 'print-tests':
+        splitter = Splitter(args.config, args.project, args.spread)
+        splitter.print_tests(args.level)
+
+    if args.command == 'print-spread':
+        splitter = Splitter(args.config, args.project, args.spread)
+        splitter.print_spread(args.level)
+
+    if args.command == 'print-levels':
+        splitter = Splitter(args.config)
+        splitter.print_levels()
+
+
+if __name__ == "__main__":
+    main()

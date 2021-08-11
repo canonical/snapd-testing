@@ -1,0 +1,17 @@
+summary: test5
+
+details: test5
+
+environment:
+    VAR5: val5
+
+tags: [tag5]
+
+prepare: |
+    echo "Prepare5"
+
+restore: |
+    echo "Restore5"
+
+execute: |
+    echo "Execute5"

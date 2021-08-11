@@ -1,0 +1,14 @@
+name: test
+project: splitter
+backend: google
+system: ubuntu-18.04-64
+levels:
+    level-1:
+        include:
+            tags: ['mytag']
+    level-2:
+        include:
+            tags: ['tag3']
+    level-3:
+        include:
+            tags: ['nomatch']

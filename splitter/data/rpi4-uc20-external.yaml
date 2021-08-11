@@ -1,0 +1,17 @@
+name: rpi4-external
+project: snapd
+backend: external
+system: ubuntu-core-20-arm-32
+levels:
+    level-1:
+        include:
+            tests: ['tests/smoke/.*', 'tests/core/.*']
+    level-2:
+        include:
+            tags: ['main-flow']
+    level-3:
+        include:
+            tests: ['tests/main/.*']
+    level-3:
+        include:
+            tests: ['.*']

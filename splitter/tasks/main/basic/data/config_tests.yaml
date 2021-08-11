@@ -1,0 +1,11 @@
+name: test
+project: splitter
+backend: google
+system: ubuntu-18.04-64
+levels:
+    level-1:
+        include:
+            tests: ['tasks/testsuite1/.*', 'tasks/testsuite2/test3']
+    level-2:
+        include:
+            tests: ['.*']

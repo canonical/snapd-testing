@@ -1,0 +1,19 @@
+summary: test3
+
+details: test3
+
+environment:
+    VAR3: val3
+
+tags: 
+  - tag3
+  - tag33
+
+prepare: |
+    echo "Prepare3"
+
+restore: |
+    echo "Restore3"
+
+execute: |
+    echo "Execute3"

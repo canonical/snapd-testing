@@ -1,0 +1,96 @@
+summary: Basic functionalities for splitter
+
+prepare: |
+    if snap list spread; then
+        snap remove spread
+    fi
+    snap install --devmode spread
+
+restore: |
+    snap remove spread    
+
+execute: |
+    SPREAD_PATH="$(command -v spread)"
+
+    # config_tests
+
+    echo "Test print-tests filter by tests regex using level-1"
+    $PROJECT_PATH/splitter print-tests -c "$PWD"/data/config_tests.yaml -p "$PROJECT_PATH" -l level-1 > level1
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite1/test1" < level1
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite1/test2" < level1
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite2/test3" < level1
+    NOMATCH "google:ubuntu-18.04-64:tasks/testsuite2/test4" < level1
+
+    echo "Test print-tests filter by tests regex using level-2"
+    $PROJECT_PATH/splitter print-tests -c "$PWD"/data/config_tests.yaml -p "$PROJECT_PATH" -l level-2 > level2
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite2/test4" < level2
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite2/test5" < level2
+    NOMATCH "google:ubuntu-18.04-64:tasks/testsuite1/test1" < level2
+
+    echo "Test print-tests filter by tests regex using no level"
+    $PROJECT_PATH/splitter print-tests -c "$PWD"/data/config_tests.yaml -p "$PROJECT_PATH" > nolevel
+    MATCH "level-1" < nolevel
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite1/test1" < nolevel
+    MATCH "level-2" < nolevel
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite2/test4" < nolevel
+
+    echo "Test print-spread filter by tests regex using level-1"
+    $PROJECT_PATH/splitter print-spread -c "$PWD"/data/config_tests.yaml -p "$PROJECT_PATH" -l level-1 > level1
+    MATCH "$SPREAD_PATH google:ubuntu-18.04-64:tasks/testsuite1/test1" < level1
+
+    # config_tags
+
+    echo "Test print-tests filter by tags using level-1"
+    $PROJECT_PATH/splitter print-tests -c "$PWD"/data/config_tags.yaml -p "$PROJECT_PATH" -l level-1 > level1
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite1/test2" < level1
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite2/test4" < level1
+    test "$(cat level1 | wc -l)" = 2
+
+    echo "Test print-tests filter by tags using level-2"
+    $PROJECT_PATH/splitter print-tests -c "$PWD"/data/config_tags.yaml -p "$PROJECT_PATH" -l level-2 > level2
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite2/test3" < level2
+    test "$(cat level2 | wc -l)" = 1
+
+    echo "Test print-tests filter by tags using level-2"
+    $PROJECT_PATH/splitter print-tests -c "$PWD"/data/config_tags.yaml -p "$PROJECT_PATH" -l level-3 > level3
+    test "$(cat level3 | wc -l)" = 0
+
+    # config_content
+
+    echo "Test print-tests filter by content using level-1"
+    $PROJECT_PATH/splitter print-tests -c "$PWD"/data/config_content.yaml -p "$PROJECT_PATH" -l level-1 > level1
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite1/test2" < level1
+    test "$(cat level1 | wc -l)" = 1
+
+    echo "Test print-tests filter by content using level-2"
+    $PROJECT_PATH/splitter print-tests -c "$PWD"/data/config_content.yaml -p "$PROJECT_PATH" -l level-2 > level2
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite2/test3" < level2
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite2/test4" < level2
+    test "$(cat level2 | wc -l)" = 2
+
+    echo "Test print-tests filter by content using level-3"
+    $PROJECT_PATH/splitter print-tests -c "$PWD"/data/config_content.yaml -p "$PROJECT_PATH" -l level-3 > level3
+    # In this case there are not results because test3 is excluded and test4 is included in level2
+    test "$(cat level3 | wc -l)" = 0
+
+    # config_all
+
+    echo "Test print-tests using a combination of different filters"
+    $PROJECT_PATH/splitter print-tests -c "$PWD"/data/config_all.yaml -p "$PROJECT_PATH" -l level-1 > level1
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite1/test2" < level1
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite2/test3" < level1
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite2/test4" < level1
+    test "$(cat level1 | wc -l)" = 3
+
+    $PROJECT_PATH/splitter print-tests -c "$PWD"/data/config_all.yaml -p "$PROJECT_PATH" -l level-2 > level2
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite2/test5" < level2
+    test "$(cat level2 | wc -l)" = 1
+
+    $PROJECT_PATH/splitter print-tests -c "$PWD"/data/config_all.yaml -p "$PROJECT_PATH" -l level-3 > level3
+    MATCH "google:ubuntu-18.04-64:tasks/testsuite1/test1" < level3
+    test "$(cat level3 | wc -l)" = 1
+
+    $PROJECT_PATH/splitter print-tests -c "$PWD"/data/config_all.yaml -p "$PROJECT_PATH" -l level-4 > level4
+    # In this case there are not results because all the tests have been included in the previous levels
+    MATCH 'google:ubuntu-18.04-64:tasks/main' < level4
+    NOMATCH 'google:ubuntu-18.04-64:tasks/testsuite' < level4
