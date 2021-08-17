@@ -1,0 +1,25 @@
+name: core-builder
+version: 1.0.0
+summary: Basic snap used to build core snap through launchpadlib
+description: Basic snap used to build core snap through launchpadlib
+confinement: strict
+grade: stable
+base: core18
+
+apps:
+    runner:
+        command: builder
+        daemon: simple
+        plugs: [home, network, network-bind]
+        passthrough:
+            # Run every 1 day
+            timer: 0:00-24:00/1
+
+parts:
+    deps:
+        source: .
+        plugin: python
+        python-packages: [launchpadlib]
+    copy:
+        plugin: dump
+        source: .
