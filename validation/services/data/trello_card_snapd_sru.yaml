@@ -6,13 +6,11 @@ checklists:
         - name: Rejected
           default: false
     Autopkgtest tests:
-        - name: Xenial - http://people.canonical.com/~ubuntu-archive/proposed-migration/xenial/update_excuses.html#snapd
-          default: false
         - name: Bionic - http://people.canonical.com/~ubuntu-archive/proposed-migration/bionic/update_excuses.html#snapd
           default: false
         - name: Focal - http://people.canonical.com/~ubuntu-archive/proposed-migration/focal/update_excuses.html#snapd
           default: false
-        - name: Groovy - http://people.canonical.com/~ubuntu-archive/proposed-migration/groovy/update_excuses.html#snapd
+        - name: Hirsute - https://people.canonical.com/~ubuntu-archive/proposed-migration/hirsute/update_excuses.html#snapd
           default: false
     Manual checks:
         - name: Review changelog
@@ -22,20 +20,16 @@ checklists:
         - name: Run tests described on lp
           default: false
     Automated tests:
-        - name: Xenial
-          default: false
         - name: Bionic
           default: false
         - name: Focal
           default: false
-        - name: Groovy
+        - name: Hirsute
           default: false
     Manual tests:
-        - name: Xenial
-          default: false
         - name: Bionic
           default: false
         - name: Focal
           default: false
-        - name: Groovy
+        - name: Hirsute
           default: false
