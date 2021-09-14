@@ -56,7 +56,7 @@ fi
 "${DIR}"/trello-board-updater-ng complete -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --config "${DIR}/data/${CONFIG}"
 
 # Generate the reduced log and upload to trello as an attachment
-"${DIR}"/log-analyzer "$SPREAD_LOG" -c 200 --store-setup | tee "$ATTACH_LOG"
+"${DIR}"/log-analyzer "$SPREAD_LOG" -c 200 --store-setup -pd all | tee "$ATTACH_LOG"
 attachment="${SNAP_UT}_${VERSION_UT}_${REVISION_UT}_${BOARD_UT}_${ARCH_UT}.log"
 if [ -s "$ATTACH_LOG" ]; then
     "${DIR}"/trello-board-updater-ng attach -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --name "$attachment" --file "$ATTACH_LOG"
