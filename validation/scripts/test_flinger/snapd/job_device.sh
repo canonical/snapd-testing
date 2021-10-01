@@ -11,7 +11,10 @@ else
 fi
 
 . "$SCRIPTS_DIR/utils/snap_info.sh"
-sudo apt install -y jq
+if ! dpkg -l jq unzip >/dev/null; then
+    sudo apt install -y jq unzip
+fi
+
 if [ "$BRANCH" = beta ]; then
     BRANCH=$(get_beta_branch "$ARCH")
 elif [ "$BRANCH" = edge ]; then
@@ -44,5 +47,4 @@ test_data:
         $POST_HOOK
 EOF
 
-export TF_JOB=$TF_DATA/job.yaml
-mv job.yaml $TF_JOB
+export TF_JOB="$(pwd)/job.yaml"

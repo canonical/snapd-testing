@@ -35,5 +35,4 @@ test_data:
         $POST_HOOK
 EOF
 
-export TF_JOB=$TF_DATA/job.yaml
-mv job.yaml $TF_JOB
+export TF_JOB="$(pwd)/job.yaml"
