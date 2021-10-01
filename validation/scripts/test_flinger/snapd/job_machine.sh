@@ -50,4 +50,4 @@ test_data:
 EOF
 
 export TF_JOB=$TF_DATA/job.yaml
-sudo mv job.yaml $TF_JOB
+mv job.yaml $TF_JOB

@@ -41,6 +41,7 @@ parts:
             - curl
             - jq
             - libcurl4-openssl-dev
+            - wget
         build-packages:
             - asciidoc
             - build-essential

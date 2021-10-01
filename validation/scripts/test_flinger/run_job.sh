@@ -8,11 +8,11 @@ else
 fi
 
 echo "Submitting job to testflinger"
-JOB_ID=$(sudo $TF_CLIENT submit -q $TF_JOB)
+JOB_ID=$($TF_CLIENT submit -q $TF_JOB)
 echo "JOB_ID: ${JOB_ID}"
 
 echo "Print job: $TF_JOB "
-sudo cat $TF_JOB | tee $JOB_ID.job
+cat $TF_JOB | tee $JOB_ID.job
 
 echo "Showing job data"
-sudo $TF_CLIENT poll ${JOB_ID} | tee $JOB_ID.log
+$TF_CLIENT poll ${JOB_ID} | tee $JOB_ID.log
