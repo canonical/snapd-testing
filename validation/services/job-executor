@@ -25,11 +25,11 @@ fi
 # Prepare tests environment
 if [ "$PROJECT" == snapd ]; then
 	VERSION=$("${WORKSPACE}/snapd-testing/validation/services/utils/get_version" "$SNAP_UT" "$TARGET_CHANNEL")
-	export HTTPS_PROXY=https://squid.internal:3128
 	export BRANCH=$("${WORKSPACE}/snapd-testing/validation/services/utils/get_branch" "$VERSION")
-else
-	export HTTPS_PROXY=https://squid.internal:3128	
 fi
+export HTTPS_PROXY=https://squid.internal:3128
+export NO_PROXY=testflinger.canonical.com
+
 export $TESTS_ENV
 
 # Run spread tests
