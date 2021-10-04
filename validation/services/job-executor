@@ -28,7 +28,9 @@ if [ "$PROJECT" == snapd ]; then
 	export BRANCH=$("${WORKSPACE}/snapd-testing/validation/services/utils/get_branch" "$VERSION")
 fi
 export HTTPS_PROXY=https://squid.internal:3128
+export https_proxy=https://squid.internal:3128
 export NO_PROXY=testflinger.canonical.com
+export no_proxy=testflinger.canonical.com
 export $TESTS_ENV
 
 # Run spread tests
