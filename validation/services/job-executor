@@ -29,7 +29,6 @@ if [ "$PROJECT" == snapd ]; then
 fi
 export HTTPS_PROXY=https://squid.internal:3128
 export NO_PROXY=testflinger.canonical.com
-
 export $TESTS_ENV
 
 # Run spread tests
