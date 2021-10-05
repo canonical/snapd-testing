@@ -22,16 +22,17 @@ if [ ! -f "${WORKSPACE}/snapd-testing/validation/services/env/${SERVICE_ENV}.sh"
 fi
 . "${WORKSPACE}/snapd-testing/validation/services/env/${SERVICE_ENV}.sh"
 
-# Prepare tests environment
-if [ "$PROJECT" == snapd ]; then
-	VERSION=$("${WORKSPACE}/snapd-testing/validation/services/utils/get_version" "$SNAP_UT" "$TARGET_CHANNEL")
-	export BRANCH=$("${WORKSPACE}/snapd-testing/validation/services/utils/get_branch" "$VERSION")
-fi
 export HTTPS_PROXY=https://squid.internal:3128
 export https_proxy=https://squid.internal:3128
 export NO_PROXY=testflinger.canonical.com
 export no_proxy=testflinger.canonical.com
 export $TESTS_ENV
+
+# Prepare tests environment
+if [ "$PROJECT" == snapd ]; then
+	VERSION=$("${WORKSPACE}/snapd-testing/validation/services/utils/get_version" "$SNAP_UT" "$TARGET_CHANNEL")
+	export BRANCH=$("${WORKSPACE}/snapd-testing/validation/services/utils/get_branch" "$VERSION")
+fi
 
 # Run spread tests
 "${WORKSPACE}/snapd-testing/validation/scripts/${TESTS_SCRIPT}.sh" "$TESTS_CONFIG" | tee "$SPREAD_LOG"
