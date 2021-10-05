@@ -26,8 +26,8 @@ test_data:
         "$JOBS_PROJECT/validation/scripts/utils/get_project.sh" "$CCONF_URL" "$PROJECT" "$BRANCH" ""
         $PRE_HOOK
         . $PROJECT/tests/console-conf-tests/external/prepare_ssh "$DEVICE_IP" "$DEVICE_PORT" "$DEVICE_USER"
-        . $JOBS_PROJECT/validation/scripts/utils/add_root_key.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS"
-        . $JOBS_PROJECT/validation/scripts/utils/refresh.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS" "$CHANNEL" "$CORE_CHANNEL" "$SNAPD_CHANNEL"
+        . $JOBS_PROJECT/validation/scripts/utils/remote/add_root_key.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS"
+        . $JOBS_PROJECT/validation/scripts/utils/remote/refresh.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS" "$CHANNEL" "$CORE_CHANNEL" "$SNAPD_CHANNEL"
         . $JOBS_PROJECT/validation/scripts/utils/register_device.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS" "$REGISTER_EMAIL"
         . $JOBS_PROJECT/validation/scripts/utils/run_setup.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS" "$SETUP"
         . $JOBS_PROJECT/validation/scripts/utils/get_spread.sh "$SPREAD_URL"

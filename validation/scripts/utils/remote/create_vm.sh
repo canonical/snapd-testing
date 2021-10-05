@@ -7,9 +7,6 @@ echo "installing nested dependencies"
 sudo apt install -y qemu qemu-utils genisoimage sshpass qemu-kvm cloud-image-utils ovmf kpartx git unzip
 
 echo "installing snapd from ppa with version 2.45"
-# Remove this once snapd 2.45 is in the archive
-sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys F1831DDAFC42E99D
-sudo apt-add-repository -y http://ppa.launchpad.net/snappy-dev/image/ubuntu
 sudo apt update
 sudo apt install -y snapd
 
