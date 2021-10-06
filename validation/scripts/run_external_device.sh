@@ -20,11 +20,3 @@ if which pastebinit; then
 else
 	echo "Report not uploaded automatically, please install pastebinit for that"
 fi
-
-if grep -e "Successful tasks:" -e "Aborted tasks:" -e "Failed tasks:" run.log; then
-    echo "Execution finished and spread results included in log"
-    exit 0
-else
-    echo "Execution finished but not spread results included in log"
-    exit 1
-fi

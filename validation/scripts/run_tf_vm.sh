@@ -16,12 +16,4 @@ echo "Deleting test flinger data"
 sudo rm -f $TF_DATA/*
 
 . "$SCRIPTS_DIR/test_flinger/$PROJECT/job_vm.sh"
-. "$SCRIPTS_DIR/test_flinger/run_job.sh" | tee run.log
-
-if grep -e "Successful tasks:" -e "Aborted tasks:" -e "Failed tasks:" run.log; then
-    echo "Execution finished and spread results included in log"
-    exit 0
-else
-    echo "Execution finished but not spread results included in log"
-    exit 1
-fi
+. "$SCRIPTS_DIR/test_flinger/run_job.sh"

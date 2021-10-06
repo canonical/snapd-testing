@@ -37,6 +37,14 @@ fi
 # Run spread tests
 "${WORKSPACE}/snapd-testing/validation/scripts/${TESTS_SCRIPT}.sh" "$TESTS_CONFIG" | tee "$SPREAD_LOG"
 
+if grep -e "Successful tasks:" -e "Aborted tasks:" -e "Failed tasks:" "$SPREAD_LOG"; then
+    echo "Execution finished and spread results included in log"
+    EXIT_STATUS=0
+else
+    echo "Execution finished but not spread results included in log"
+    EXIT_STATUS=1
+fi
+
 if [ -z "$IMAGE_UT" ]; then
 	# Get version and revision for snap under test
 	OBJECT_UT="$SNAP_UT"
@@ -50,3 +58,5 @@ fi
 
 # Integrate results with trello board
 "${WORKSPACE}/snapd-testing/validation/services/trello-integrator" "$OBJECT_UT" "$VERSION_UT" "$REVISION_UT" "$TARGET_CHANNEL" "$TRELLO_CONFIG" "$BOARD_UT" "$ARCH_UT" "$SPREAD_LOG" "$SUMMARY_LOG" "$ATTACH_LOG"
+
+exit "$EXIT_STATUS"
