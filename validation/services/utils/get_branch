@@ -12,6 +12,5 @@ elif git ls-remote --heads "$GITHUB_URL" "release/$VERSION" | grep -q "$VERSION"
 elif echo "$VERSION" | grep -q '+git'; then
 	echo "$VERSION" | sed 's/\+git.*//'
 else
-    echo "branch not found"
-    exit 1
+    echo "master"
 fi
