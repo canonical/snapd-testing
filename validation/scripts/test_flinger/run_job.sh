@@ -3,11 +3,11 @@
 echo "Preparing testflinger client"
 if ! snap list testflinger-cli; then
     sudo snap install testflinger-cli --devmode
-elif snap list testflinger-cli | grep -v devmode; then
+elif snap list testflinger-cli | grep devmode; then
+    sudo snap refresh testflinger-cli || true
+else
     sudo snap remove testflinger-cli
     sudo snap install testflinger-cli --devmode
-else
-    sudo snap refresh testflinger-cli || true
 fi
 
 # Moving the job to the snap data dir when using jenkins
