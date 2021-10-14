@@ -98,6 +98,7 @@ It is possible to use older images too to validate the refresh scenario.
 
     amd64 with tpm:
     sudo cp /usr/share/OVMF/OVMF_VARS.ms.fd .
+    sudo rm -f /var/snap/swtpm-mvo/current/tpm2-00.permall
     sudo qemu-system-x86_64 -smp 2 -m 4096 -snapshot \
     -machine ubuntu-q35,accel=kvm -global ICH9-LPC.disable_s3=1 \
     -netdev user,id=mynet0,hostfwd=tcp::$PORT-:22 -device virtio-net-pci,netdev=mynet0 \
@@ -281,15 +282,15 @@ The following section shows the examples that are used to execution beta validat
 
 This promotion can be done manually through the snap store site or by using the validator project which automates the process. 
 
-    git clone https://github.com/sergiocazzolato/validator.git
-    ./validator/promote.sh <SNAP_NAME> <FROM_CHANNEL> <TO_CHANNEL>
+    git clone https://github.com/snapcore/snapd-testing.git
+    ./snapd-testing/scripts/promote.sh <SNAP_NAME> <FROM_CHANNEL> <TO_CHANNEL>
 
 The promote.sh script will promote the different revisions (all the architectures) for the snap <SNAP_NAME> from the channel <FROM_CHANNEL> to the channel <TO_CHANNEL>
 
 These are the typical examples:
 
-    ./validator/promote.sh core beta candidate
-    ./validator/promote.sh snapd beta candidate
+    ./snapd-testing/scripts/promote.sh core beta candidate
+    ./snapd-testing/scripts/promote.sh snapd beta candidate
 
 ### core snap to stable
 
@@ -314,4 +315,4 @@ With:
 
 This promotion can be done manually through the snap store site or by using the validator project which automates the process. 
 
-    ./validator/promote.sh snapd candidate stable
+    ./snapd-testing/scripts/promote.sh snapd candidate stable
