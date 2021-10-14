@@ -86,7 +86,13 @@ It is possible to use older images too to validate the refresh scenario.
 
     amd64 without tpm:
     sudo cp /usr/share/OVMF/OVMF_VARS.ms.fd .
-    sudo qemu-system-x86_64 -smp 2 -m 4096 -snapshot -machine ubuntu-q35,accel=kvm -global ICH9-LPC.disable_s3=1 -netdev user,id=mynet0,hostfwd=tcp::8022-:22 -device virtio-net-pci,netdev=mynet0 -drive file=/usr/share/OVMF/OVMF_CODE.secboot.fd,if=pflash,format=raw,unit=0,readonly=on -drive file=./OVMF_VARS.ms.fd,if=pflash,format=raw,unit=1 -drive  file=<PATH_TO_VM_IMAGE>,cache=none,format=raw,id=disk1,if=none -device virtio-blk-pci,drive=disk1,bootindex=1
+    sudo qemu-system-x86_64 -smp 2 -m 4096 -snapshot \
+    -machine ubuntu-q35,accel=kvm -global ICH9-LPC.disable_s3=1 \
+    -netdev user,id=mynet0,hostfwd=tcp::8022-:22 -device virtio-net-pci,netdev=mynet0 \
+    -drive file=/usr/share/OVMF/OVMF_CODE.secboot.fd,if=pflash,format=raw,unit=0,readonly=on \
+    -drive file=./OVMF_VARS.ms.fd,if=pflash,format=raw,unit=1 \
+    -drive file=<PATH_TO_VM_IMAGE>,cache=none,format=raw,id=disk1,if=none \
+    -device virtio-blk-pci,drive=disk1,bootindex=1
 
     Note: it is needed to install ovmf package as dependency
 
