@@ -30,8 +30,8 @@ In this section it is explained how to run beta validation by using this project
 
 By running the following lines, the script will create the images for beta validation for all the supported devices.
 
-    git clone https://github.com/sergiocazzolato/validator.git
-    cd validator
+    git clone https://github.com/snapcore/snapd-testing.git
+    cd images
     sudo ./create.sh beta <core-number> <snaps-by-channel> <extra-snaps> <models>
 
 with
@@ -84,11 +84,25 @@ It is possible to use older images too to validate the refresh scenario.
 
 #### Core 20
 
-    amd64:
+    amd64 without tpm:
     sudo cp /usr/share/OVMF/OVMF_VARS.ms.fd .
     sudo qemu-system-x86_64 -smp 2 -m 4096 -snapshot -machine ubuntu-q35,accel=kvm -global ICH9-LPC.disable_s3=1 -netdev user,id=mynet0,hostfwd=tcp::8022-:22 -device virtio-net-pci,netdev=mynet0 -drive file=/usr/share/OVMF/OVMF_CODE.secboot.fd,if=pflash,format=raw,unit=0,readonly=on -drive file=./OVMF_VARS.ms.fd,if=pflash,format=raw,unit=1 -drive  file=<PATH_TO_VM_IMAGE>,cache=none,format=raw,id=disk1,if=none -device virtio-blk-pci,drive=disk1,bootindex=1
 
     Note: it is needed to install ovmf package as dependency
+
+    amd64 with tpm:
+    sudo cp /usr/share/OVMF/OVMF_VARS.ms.fd .
+    sudo qemu-system-x86_64 -smp 2 -m 4096 -snapshot \
+    -machine ubuntu-q35,accel=kvm -global ICH9-LPC.disable_s3=1 \
+    -netdev user,id=mynet0,hostfwd=tcp::$PORT-:22 -device virtio-net-pci,netdev=mynet0 \
+    -drive file=/usr/share/OVMF/OVMF_CODE.secboot.fd,if=pflash,format=raw,unit=0,readonly=on \
+    -drive file=./OVMF_VARS.ms.fd,if=pflash,format=raw,unit=1 \
+    -chardev socket,id=chrtpm,path=/var/snap/swtpm-mvo/current/swtpm-sock \
+    -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \
+    -drive file=<PATH_TO_VM_IMAGE>,cache=none,format=raw,id=disk1,if=none \
+    -device virtio-blk-pci,drive=disk1,bootindex=1"
+
+    Note: it is needed to install swtpm-mvo snap as dependency
 
 ### Access to console through screen:
 
