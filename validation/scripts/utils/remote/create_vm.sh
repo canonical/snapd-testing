@@ -6,13 +6,12 @@ echo "Creating vm"
 echo "installing nested dependencies"
 sudo apt install -y qemu qemu-utils genisoimage sshpass qemu-kvm cloud-image-utils ovmf kpartx git unzip
 
-echo "installing snapd from ppa with version 2.45"
+echo "installing snapd"
 sudo apt update
 sudo apt install -y snapd
 
 echo "Installing snaps needed"
-sudo snap install core --beta
-sudo snap install ubuntu-image --classic
+sudo snap install core
 
 ARCHITECTURE=$1
 IMAGE_URL=$2
@@ -146,10 +145,18 @@ export QEMU=$(get_qemu_for_nested_vm)
 mkdir -p "$WORK_DIR"
 
 if [[ "$IMAGE_URL" == *.img.xz ]]; then
-    wget -q -O "$WORK_DIR/ubuntu-core.img.xz" "$IMAGE_URL"
+    if [ -f "$IMAGE_URL" ]; then
+        cp "$IMAGE_URL" "$WORK_DIR/ubuntu-core.img.xz"
+    else
+        wget -q -O "$WORK_DIR/ubuntu-core.img.xz" "$IMAGE_URL"
+    fi
     unxz "$WORK_DIR/ubuntu-core.img.xz"
 elif [[ "$IMAGE_URL" == *.img ]]; then
-    wget -q -O "$WORK_DIR/ubuntu-core.img" "$IMAGE_URL"
+    if [ -f "$IMAGE_URL" ]; then
+        cp "$IMAGE_URL" "$WORK_DIR/ubuntu-core.img"
+    else
+        wget -q -O "$WORK_DIR/ubuntu-core.img" "$IMAGE_URL"
+    fi
 else
     echo "Image extension not supported, exiting..."
     exit 1
@@ -158,11 +165,13 @@ fi
 if test "$(lsb_release -cs)" = focal; then
     snap install swtpm-mvo --beta
     create_cloud_init_config_uc20
-    systemd_create_and_start_unit nested-vm "${QEMU} -m 4096 -nographic \
+    rm -f /var/snap/swtpm-mvo/current/tpm2-00.permall
+    cp /usr/share/OVMF/OVMF_VARS.ms.fd "$WORK_DIR"/OVMF_VARS.ms.fd
+    systemd_create_and_start_unit nested-vm "${QEMU} -m 4096 -nographic -snapshot \
         -machine ubuntu-q35,accel=kvm -global ICH9-LPC.disable_s3=1 \
         -netdev user,id=mynet0,hostfwd=tcp::$PORT-:22 -device virtio-net-pci,netdev=mynet0 \
         -drive file=/usr/share/OVMF/OVMF_CODE.secboot.fd,if=pflash,format=raw,unit=0,readonly=on \
-        -drive file=/usr/share/OVMF/OVMF_VARS.ms.fd,if=pflash,format=raw,unit=1 \
+        -drive file=$WORK_DIR/OVMF_VARS.ms.fd,if=pflash,format=raw,unit=1 \
         -chardev socket,id=chrtpm,path=/var/snap/swtpm-mvo/current/swtpm-sock \
         -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \
         -drive file=$WORK_DIR/ubuntu-core.img,cache=none,format=raw,id=disk1,if=none \
