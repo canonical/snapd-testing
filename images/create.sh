@@ -29,7 +29,7 @@ for platform in $PLATFORMS; do
 
     output="./output/${platform}-${VERSION}-${CHANNEL}"
     sudo rm -rf "$output" && mkdir -p "$output"
-    sudo ubuntu-image "$image_option" "$snaps" \
+    sudo ubuntu-image snap $image_option $snaps \
          -c "$CHANNEL" \
          -O "$output" \
          "./models/${platform}-${VERSION}.model"
