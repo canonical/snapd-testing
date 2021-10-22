@@ -28,7 +28,7 @@ DEVICE_IP='$DEVICE_IP'
 
 cat > job.yaml <<EOF
 job_queue: $DEVICE_QUEUE
-global_timeout: 36000
+global_timeout: 50400
 provision_data:
     $PROVISION_METHOD: $PROVISION_VAR
 test_data:
