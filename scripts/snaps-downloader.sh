@@ -68,6 +68,7 @@ else
     for iter in $(seq 0 $iters); do
         curr_channel=$(jq -r ".\"channel-map\"[$iter].channel.name" snap.json)
         curr_arch=$(jq -r ".\"channel-map\"[$iter].channel.architecture" snap.json)
+
         if [ "$curr_channel" = "$channel" ] && ( [ -z "$arch" ] || [ "$curr_arch" = "$arch" ] ); then
         	curr_url=$(jq -r ".\"channel-map\"[$iter].download.url" snap.json)
         	curr_rev=$(jq -r ".\"channel-map\"[$iter].revision" snap.json)
