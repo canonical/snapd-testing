@@ -95,8 +95,10 @@ def environ_or_required(key):
 
 
 def get_client(access_token, access_token_secret, key_cert):
-    with open(key_cert, 'r') as file:
-        cert_data = file.read()
+    cert_data = key_cert
+    if os.path.exists(key_cert): 
+        with open(key_cert, 'r') as file:
+            cert_data = file.read()
 
     return JIRA(
         oauth=dict(
@@ -180,7 +182,7 @@ def search_on_list(lane, snap, version, revision=None):
 
 def _create_card(client, snap, version, revision, channel):
     if revision:
-        card_name = '{} - {} - {}'.format(snap, version, revision)
+        card_name = '{} - {} - ({})'.format(snap, version, revision)
     else:
         card_name = '{} - {}'.format(snap, version)
 
@@ -209,7 +211,7 @@ def create(client, snap, version, revision, channel, configfile):
 
 def create_sru(client, package, version, srulist, configfile):
     config = _load_config(configfile)
-    card = search_on_list(lane, package, version)
+    card = search_on_list(srulist, package, version)
     if card:
         print('info:card already exists')
         return
@@ -499,7 +501,7 @@ def delete(client, snap, version, revision):
         print('error:card does not exist')
         return
     card.delete()
-    print('card deleted: {}'.format(card.name))
+    print('card deleted: {}'.format(card.key))
 
 
 def attach(client, snap, version, revision, name, file=None, url=None):
