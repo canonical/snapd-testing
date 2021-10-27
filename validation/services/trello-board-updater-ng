@@ -13,8 +13,7 @@ from datetime import datetime, timedelta
 from trello import TrelloClient
 from trello.exceptions import ResourceUnavailable
 
-from snap import Snap
-
+SUPPORTED_CHANNELS = ['edge', 'beta', 'candidate', 'stable']
 
 def _make_parser():
     parser = argparse.ArgumentParser()
@@ -461,8 +460,17 @@ def auto_clean(board, configfile):
 
 
 def _get_snap_info_by_channel(snapname):
-    snap = Snap(snapname)
-    return snap.get_info_by_channel()
+    response = requests.get("https://api.snapcraft.io/v2/snaps/info/{}".format(snapname), 
+        headers={'Snap-Device-Architecture': 'amd64', 'Snap-Device-Series': '16', 'Content-Type': 'application/json'})
+    
+    snap_info = {}
+    items = response.json().get('channel-map')
+    for item in items:
+        channel = item.get('channel').get('name')
+        channel_info = {'revision': item.get('revision'), 'version': item.get('version')}
+        snap_info[channel] = channel_info
+
+    return snap_info
 
 
 def auto_move(board, configfile):
@@ -473,7 +481,7 @@ def auto_move(board, configfile):
     for snap in snaps_auto_move:
         snap_channels_info = _get_snap_info_by_channel(snap)
 
-        for channel in Snap.SUPPORTED_CHANNELS:
+        for channel in SUPPORTED_CHANNELS:
             channel_info = snap_channels_info.get(channel, {})
             if not channel_info:
                 continue
@@ -486,7 +494,7 @@ def auto_move(board, configfile):
 
             movements[card] = _get_list(board, channel.capitalize())
 
-    for card in movements:
+    for card, channel in movements.items():
         lane = card.get_list()
         if lane.name != channel.capitalize():
             print('card {} moved to list {}'.format(card.name, channel))

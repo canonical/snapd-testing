@@ -13,6 +13,9 @@ SPREAD_LOG=$8
 SUMMARY_LOG=$9
 ATTACH_LOG=${10}
 
+# apt install -y python3-pip
+# pip3 install pytz trello
+
 # Get current dir
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
