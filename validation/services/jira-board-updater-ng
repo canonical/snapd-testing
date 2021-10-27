@@ -429,7 +429,7 @@ def _create_comment_results_header(name, arch, passed):
     if not passed:
         res = 'FAIL'
 
-    header = '---Run summary' + '\n'
+    header = '---Execution details' + '\n'
     header += 'device: {}'.format(name) + '\n'
     header += 'arch: {}'.format(arch) + '\n'
     header += 'result: {}'.format(res) + '\n'
