@@ -1,0 +1,713 @@
+#!/usr/bin/env python3
+
+import argparse
+import logging
+import os
+import pytz
+import re
+import requests
+import sys
+import yaml
+
+from datetime import datetime, timedelta
+from jira import JIRA
+from jira.client import ResultList
+from jira.resources import Issue
+from jira.exceptions import JIRAError
+
+JIRA_URL = 'https://warthogs.atlassian.net'
+PROJECT_ID = 'ST'
+SUPPORTED_CHANNELS = ['edge', 'beta', 'candidate', 'stable']
+
+def _make_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--token', help="OAuth access token for the user",
+                        **environ_or_required('JIRA_ACCESS_TOKEN'))
+    parser.add_argument('--token-secret', help="OAuth access token secret to sign with the key",
+                        **environ_or_required('JIRA_ACCESS_TOKEN_SECRET'))
+    parser.add_argument('--key-cert', help="Private key file to sign requests with",
+                        **environ_or_required('JIRA_KEY_CERT'))
+  
+    # Subparsers definition
+    subparser = parser.add_subparsers(help='commands', dest='command')
+    parser_search = subparser.add_parser("search")
+    parser_show = subparser.add_parser("show")
+    parser_create = subparser.add_parser("create")
+    parser_create_sru = subparser.add_parser("create-sru")
+    parser_move = subparser.add_parser("move")
+    parser_add_result = subparser.add_parser("add-result")
+    parser_complete = subparser.add_parser("complete")
+    parser_delete = subparser.add_parser("delete")
+    parser_auto_clean = subparser.add_parser("auto-clean")
+    parser_auto_move = subparser.add_parser("auto-move")
+    parser_attach = subparser.add_parser("attach")
+
+    # Adding common parameters to identify a card
+    for subp in [parser_create, parser_move, parser_search, parser_show, parser_add_result, parser_delete, parser_complete, parser_attach]:
+        subp.add_argument('-s', '--snap', help="snap name", required=True)
+        subp.add_argument('-v', '--version', help="snap version", required=True)
+        subp.add_argument('-r', '--revision', help="snap revision", default="")
+
+    # Arguments for create command
+    parser_create.add_argument('-c', '--channel', help="snap channel to create the card", required=True)
+    parser_create.add_argument('--config', help="config file where the card skeleton is defined", required=True)
+
+    # Arguments for create-sru command
+    parser_create_sru.add_argument('-p', '--package', help="package name", required=True)
+    parser_create_sru.add_argument('-v', '--version', help="package version", required=True)
+    parser_create_sru.add_argument('-l', '--list', help="trello list to create the card", default="SRU")
+    parser_create_sru.add_argument('--config', help="config file where the card skeleton is defined", required=True)
+
+    # Arguments for move command
+    parser_move.add_argument('-c', '--channel', help="snap channel to move the card", required=True)
+
+    # Arguments for add-result command
+    parser_add_result.add_argument('-n', '--name', help="results name", required=True)
+    parser_add_result.add_argument('-a', '--arch', help="snap architecture", required=True)
+    parser_add_result.add_argument('--checklist-executions', help="which checklist to mark the execution is done", default="Executions")
+    parser_add_result.add_argument('--checklist-results', help="which checklist to mark the execution results", default="Results")
+    parser_add_result.add_argument('--passed', help="indicates if the tests passed", action="store_true")
+    parser_add_result.add_argument('--summary', help="test results sumary file")
+    parser_add_result.add_argument('--link', help="test results link")
+
+    # Arguments for complete command
+    parser_complete.add_argument('--config', help="config file where the card skeleton is defined", required=True)
+
+    # Arguments for auto clean command
+    parser_auto_clean.add_argument('--config', help="config file where the archive and delete policy is stored", required=True)
+
+    # Arguments for auto move command
+    parser_auto_move.add_argument('--config', help="config file where the informartion needed for auto move snaps", required=True)
+
+    # Arguments for attach command
+    parser_attach.add_argument('-n', '--name', help="attachment name", required=True)
+    parser_attach.add_argument('-f', '--file', help="file to attach to the card")
+    parser_attach.add_argument('-u', '--url', help="url to attach to the card")
+
+    return parser
+
+
+def environ_or_required(key):
+    if os.environ.get(key):
+        return {'default': os.environ.get(key)}
+    else:
+        return {'required': True}
+
+
+def get_client(access_token, access_token_secret, key_cert):
+    with open(key_cert, 'r') as file:
+        cert_data = file.read()
+
+    return JIRA(
+        oauth=dict(
+            access_token=access_token, 
+            access_token_secret=access_token_secret, 
+            consumer_key="OauthKey", 
+            key_cert=cert_data),
+        server=JIRA_URL)
+
+
+def get_pattern(snap, version, rev):
+    if rev:
+        pattern = '{}_-_{}_-_({})'.format(
+            re.escape(snap),
+            re.escape(version),
+            rev)
+    else:
+        pattern = '{}_-_{}'.format(
+            re.escape(snap),
+            re.escape(version))
+    return pattern
+
+
+def _get_all_cards(client):
+    return client.search_issues("project = {}".format(PROJECT_ID))
+
+def _search_cards(client, query):
+    return client.search_issues("project = {} AND summary ~ '{}'".format(PROJECT_ID, query))
+
+def _search_cards_on_list(lane, query):
+    return client.search_issues("project = {} AND summary ~ '{}' AND status = {}".format(PROJECT_ID, query, lane))
+
+
+def search(client, snap, version, revision=None):
+    pattern = get_pattern(snap, version, revision)
+    cards = _search_cards(client, pattern)
+    if cards:
+        if len(cards) > 1:
+            print('error: more than 1 card found for pattern: "{}"'.format(pattern))
+            sys.exit(1)
+    else:
+        return None
+    card = cards[0] 
+    print('card found: {}'.format(card))
+    return card
+
+
+def show(client, snap, version, revision=None):
+    pattern = get_pattern(snap, version, revision)
+    cards = _search_cards(client, pattern)
+    if not cards:
+        print('error: card not found')
+        sys.exit(1)
+    else:
+        if len(cards) > 1:
+            print('error: more than 1 card found for pattern: "{}"'.format(pattern))
+            sys.exit(1)
+    
+    card = cards[0]
+    print('id: {}'.format(card.key))
+    print('name: {}'.format(card.fields.summary))
+    print('desc: {}'.format(card.fields.description))
+    print('list: {}'.format(card.fields.status))
+
+    comments = client.comments(card)
+    print('comments')
+    for comment in comments:
+        print('  ' + comment.id + ': ' + comment.body)
+
+    yaml_dict = yaml.safe_load(card.fields.customfield_10038)
+    print(card.fields.customfield_10038)
+
+
+def search_on_list(lane, snap, version, revision=None):
+    pattern = get_pattern(snap, version, revision)
+    card = _search_cards_on_list(lane, pattern)
+    if card:
+        print('card found: {}'.format(card.fields.summary))
+    return card
+
+
+def _create_card(client, snap, version, revision, channel):
+    if revision:
+        card_name = '{} - {} - {}'.format(snap, version, revision)
+    else:
+        card_name = '{} - {}'.format(snap, version)
+
+    fields = dict()
+    fields['project']=PROJECT_ID
+    fields['issuetype']={'name': 'Task'}
+    fields['summary']=card_name
+    return client.create_issue(fields)
+
+def create(client, snap, version, revision, channel, configfile):
+    config = _load_config(configfile)
+    card = search(client, snap, version, revision)
+    if card:
+        print('info:card already exists')
+        return
+
+    card = _create_card(client, snap, version, revision, channel.capitalize())
+    if not card:
+        print('error:card cannot be created')
+        return
+
+    print('card created: {}'.format(card.fields.summary))
+    _configure_card(card, config)
+    _move_card(client, card, channel)
+
+
+def create_sru(client, package, version, srulist, configfile):
+    config = _load_config(configfile)
+    card = search_on_list(lane, package, version)
+    if card:
+        print('info:card already exists')
+        return
+
+    revision = None
+    card = _create_card(client, package, version, revision, srulist)
+    if not card:
+        print('error:card cannot be created')
+        return
+
+    print('info:card created {}'.format(card.name))
+    _configure_card(card, config)
+
+
+def _move_card(client, card, channel):
+    transitions = client.transitions(card.key)
+    for transition in transitions:
+        if transition.get('name') == channel.capitalize():
+            client.transition_issue(card, transition.get('id'))
+            print('card {} moved to list: {}'.format(card.key, channel.capitalize()))
+            return
+
+    print('error:channel not found')
+
+
+def move(client, snap, version, revision, channel):
+    card = search(client, snap, version, revision)
+    if not card:
+        print('error:card does not exist')
+        return
+    _move_card(client, card, channel)
+
+
+def _find_or_create_card(client, snap, version, revision, channel='edge'):
+    card = search(client, snap, version, revision)
+    if card:
+        return card
+
+    card = _create_card(client, snap, version, revision, channel.capitalize())
+    if card:
+        print('id:{}'.format(card.key))
+    return card
+
+
+def _load_config(configfile):
+    if not _check_file(configfile):
+        print('error:config file does not exist')
+        return
+
+    try:
+        with open(configfile) as handle:
+            data = yaml.safe_load(handle)
+    except (yaml.parser.ParserError, yaml.scanner.ScannerError):
+        print('error:config file failed to be parsed')
+        return
+
+    return data
+
+
+def _check_file(file):
+    return os.path.exists(file)
+
+
+def _is_checklist(card, checklist_name):
+    checklist_field = card.fields.customfield_10038
+    if not checklist_field:
+        return False
+    checklist = yaml.safe_load(checklist_field).get('items')
+    if not checklist:
+        return False
+
+    for item in checklist:
+        if item.get('text') == '---{}'.format(checklist_name):
+            return True
+
+    return False
+
+
+def _search_checklist(card, checklist_name):
+    checklist_field = card.fields.customfield_10038
+    if not checklist_field:
+        return None
+    checklist = yaml.safe_load(checklist_field).get('items')
+
+    new_checklists = []
+    found = False
+    for checklist_item in checklist:
+        # Either not found the checklist to update or it was already copied and a new checklist started
+        if not found:
+            # When the checklist is found, the values on items are used
+            if checklist_item.get('text') == '---{}'.format(checklist_name):
+                found = True
+                new_checklists.append(checklist_item)
+            # Values of a checklist must be added to the new one
+            else:
+                continue
+        # Still iterating elements of the checklist to update
+        else:
+            # A new checklist starts
+            if checklist_item.get('text').startswith('---'):
+                break
+            else:
+                new_checklists.append(checklist_item)
+
+    return new_checklists
+
+
+def _add_checklist(card, checklist_name, items=[]):
+    if _is_checklist(card, checklist_name):
+        print('error:checklist already exists')
+        return
+
+    checklist_field = card.fields.customfield_10038
+    if not checklist_field:
+        checklists = []
+    else:
+        checklists = yaml.safe_load(checklist_field).get('items')
+    checklists.append({'text': '---{}'.format(checklist_name), 'checked': False})
+    for item in items:
+        checklists.append({'text': item.get('name'), 'checked': item.get('default')})
+    
+    _save_checklist(card, checklists)
+
+def _save_checklist(card, checklist):
+    text = yaml.dump(dict(items=checklist))
+    fields=dict()
+    fields['customfield_10038']=text
+    card.update(fields)
+
+
+def _update_checklist_item_value(card, checklist_name, item_name, item_value):
+    if not _is_checklist(card, checklist_name):
+        print('error:checklist does not exists')
+        return
+
+    old_checklists = yaml.safe_load(card.fields.customfield_10038).get('items')
+    new_checklists = []
+    found = False
+    for checklist_item in old_checklists:
+        # Either not found the checklist to update or it was already copied and a new checklist started
+        if not found:
+            # When the checklist is found, the values on items are used
+            if checklist_item.get('text') == '---{}'.format(checklist_name):
+                found = True
+                new_checklists.append(checklist_item)
+            # Values of a checklist must be added to the new one
+            else:
+                new_checklists.append(checklist_item)
+        # Still iterating elements of the checklist to update
+        else:
+            # A new checklist starts
+            if checklist_item.get('text').startswith('---'):
+                found = False
+                new_checklists.append(checklist_item)
+            # When the item to update is found, the new values are set
+            elif checklist_item.get('text') == item_name:
+                new_checklists.append({'text': item_name, 'checked': item_value})
+            # The other values for the checklist remain equal
+            else:
+                new_checklists.append(checklist_item)
+
+    _save_checklist(card, new_checklists)
+
+
+def _update_checklist_item_name(card, checklist_name, old_name, new_value):
+    if not _is_checklist(card, checklist_name):
+        print('error:checklist does not exists')
+        return
+
+    old_checklists = yaml.safe_load(card.fields.customfield_10038).get('items')
+    new_checklists = []
+    found = False
+    for checklist_item in old_checklists:
+        # Either not found the checklist to update or it was already copied and a new checklist started
+        if not found:
+            # When the checklist is found, the values on items are used
+            if checklist_item.get('text') == '---{}'.format(checklist_name):
+                found = True
+                new_checklists.append(checklist_item)
+            # Values of a checklist must be added to the new one
+            else:
+                new_checklists.append(checklist_item)
+        # Still iterating elements of the checklist to update
+        else:
+            # A new checklist starts
+            if checklist_item.get('text').startswith('---'):
+                found = False
+                new_checklists.append(checklist_item)
+            # When the item to update is found, the new values are set
+            elif checklist_item.get('text') == old_name:
+                new_checklists.append({'text': new_value, 'checked': checklist_item.get('checked')})
+            # The other values for the checklist remain equal
+            else:
+                new_checklists.append(checklist_item)
+
+    _save_checklist(card, new_checklists)
+
+
+def _configure_card(card, config):
+    checklists = config.get('checklists', {})
+    for checklist_name in checklists.keys():
+        if _is_checklist(card, checklist_name):
+            continue
+        _add_checklist(card, checklist_name, checklists.get(checklist_name))
+
+
+def configure(client, snap, version, revision, configfile):
+    config = _load_config(configfile)
+    card = _find_or_create_card(client, snap, version, revision)
+    _configure_card(card, config)    
+
+
+def _create_comment_results_header(name, arch, passed):
+    res = 'PASS'
+    if not passed:
+        res = 'FAIL'
+
+    header = '### Test results summary' + '\n'
+    header += '----' + '\n'
+    header += 'name: {}'.format(name) + '\n'
+    header += 'arch: {}'.format(arch) + '\n'
+    header += 'result: {}'.format(res) + '\n'
+    header += '----' + '\n'
+    return header
+
+
+def add_result(client, snap, version, revision, name, arch, checklist_name_executions, checklist_name_results, passed, summaryfile, link):
+    card = _find_or_create_card(client, snap, version, revision)
+
+    # Mark the execution in the executions checklist
+    _update_checklist_item_value(card, checklist_name_executions, name, True)
+    # Mark the result in the executions checklist
+    _update_checklist_item_value(card, checklist_name_results, name, passed)
+
+    # Attach el link to the results checklist
+    if link:
+        new_name = '{} [[Results]({})]'.format(name, link)
+        _update_checklist_item_name(card, checklist_name_results, name, new_name)
+        print("link added to checklist on card: {}".format(card.key))
+
+    # Add a comment with the results summary
+    if summaryfile:
+        with open(summaryfile) as sf:
+            summary = sf.read()
+        header = _create_comment_results_header(name, arch, passed)
+        client.add_comment(card, header + summary)
+        print("comment added to card: {}".format(card.key))
+ 
+
+def complete(client, snap, version, revision, configfile):
+    config = _load_config(configfile)
+    card = search(client, snap, version, revision)
+    if not card:
+        print('error:card does not exist')
+        return
+
+    complete = config.get('complete', {})
+    sign = complete.get('sign', {})
+
+    sign_checklist = sign.get('sign-checklist', None)
+    sign_actions = sign.get('sign-actions', [])
+
+    if not sign_checklist or not sign_actions:
+       print('info:no sign directives')
+       return
+
+    for action in sign_actions:
+        source = action.get('source')
+        target = action.get('target')
+
+        source_checklist = _search_checklist(card, source)
+        target_checklist = _search_checklist(card, sign_checklist)
+        is_ready = True
+        for checklist_item in source_checklist:
+            if not checklist_item.get('text').startswith('---') and not checklist_item.get('checked'):
+                is_ready = False
+                break
+
+        _update_checklist_item_value(card, sign_checklist, target, is_ready)
+        if is_ready:
+            print("target: {} set as ready on card: {}".format(target, card.key))
+
+
+def delete(client, snap, version, revision):
+    card = search(client, snap, version, revision)
+    if not card:
+        print('error:card does not exist')
+        return
+    card.delete()
+    print('card deleted: {}'.format(card.name))
+
+
+def attach(client, snap, version, revision, name, file=None, url=None):
+    card = search(client, snap, version, revision)
+    if not card:
+        print('error:card does not exist')
+        return
+
+    if not file and not url:
+        print('error:at least one file or url needed')
+        return
+
+    if file:
+        if not os.path.exists(file):
+            print('error:file {} does not exist'.format(file))
+            return
+
+        with open(file, "rb") as f:
+            client.add_attachment(issue=card, attachment=f, filename=name)
+            print("file attached to card: {}".format(card.key))
+
+    if url:
+        client.add_remote_link(issue=card, destination={"url": url, "title": name})
+        print("url attached to card: {}".format(card.name))
+
+
+def _string_to_seconds(expression):
+    units = {'s':'seconds', 'm':'minutes', 'h':'hours', 'd':'days', 'w':'weeks'}
+
+    return int(timedelta(**{
+        units.get(m.group('unit').lower(), 'seconds'): int(m.group('val'))
+        for m in re.finditer(r'(?P<val>\d+)(?P<unit>[smhdw]?)', expression, flags=re.I)
+    }).total_seconds())
+
+
+def _get_seconds_for_action(config, config_tag):
+    dict_strings = config.get(config_tag, {})
+    dict_seconds = {}
+    for key in dict_strings.keys():
+        dict_seconds[key] = _string_to_seconds(dict_strings.get(key))
+    return dict_seconds
+
+
+def auto_clean(client, configfile):
+    config = _load_config(configfile)
+
+    archive = _get_seconds_for_action(config, 'archive-time')
+    delete = _get_seconds_for_action(config, 'delete-time')
+
+    archive_list_name = config.get('archive-list')
+
+    for card in _get_all_cards(client):
+        # Get las activity registered on the card
+        last_activity = datetime.strptime(card.fields.updated, '%Y-%m-%dT%H:%M:%S.%f%z')
+        last_activity_seconds = (datetime.now(pytz.utc) - last_activity).total_seconds()
+        print(last_activity_seconds)
+
+        card_status = card.fields.status
+        if card_status in archive.keys() and last_activity_seconds > archive.get(card_status):
+            _move_card(client, card, archive_list)
+            print('card archived: {}'.format(card.key))
+        elif card_status in delete.keys() and last_activity_seconds > delete.get(card_status):
+            card.delete()
+            print('card deleted: {}'.format(card.key))
+        else:
+            print('card skipped: {}'.format(card.key))
+
+
+def _get_snap_info_by_channel(snapname):
+    response = requests.get("https://api.snapcraft.io/v2/snaps/info/{}".format(snapname), 
+        headers={'Snap-Device-Architecture': 'amd64', 'Snap-Device-Series': '16', 'Content-Type': 'application/json'})
+    
+    snap_info = {}
+    items = response.json().get('channel-map')
+    for item in items:
+        channel = item.get('channel').get('name')
+        channel_info = {'revision': item.get('revision'), 'version': item.get('version')}
+        snap_info[channel] = channel_info
+
+    return snap_info
+
+
+def auto_move(client, configfile):
+    config = _load_config(configfile)
+    snaps_auto_move = config.get('snaps-auto-move', {})
+
+    movements = {}
+    for snap in snaps_auto_move:
+        snap_channels_info = _get_snap_info_by_channel(snap)
+
+        for channel in SUPPORTED_CHANNELS:
+            channel_info = snap_channels_info.get(channel, {})
+            if not channel_info:
+                continue
+
+            version = channel_info.get('version')
+            revision = channel_info.get('revision')
+            try:
+                card = search(client, snap, version, revision)
+                if not card:
+                    continue
+            except JIRAError:
+                continue
+
+            movements[card] = channel
+
+    for card, channel in movements.items():
+        if card.fields.status != channel.capitalize():
+            _move_card(client, card, channel)
+            print('card {} moved to list {}'.format(card.key, channel))
+        else:
+            print('card {} not moved{}'.format(card.key))
+
+
+def main():
+    parser = _make_parser()
+    args = parser.parse_args()
+
+    client = get_client(args.token, args.token_secret, args.key_cert)
+
+    if args.command == 'search':
+        search(
+            client,
+            args.snap,
+            args.version,
+            args.revision)
+
+    if args.command == 'show':
+        show(
+            client,
+            args.snap,
+            args.version,
+            args.revision)        
+
+    if args.command == 'create':
+        create(
+            client,
+            args.snap,
+            args.version,
+            args.revision,
+            args.channel,
+            args.config)
+
+    if args.command == 'create-sru':
+        create_sru(
+            client,
+            args.package,
+            args.version,
+            args.list,
+            args.config)
+
+    if args.command == 'move':
+        move(
+            client,
+            args.snap,
+            args.version,
+            args.revision,
+            args.channel)
+
+    if args.command == 'add-result':
+        add_result(
+            client,
+            args.snap,
+            args.version,
+            args.revision,
+            args.name, 
+            args.arch,
+            args.checklist_executions,
+            args.checklist_results,
+            args.passed,
+            args.summary,
+            args.link)
+
+    if args.command == 'complete':
+        complete(
+            client,
+            args.snap,
+            args.version,
+            args.revision,
+            args.config)
+
+    if args.command == 'delete':
+        delete(
+            client,
+            args.snap,
+            args.version,
+            args.revision)
+
+    if args.command == 'auto-clean':
+        auto_clean(
+            client,
+            args.config)
+
+    if args.command == 'auto-move':
+        auto_move(
+            client,
+            args.config)
+
+    if args.command == 'attach':
+        attach(
+            client,
+            args.snap,
+            args.version,
+            args.revision,
+            args.name,
+            args.file,
+            args.url)
+
+
+if __name__ == "__main__":
+    main()
