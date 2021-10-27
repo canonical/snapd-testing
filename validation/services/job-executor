@@ -58,5 +58,6 @@ fi
 
 # Integrate results with trello board
 "${WORKSPACE}/snapd-testing/validation/services/trello-integrator" "$OBJECT_UT" "$VERSION_UT" "$REVISION_UT" "$TARGET_CHANNEL" "$TRELLO_CONFIG" "$BOARD_UT" "$ARCH_UT" "$SPREAD_LOG" "$SUMMARY_LOG" "$ATTACH_LOG"
+"${WORKSPACE}/snapd-testing/validation/services/jira-integrator" "$OBJECT_UT" "$VERSION_UT" "$REVISION_UT" "$TARGET_CHANNEL" "$TRELLO_CONFIG" "$BOARD_UT" "$ARCH_UT" "$SPREAD_LOG" "$SUMMARY_LOG" "$ATTACH_LOG"
 
 exit "$EXIT_STATUS"
