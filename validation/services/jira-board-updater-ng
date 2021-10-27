@@ -182,7 +182,7 @@ def search_on_list(lane, snap, version, revision=None):
 
 def _create_card(client, snap, version, revision, channel):
     if revision:
-        card_name = '{} - {} - ({})'.format(snap, version, revision)
+        card_name = '{} - {} - {}'.format(snap, version, revision)
     else:
         card_name = '{} - {}'.format(snap, version)
 
