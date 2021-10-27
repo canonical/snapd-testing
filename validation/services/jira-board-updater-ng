@@ -429,12 +429,10 @@ def _create_comment_results_header(name, arch, passed):
     if not passed:
         res = 'FAIL'
 
-    header = '### Test results summary' + '\n'
-    header += '----' + '\n'
-    header += 'name: {}'.format(name) + '\n'
+    header = '---Run summary' + '\n'
+    header += 'device: {}'.format(name) + '\n'
     header += 'arch: {}'.format(arch) + '\n'
     header += 'result: {}'.format(res) + '\n'
-    header += '----' + '\n'
     return header
 
 
@@ -454,10 +452,11 @@ def add_result(client, snap, version, revision, name, arch, checklist_name_execu
 
     # Add a comment with the results summary
     if summaryfile:
+        summary = '---Test results summary' + '\n'
         with open(summaryfile) as sf:
-            summary = sf.read()
+            summary += sf.read()
         header = _create_comment_results_header(name, arch, passed)
-        client.add_comment(card, header + summary)
+        client.add_comment(card, header + '\n' + summary)
         print("comment added to card: {}".format(card.key))
  
 
