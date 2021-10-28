@@ -176,7 +176,7 @@ def _create_card(board, snap, version, revision, channel):
     lane = _get_list(board, channel)
     if lane:
         if revision:
-            card_name = '{} - {} - {}'.format(snap, version, revision)
+            card_name = '{} - {} - ({})'.format(snap, version, revision)
         else:
             card_name = '{} - {}'.format(snap, version)
         return lane.add_card(card_name)

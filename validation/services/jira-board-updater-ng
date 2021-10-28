@@ -112,13 +112,13 @@ def get_client(access_token, access_token_secret, key_cert):
 def get_pattern(snap, version, rev):
     if rev:
         pattern = '{}_-_{}_-_({})'.format(
-            re.escape(snap),
-            re.escape(version),
+            snap,
+            version,
             rev)
     else:
         pattern = '{}_-_{}'.format(
-            re.escape(snap),
-            re.escape(version))
+            snap,
+            version)
     return pattern
 
 
@@ -182,7 +182,7 @@ def search_on_list(lane, snap, version, revision=None):
 
 def _create_card(client, snap, version, revision, channel):
     if revision:
-        card_name = '{} - {} - {}'.format(snap, version, revision)
+        card_name = '{} - {} - ({})'.format(snap, version, revision)
     else:
         card_name = '{} - {}'.format(snap, version)
 
