@@ -1,9 +1,7 @@
 #!/bin/bash	
-set -x
 
 VERSION=$1
-
-GITHUB_URL=https://github.com/snapcore/snapd.git
+GITHUB_URL=${2:-https://github.com/snapcore/snapd.git}
 
 if git ls-remote --tags "$GITHUB_URL" "$VERSION" | grep -q "$VERSION"; then
     echo "$VERSION"

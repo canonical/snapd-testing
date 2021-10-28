@@ -15,21 +15,21 @@ checklists:
           default: false
     Results:
         - name: pi2-refresh-18
-          default: false
+          default: true
         - name: pi3-refresh-18
-          default: false
+          default: true
         - name: pi3-refresh-20
-          default: false
+          default: true
         - name: dragonboard-refresh-18
-          default: false
+          default: true
         - name: pi4-refresh-20
-          default: false
+          default: true
         - name: pc-amd64-refresh-18
-          default: false
+          default: true
         - name: pc-amd64-refresh-20
           default: false
         - name: pc-i386-refresh-18
-          default: false
+          default: true
     Executions:
         - name: pi2-refresh-18
           default: false
