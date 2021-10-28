@@ -31,7 +31,7 @@ export $TESTS_ENV
 # Prepare tests environment
 if [ "$PROJECT" == snapd ]; then
 	VERSION="$(${WORKSPACE}/snapd-testing/snap-version.sh $SNAP_UT $TARGET_CHANNEL amd64)"
-	export BRANCH="$(${WORKSPACE}/snapd-testing/git-branch.sh $VERSION)"
+	export BRANCH="$(${WORKSPACE}/snapd-testing/scripts/git-branch.sh $VERSION)"
 fi
 
 # Run spread tests
@@ -48,8 +48,8 @@ fi
 if [ -z "$IMAGE_UT" ]; then
 	# Get version and revision for snap under test
 	OBJECT_UT="$SNAP_UT"
-	VERSION_UT="$(${WORKSPACE}/snapd-testing/snap-version.sh $SNAP_UT $TARGET_CHANNEL amd64)"
-	REVISION_UT="$(${WORKSPACE}/snapd-testing/snap-revision.sh $SNAP_UT $TARGET_CHANNEL amd64)"
+	VERSION_UT="$(${WORKSPACE}/snapd-testing/scripts/snap-version.sh $SNAP_UT $TARGET_CHANNEL amd64)"
+	REVISION_UT="$(${WORKSPACE}/snapd-testing/scripts/snap-revision.sh $SNAP_UT $TARGET_CHANNEL amd64)"
 else
 	OBJECT_UT="$IMAGE_UT"
 	VERSION_UT="$TARGET_CHANNEL"
