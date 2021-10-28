@@ -24,8 +24,8 @@ fi
 
 export HTTPS_PROXY=https://squid.internal:3128
 export https_proxy=https://squid.internal:3128
-export NO_PROXY=testflinger.canonical.com
-export no_proxy=testflinger.canonical.com
+export NO_PROXY=testflinger.canonical.com,api.snapcraft.io
+export no_proxy=testflinger.canonical.com,api.snapcraft.io
 export $TESTS_ENV
 
 # Prepare tests environment
