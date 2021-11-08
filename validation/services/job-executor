@@ -46,6 +46,7 @@ if [ "$TARGET_CHANNEL" = edge ]; then
     else
     	echo "Execution finished and either not spread results included in log or there are failed/aborted tests in the logs"
     	EXIT_STATUS=1
+    fi
 # For beta, candidate or stable, a successful run is when the execution finished without aborted tests
 # This is because there are known issues which fail and logs require manual review. In case of all tests
 # passed, the the trello/jira card is automatically set as passed for that run.
