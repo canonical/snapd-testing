@@ -18,6 +18,7 @@ from jira.exceptions import JIRAError
 JIRA_URL = 'https://warthogs.atlassian.net'
 PROJECT_ID = 'ST'
 SUPPORTED_CHANNELS = ['edge', 'beta', 'candidate', 'stable']
+DEFAULT_ARCH = 'amd64'
 
 def _make_parser():
     parser = argparse.ArgumentParser()
@@ -569,16 +570,17 @@ def auto_clean(client, configfile):
             print('card skipped: {}'.format(card.key))
 
 
-def _get_snap_info_by_channel(snapname):
+def _get_snap_info_by_channel(snapname, arch=DEFAULT_ARCH):
     response = requests.get("https://api.snapcraft.io/v2/snaps/info/{}".format(snapname), 
         headers={'Snap-Device-Architecture': 'amd64', 'Snap-Device-Series': '16', 'Content-Type': 'application/json'})
     
     snap_info = {}
     items = response.json().get('channel-map')
     for item in items:
-        channel = item.get('channel').get('name')
-        channel_info = {'revision': item.get('revision'), 'version': item.get('version')}
-        snap_info[channel] = channel_info
+        if arch == item.get('channel').get('architecture'):
+            channel = item.get('channel').get('name')
+            channel_info = {'revision': item.get('revision'), 'version': item.get('version')}
+            snap_info[channel] = channel_info
 
     return snap_info
 
@@ -588,31 +590,36 @@ def auto_move(client, configfile):
     snaps_auto_move = config.get('snaps-auto-move', {})
 
     movements = {}
+    moved_cards = []
     for snap in snaps_auto_move:
-        snap_channels_info = _get_snap_info_by_channel(snap)
+        print('-'*10)
 
-        for channel in SUPPORTED_CHANNELS:
+        snap_channels_info = _get_snap_info_by_channel(snap)
+        for channel in reversed(SUPPORTED_CHANNELS):
+            print('Checking snap: {} on channel {}'.format(snap, channel))
             channel_info = snap_channels_info.get(channel, {})
             if not channel_info:
+                print('No version and revision detected')
                 continue
 
             version = channel_info.get('version')
             revision = channel_info.get('revision')
+            print('Checking version: {} and revision: {}'.format(version, revision))
             try:
                 card = search(client, snap, version, revision)
                 if not card:
+                    print('Card not found')
                     continue
             except JIRAError:
                 continue
 
-            movements[card] = channel
-
-    for card, channel in movements.items():
-        if card.fields.status != channel.capitalize():
-            _move_card(client, card, channel)
-            print('card {} moved to list {}'.format(card.key, channel))
-        else:
-            print('card {} not moved{}'.format(card.key))
+            if not card.key in moved_cards:
+                _move_card(client, card, channel)
+                # Save which cards have been moved to avoid moving it more than once in case
+                # the snap revision is in more than 1 channel at the same time
+                moved_cards.append(card.key)
+            else:
+                print('card {} previously moved, skipping...'.format(card.key))
 
 
 def main():

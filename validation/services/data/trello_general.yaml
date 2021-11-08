@@ -13,7 +13,6 @@ delete-time:
 
 snaps-auto-move:
   - core
-  - core16
   - core18
   - core20
   - snapd
