@@ -37,26 +37,30 @@ fi
 # Run spread tests
 "${WORKSPACE}/snapd-testing/validation/scripts/${TESTS_SCRIPT}.sh" "$TESTS_CONFIG" | tee "$SPREAD_LOG"
 
+
 # Determining the exit status for the run
-# For edge cahnnel, a successful run is when all the tests have pass
-if [ "$TARGET_CHANNEL" = edge ]; then
-    if grep -e "Successful tasks:" "$SPREAD_LOG" && ! grep -e "Aborted tasks:" "$SPREAD_LOG" && ! grep -e "Failed tasks:" "$SPREAD_LOG"; then
-        echo "Execution finished and spread results included in log without failed/aborted tests"
-        EXIT_STATUS=0
+# In case there are successful tasks it means the execution finished and there is at least 1 test executed successfully
+if grep -e "Successful tasks:" "$SPREAD_LOG"; then
+    # For edge cahnnel, a successful run is when all the tests have pass
+    if [ "$TARGET_CHANNEL" = edge ]; then
+        if grep -e "Aborted tasks:" -e "Failed tasks:" "$SPREAD_LOG"; then
+            echo "Execution finished and either not spread results included in log or there are failed/aborted tests in the logs"
+            EXIT_STATUS=1
+        else
+            echo "Execution finished and spread results included in log without failed/aborted tests"
+            EXIT_STATUS=0
+        fi
+    # For beta, candidate or stable, a successful run is when the execution finished without aborted tests
+    # This is because there are known issues which fail and logs require manual review. In case of all tests
+    # passed, the the trello/jira card is automatically set as passed for that run.
     else
-        echo "Execution finished and either not spread results included in log or there are failed/aborted tests in the logs"
-        EXIT_STATUS=1
-    fi
-# For beta, candidate or stable, a successful run is when the execution finished without aborted tests
-# This is because there are known issues which fail and logs require manual review. In case of all tests
-# passed, the the trello/jira card is automatically set as passed for that run.
-else
-    if grep -e "Successful tasks:" -e "Failed tasks:" "$SPREAD_LOG" && ! grep -e "Aborted tasks:" "$SPREAD_LOG"; then
-        echo "Execution finished and spread results included in log without aborted tests"
-        EXIT_STATUS=0
-    else
-        echo "Execution finished and either not spread results included in log or there are aborted tests in the log"
-        EXIT_STATUS=1
+        if grep -e "Aborted tasks:" "$SPREAD_LOG"; then
+            echo "Execution finished and either not spread results included in log or there are aborted tests in the log"
+            EXIT_STATUS=1
+        else
+            echo "Execution finished and spread results included in log without aborted tests"
+            EXIT_STATUS=0
+        fi
     fi
 fi
 
