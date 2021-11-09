@@ -62,6 +62,9 @@ if grep -e "Successful tasks:" "$SPREAD_LOG"; then
             EXIT_STATUS=0
         fi
     fi
+else
+    echo "Execution didn't finish and/or no tests passing in spread log"
+    EXIT_STATUS=1
 fi
 
 if [ -z "$IMAGE_UT" ]; then
