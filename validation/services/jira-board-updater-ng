@@ -378,13 +378,13 @@ def _update_checklist_item_value(card, checklist_name, item_name, item_value):
 
     old_checklists = yaml.safe_load(card.fields.customfield_10038).get('items')
     new_checklists = []
-    found = False
+    inside_checklist = False
     for checklist_item in old_checklists:
         # Either not found the checklist to update or it was already copied and a new checklist started
-        if not found:
+        if not inside_checklist:
             # When the checklist is found, the values on items are used
             if checklist_item.get('text') == '---{}'.format(checklist_name):
-                found = True
+                inside_checklist = True
                 new_checklists.append(checklist_item)
             # Values of a checklist must be added to the new one
             else:
@@ -393,7 +393,7 @@ def _update_checklist_item_value(card, checklist_name, item_name, item_value):
         else:
             # A new checklist starts
             if checklist_item.get('text').startswith('---'):
-                found = False
+                inside_checklist = False
                 new_checklists.append(checklist_item)
             # When the item to update is found, the new values are set
             elif checklist_item.get('text') == item_name:
