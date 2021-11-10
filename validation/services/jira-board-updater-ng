@@ -35,6 +35,7 @@ def _make_parser():
     parser_show = subparser.add_parser("show")
     parser_create = subparser.add_parser("create")
     parser_create_sru = subparser.add_parser("create-sru")
+    parser_get_checklist_item = subparser.add_parser("get-checklist-item")
     parser_move = subparser.add_parser("move")
     parser_add_result = subparser.add_parser("add-result")
     parser_complete = subparser.add_parser("complete")
@@ -44,7 +45,7 @@ def _make_parser():
     parser_attach = subparser.add_parser("attach")
 
     # Adding common parameters to identify a card
-    for subp in [parser_create, parser_move, parser_search, parser_show, parser_add_result, parser_delete, parser_complete, parser_attach]:
+    for subp in [parser_create, parser_get_checklist_item, parser_move, parser_search, parser_show, parser_add_result, parser_delete, parser_complete, parser_attach]:
         subp.add_argument('-s', '--snap', help="snap name", required=True)
         subp.add_argument('-v', '--version', help="snap version", required=True)
         subp.add_argument('-r', '--revision', help="snap revision", default="")
@@ -58,6 +59,10 @@ def _make_parser():
     parser_create_sru.add_argument('-v', '--version', help="package version", required=True)
     parser_create_sru.add_argument('-l', '--list', help="trello list to create the card", default="SRU")
     parser_create_sru.add_argument('--config', help="config file where the card skeleton is defined", required=True)
+
+    # Arguments to check checklist item
+    parser_get_checklist_item.add_argument('-t', '--title', help="title on the checklist", required=True)
+    parser_get_checklist_item.add_argument('-i', '--item', help="item name on the checklist", required=True)
 
     # Arguments for move command
     parser_move.add_argument('-c', '--channel', help="snap channel to move the card", required=True)
@@ -226,6 +231,29 @@ def create_sru(client, package, version, srulist, configfile):
     print('info:card created {}'.format(card.name))
     _configure_card(card, config)
 
+
+def get_checklist_item(client, snap, version, revision, title, item):
+    card = search(client, snap, version, revision)
+    if not card:
+        print('error:card does not exist')
+        return
+
+    checklist = _search_checklist(card, title)
+    if not checklist:
+        print('error:checklist does not exist')
+        return
+
+    for checklist_item in checklist:
+        if checklist_item.get('text') == item:
+            if checklist_item.get('checked'):
+                print("CHECKED")
+            else:
+                print("NO-CHECKED")
+
+            return
+
+    print('error:checklist item does not exist')
+    return
 
 def _move_card(client, card, channel):
     transitions = client.transitions(card.key)
@@ -658,6 +686,15 @@ def main():
             args.version,
             args.list,
             args.config)
+
+    if args.command == 'get-checklist-item':
+        get_checklist_item(
+            client,
+            args.snap,
+            args.version,
+            args.revision,
+            args.title,
+            args.item)
 
     if args.command == 'move':
         move(
