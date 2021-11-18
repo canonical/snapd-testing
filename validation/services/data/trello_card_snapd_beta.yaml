@@ -14,72 +14,40 @@ checklists:
         - name: Can be Archived
           default: false
     Results:
-        - name: pi2-18
-          default: false
         - name: pi2-refresh-18
-          default: false
-        - name: pi3-18
           default: false
         - name: pi3-refresh-18
           default: false
-        - name: pi3-20
-          default: false
         - name: pi3-refresh-20
-          default: true
-        - name: dragonboard-18
           default: false
         - name: dragonboard-refresh-18
           default: false
-        - name: pi4-20
-          default: false
         - name: pi4-refresh-20
-          default: true
-        - name: pc-amd64-18
           default: false
         - name: pc-amd64-refresh-18
           default: false
-        - name: pc-amd64-20
-          default: false
         - name: pc-amd64-refresh-20
-          default: true
-        - name: pc-amd64-nuc-20
           default: false
-        - name: pc-i386-18
+        - name: pc-amd64-nuc-20
           default: false
         - name: pc-i386-refresh-18
           default: false
     Executions:
-        - name: pi2-18
-          default: false
         - name: pi2-refresh-18
-          default: false
-        - name: pi3-18
           default: false
         - name: pi3-refresh-18
           default: false
-        - name: pi3-20
-          default: false
         - name: pi3-refresh-20
-          default: false
-        - name: dragonboard-18
           default: false
         - name: dragonboard-refresh-18
           default: false
-        - name: pi4-20
-          default: false
         - name: pi4-refresh-20
           default: false
-        - name: pc-amd64-18
-          default: false
         - name: pc-amd64-refresh-18
-          default: false
-        - name: pc-amd64-20
           default: false
         - name: pc-amd64-refresh-20
           default: false
         - name: pc-amd64-nuc-20
-          default: false
-        - name: pc-i386-18
           default: false
         - name: pc-i386-refresh-18
           default: false

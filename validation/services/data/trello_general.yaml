@@ -1,10 +1,10 @@
 name: general configuration for snaps
 
 archive-time:
-    Edge: 1w3d
+    Edge: 6d
     Beta: 2w
     Candidate: 2w
-    Stable: 8w
+    Stable: 4w
 
 archive-list: Complete
 
