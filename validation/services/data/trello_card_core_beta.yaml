@@ -16,62 +16,42 @@ checklists:
     Results:
         - name: pi2
           default: false
-        - name: pi2-refresh
-          default: false
         - name: pi2-cconf
           default: false
         - name: pi3
-          default: false
-        - name: pi3-refresh
           default: false
         - name: pi3-cconf
           default: false
         - name: dragonboard
           default: false
-        - name: dragonboard-refresh
-          default: false
         - name: dragonboard-cconf
           default: false
         - name: pc-amd64
           default: false
-        - name: pc-amd64-refresh
-          default: false
         - name: pc-amd64-cconf
           default: false
         - name: pc-i386
-          default: false
-        - name: pc-i386-refresh
           default: false
         - name: pc-i386-cconf
           default: false
     Executions:
         - name: pi2
           default: false
-        - name: pi2-refresh
-          default: false
         - name: pi2-cconf
           default: false
         - name: pi3
-          default: false
-        - name: pi3-refresh
           default: false
         - name: pi3-cconf
           default: false
         - name: dragonboard
           default: false
-        - name: dragonboard-refresh
-          default: false
         - name: dragonboard-cconf
           default: false
         - name: pc-amd64
           default: false
-        - name: pc-amd64-refresh
-          default: false
         - name: pc-amd64-cconf
           default: false
         - name: pc-i386
-          default: false
-        - name: pc-i386-refresh
           default: false
         - name: pc-i386-cconf
           default: false
