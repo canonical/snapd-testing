@@ -28,26 +28,6 @@
       },
       {
          "version":16,
-         "channel":"beta",
-         "snaps":"",
-         "platforms":[
-            "pi2",
-            "pi3",
-            "dragonboard",
-            "pc-amd64",
-            "pc-i386"
-         ],
-         "triggers":[
-            {
-               "snap":{
-                  "name":"core",
-                  "channel":"beta"
-               }
-            }
-         ]
-      },
-      {
-         "version":16,
          "channel":"stable",
          "snaps":[
             {
@@ -112,26 +92,6 @@
                "snap":{
                   "name":"snapd",
                   "channel":"edge"
-               }
-            }
-         ]
-      },
-      {
-         "version":18,
-         "channel":"beta",
-         "snaps":"",
-         "platforms":[
-            "pi2",
-            "pi3",
-            "dragonboard",
-            "pc-amd64",
-            "pc-i386"
-         ],
-         "triggers":[
-            {
-               "snap":{
-                  "name":"snapd",
-                  "channel":"beta"
                }
             }
          ]
@@ -209,7 +169,7 @@
       },
       {
          "version":20,
-         "channel":"beta",
+         "channel":"stable",
          "snaps":"",
          "platforms":[
             "pi3",
