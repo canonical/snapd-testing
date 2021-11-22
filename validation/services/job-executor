@@ -30,7 +30,7 @@ export $TESTS_ENV
 
 # Prepare tests environment
 if [ "$PROJECT" == snapd ]; then
-    VERSION="$(${WORKSPACE}/snapd-testing/snap-version.sh $SNAP_UT $TARGET_CHANNEL amd64)"
+    VERSION="$(${WORKSPACE}/snapd-testing/scripts/snap-version.sh $SNAP_UT $TARGET_CHANNEL amd64)"
     export BRANCH="$(${WORKSPACE}/snapd-testing/scripts/git-branch.sh $VERSION)"
 fi
 
