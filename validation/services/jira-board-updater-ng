@@ -569,7 +569,7 @@ def _get_seconds_for_action(config, config_tag):
     dict_strings = config.get(config_tag, {})
     dict_seconds = {}
     for key in dict_strings.keys():
-        dict_seconds[key] = _string_to_seconds(dict_strings.get(key))
+        dict_seconds[key.replace('"', "")] = _string_to_seconds(dict_strings.get(key))
     return dict_seconds
 
 
@@ -585,17 +585,21 @@ def auto_clean(client, configfile):
         # Get las activity registered on the card
         last_activity = datetime.strptime(card.fields.updated, '%Y-%m-%dT%H:%M:%S.%f%z')
         last_activity_seconds = (datetime.now(pytz.utc) - last_activity).total_seconds()
-        print(last_activity_seconds)
 
-        card_status = card.fields.status
+        card_status = str(card.fields.status)
+        if not card_status in archive and not card_status in delete:
+            print('error:neither time for status "{}" defined for archive nor delete'.format(card_status))
+            return
+
         if card_status in archive.keys() and last_activity_seconds > archive.get(card_status):
-            _move_card(client, card, archive_list)
+            _move_card(client, card, archive_list_name)
             print('card archived: {}'.format(card.key))
         elif card_status in delete.keys() and last_activity_seconds > delete.get(card_status):
             card.delete()
             print('card deleted: {}'.format(card.key))
         else:
             print('card skipped: {}'.format(card.key))
+            print("last activity: {}s".format(last_activity_seconds))
 
 
 def _get_snap_info_by_channel(snapname, arch=DEFAULT_ARCH):
