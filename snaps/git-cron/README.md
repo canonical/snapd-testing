@@ -58,56 +58,7 @@ with valid credentials of an user with push privileges for github's `snapd/git-c
 
 # Watched resources
 
-Resource | Value Fetched | Branch | trigger File
--------- | ------------- | ------ | -------------
-core snap, edge channel, amd64 arch | revision | snapd-core-edge | [trigger](https://github.com/snapcore/git-cron/blob/snapd-core-edge/trigger)
-core snap, beta channel, amd64 arch | revision | snapd-core-beta | [trigger](https://github.com/snapcore/git-cron/blob/snapd-core-beta/trigger)
-core snap, candidate channel, amd64 arch | revision | snapd-core-candidate | [trigger](https://github.com/snapcore/git-cron/blob/snapd-core-candidate/trigger)
-core snap, stable channel, amd64 arch | revision | snapd-core-stable | [trigger](https://github.com/snapcore/git-cron/blob/snapd-core-stable/trigger)
-core snap, edge channel, i386 arch | revision | snapd-core-i386-edge | [trigger](https://github.com/snapcore/git-cron/blob/snapd-core-i386-edge/trigger)
-core snap, beta channel, i386 arch | revision | snapd-core-i386-beta | [trigger](https://github.com/snapcore/git-cron/blob/snapd-core-i386-beta/trigger)
-core snap, candidate channel, i386 arch | revision | snapd-core-i386-candidate | [trigger](https://github.com/snapcore/git-cron/blob/snapd-core-i386-candidate/trigger)
-core snap, stable channel, i386 arch | revision | snapd-core-i386-stable | [trigger](https://github.com/snapcore/git-cron/blob/snapd-core-i386-stable/trigger)
-core snap, edge channel for reexec from 2.21 to edge, amd64 | revision | snapd-reexec-2.21-vs-edge | [trigger](https://github.com/snapcore/git-cron/blob/snapd-reexec-2.21-vs-edge/trigger)
-kernel snap, edge channel, amd64 arch | revision | kernel-edge-amd64 | [trigger](https://github.com/snapcore/git-cron/blob/kernel-edge-amd64/trigger)
-kernel snap, beta channel, amd64 arch | revision | kernel-edge-amd64 | [trigger](https://github.com/snapcore/git-cron/blob/kernel-beta-amd64/trigger)
-kernel snap, candidate channel, amd64 arch | revision | kernel-edge-amd64 | [trigger](https://github.com/snapcore/git-cron/blob/kernel-candidate-amd64/trigger)
-production store, CPI endpoint | X-Bzr-Revision-Number | snapd-production-store-cpi | [trigger](https://github.com/snapcore/git-cron/blob/snapd-production-store-cpi/trigger)
-production store, SAS endpoint | X-Vcs-Revision | snapd-production-store-sas | [trigger](https://github.com/snapcore/git-cron/blob/snapd-production-store-sas/trigger)
-production store, SCA endpoint | X-Bzr-Revision-Number | snapd-production-store-sca | [trigger](https://github.com/snapcore/git-cron/blob/snapd-production-store-sca/trigger)
-production store, SSO endpoint | X-Bzr-Revision-Number | snapd-production-store-sso | [trigger](https://github.com/snapcore/git-cron/blob/snapd-production-store-sso/trigger)
-staging store, CPI endpoint | X-Bzr-Revision-Number | snapd-staging-store-cpi | [trigger](https://github.com/snapcore/git-cron/blob/snapd-staging-store-cpi/trigger)
-staging store, SAS endpoint | X-Vcs-Revision | snapd-staging-store-sas | [trigger](https://github.com/snapcore/git-cron/blob/snapd-staging-store-sas/trigger)
-staging store, SCA endpoint | X-Bzr-Revision-Number | snapd-staging-store-sca | [trigger](https://github.com/snapcore/git-cron/blob/snapd-staging-store-sca/trigger)
-staging store, SSO endpoint | X-Bzr-Revision-Number | snapd-staging-store-sso | [trigger](https://github.com/snapcore/git-cron/blob/snapd-staging-store-sso/trigger)
-refresh core snap from stable to edge, amd64 arch | revision | core-amd64-refresh-to-edge | [trigger](https://github.com/snapcore/git-cron/blob/core-amd64-refresh-to-edge/trigger)
-refresh core snap from stable to edge, i386 arch | revision | core-i386-refresh-to-edge | [trigger](https://github.com/snapcore/git-cron/blob/core-i386-refresh-to-edge/trigger)
-refresh core snap from stable to candidate, amd64 arch | revision | core-amd64-refresh-to-edge | [trigger](https://github.com/snapcore/git-cron/blob/core-amd64-refresh-to-candidate/trigger)
-refresh core snap from stable to candidate, i386 arch | revision | core-i386-refresh-to-edge | [trigger](https://github.com/snapcore/git-cron/blob/core-i386-refresh-to-candidate/trigger)
-refresh core snap from stable to beta, amd64 arch | revision | core-amd64-refresh-to-edge | [trigger](https://github.com/snapcore/git-cron/blob/core-amd64-refresh-to-beta/trigger)
-refresh core snap from stable to beta, i386 arch | revision | core-i386-refresh-to-edge | [trigger](https://github.com/snapcore/git-cron/blob/core-i386-refresh-to-beta/trigger)
-snapd deb package in proposed pocket, trusty | version | snapd-trusty-sru | [trigger](https://github.com/snapcore/git-cron/blob/snapd-trusty-sru/trigger)
-snapd deb package in proposed pocket, xenial | version | snapd-xenial-sru | [trigger](https://github.com/snapcore/git-cron/blob/snapd-xenial-sru/trigger)
-snapd deb package in proposed pocket, yakkety | version | snapd-yakkety-sru | [trigger](https://github.com/snapcore/git-cron/blob/snapd-yakkety-sru/trigger)
-snapd deb package in proposed pocket, zesty | version | snapd-zesty-sru | [trigger](https://github.com/snapcore/git-cron/blob/snapd-zesty-sru/trigger)
+Some other projetcs contains jobs to be executed by git-cron snap:
 
-# Pipelines
-
-Resource | Value Fetched | Branch | trigger File
--------- | ------------- | ------ | -------------
-analyze edge snapd builds | last green build number | snapd-analyze-build | [trigger](https://github.com/snapcore/git-cron/blob/snapd-analyze-build/trigger)
-sync edge core snap from production to staging, amd64 | last green build number after new publication on edge | core-amd64-staging-sync | [trigger](https://github.com/snapcore/git-cron/blob/core-amd64-staging-sync/trigger)
-sync edge core snap from production to staging, i386 | last green build number after new publication on edge | core-i386-staging-sync | [trigger](https://github.com/snapcore/git-cron/blob/core-i386-staging-sync/trigger)
-sync core snap source from gh to lp after merge and green build | last green build number (core snap) | core-gh-lp-sync | [trigger](https://github.com/snapcore/git-cron/blob/core-gh-lp-sync/trigger)
-sync snapd-vendor with snapd after merge and green build | last green build number (snapd master) | snapd-vendor-sync | [trigger](https://github.com/snapcore/git-cron/blob/snapd-vendor-sync/trigger)
-
-# Daily builds
-
-Description | Branch
------------ | ------
-Nightly suite | snapd-nightly-suite
-Execution against amd64 ubuntu-core image unmodified | built-image-amd64-smoketest
-Reexec disabled | snapd-reexec-disabled
-
-[travis-image]: https://travis-ci.org/snapcore/git-cron.svg?branch=master
-[travis-url]: https://travis-ci.org/snapcore/git-cron?branch=master
+project spread-cron: https://github.com/snapcore/spread-cron (see subdir branches/)
+project snapd-testing-jobs: https://github.com/snapcore/snapd-testing-jobs (see subdir jobs/branches/)
