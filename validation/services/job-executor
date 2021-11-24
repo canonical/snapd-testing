@@ -29,9 +29,13 @@ export no_proxy=testflinger.canonical.com,api.snapcraft.io
 export $TESTS_ENV
 
 # Prepare tests environment
-if [ "$PROJECT" == snapd ]; then
+if [ "$PROJECT" = "snapd" ]; then
     VERSION="$(${WORKSPACE}/snapd-testing/scripts/snap-version.sh $SNAP_UT $TARGET_CHANNEL amd64)"
-    export BRANCH="$(${WORKSPACE}/snapd-testing/scripts/git-branch.sh $VERSION)"
+    if [ "$SNAP_UT" = "snapd" ] || [ "$SNAP_UT" = "core" ]; then
+        export BRANCH="$(${WORKSPACE}/snapd-testing/scripts/git-branch.sh $VERSION)"
+    else
+        export BRANCH=master
+    fi
 fi
 
 # Run spread tests
