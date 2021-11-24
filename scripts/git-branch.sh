@@ -8,7 +8,7 @@ VERSION="${VERSION//16-/}"
 VERSION=$(echo "$VERSION" | cut -f1 -d "~")
 
 if [ -n "$HTTPS_PROXY" ]; then
-    git config --global http.proxy "$HTTPS_PROXY"
+    git config --global --unset http.proxy
     git config --global https.proxy "$HTTPS_PROXY"
 fi
 
