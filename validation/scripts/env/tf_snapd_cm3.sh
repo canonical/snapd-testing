@@ -12,3 +12,6 @@ export SKIP_TESTS=${SKIP_TESTS:-""}
 export CORE_CHANNEL=${CORE_CHANNEL:-"beta"}
 export SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
 export SETUP=${SETUP:-""}
+
+export TESTS_BACKEND=testflinger
+export TESTS_DEVICE=device

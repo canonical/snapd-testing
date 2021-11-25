@@ -43,7 +43,7 @@ if [ "$PROJECT" = "snapd" ]; then
 fi
 
 # Run spread tests
-"${WORKSPACE}/snapd-testing/validation/scripts/${TESTS_SCRIPT}.sh" "$TESTS_CONFIG" | tee "$SPREAD_LOG"
+"${WORKSPACE}/snapd-testing/validation/scripts/run_tests.sh" "$TESTS_CONFIG" | tee "$SPREAD_LOG"
 
 
 # Determining the exit status for the run
