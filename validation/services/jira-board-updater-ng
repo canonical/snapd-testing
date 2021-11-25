@@ -57,7 +57,7 @@ def _make_parser():
     # Arguments for create-sru command
     parser_create_sru.add_argument('-p', '--package', help="package name", required=True)
     parser_create_sru.add_argument('-v', '--version', help="package version", required=True)
-    parser_create_sru.add_argument('-l', '--list', help="trello list to create the card", default="SRU")
+    parser_create_sru.add_argument('-l', '--list', help="jira list to create the card", default="SRU")
     parser_create_sru.add_argument('--config', help="config file where the card skeleton is defined", required=True)
 
     # Arguments to check checklist item
