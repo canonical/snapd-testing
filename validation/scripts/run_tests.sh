@@ -54,7 +54,6 @@ case "$TESTS_BACKEND" in
                 echo "$TESTS_DEVICE not supported for testflinger"
                 exit 1  
                 ;;
-            ;;
         esac
         . "$SCRIPTS_DIR/test_flinger/run_job.sh"
         ;;
