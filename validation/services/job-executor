@@ -32,7 +32,11 @@ export $TESTS_ENV
 if [ "$PROJECT" = "snapd" ]; then
     VERSION="$(${WORKSPACE}/snapd-testing/scripts/snap-version.sh $SNAP_UT $TARGET_CHANNEL amd64)"
     if [ "$SNAP_UT" = "snapd" ] || [ "$SNAP_UT" = "core" ]; then
+        echo "Git config before git branch script"
+        git config --global --list
         export BRANCH="$(${WORKSPACE}/snapd-testing/scripts/git-branch.sh $VERSION)"
+        echo "Git config after git branch script"
+        git config --global --list
     else
         export BRANCH=master
     fi
