@@ -31,7 +31,6 @@ test_data:
         ssh ${DEVICE_USER}@${DEVICE_IP} "git clone $JOBS_URL"
         ssh ${DEVICE_USER}@${DEVICE_IP} "(cd $JOBS_PROJECT && git checkout $JOBS_BRANCH)"
         ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/scripts/utils/get_project.sh \"$SNAPD_URL\" \"$PROJECT\" \"$BRANCH\" ''"
-        $PRE_HOOK
         ssh ${DEVICE_USER}@${DEVICE_IP} "sudo $JOBS_PROJECT/validation/scripts/utils/remote/create_vm.sh \"$ARCH\" \"$IMAGE_URL\" \"$USER_ASSERTION_URL\" \"$BUILD_SNAPD\""
         ssh ${DEVICE_USER}@${DEVICE_IP} ". $JOBS_PROJECT/validation/scripts/utils/remote/add_root_key.sh \"$HOST\" \"$PORT\" \"$TEST_USER\" \"$TEST_PASS\""
         ssh ${DEVICE_USER}@${DEVICE_IP} ". $JOBS_PROJECT/validation/scripts/utils/remote/refresh.sh \"$HOST\" \"$PORT\" \"$TEST_USER\" \"$TEST_PASS\" \"$CHANNEL\" \"$CORE_CHANNEL\" \"$SNAPD_CHANNEL\""
@@ -39,7 +38,6 @@ test_data:
         ssh ${DEVICE_USER}@${DEVICE_IP} ". $JOBS_PROJECT/validation/scripts/utils/run_setup.sh \"$HOST\" \"$PORT\" \"$TEST_USER\" \"$TEST_PASS\" \"$SETUP\""
         ssh ${DEVICE_USER}@${DEVICE_IP} ". $JOBS_PROJECT/validation/scripts/utils/get_spread.sh \"$SPREAD_URL\""
         ssh ${DEVICE_USER}@${DEVICE_IP} ". $JOBS_PROJECT/validation/scripts/utils/run_spread.sh \"$HOST\" \"$PORT\" \"$PROJECT\" \"$SPREAD_TESTS\" \"$SPREAD_ENV\" \"$SKIP_TESTS\" \"$SPREAD_PARAMS\""
-        $POST_HOOK
 EOF
 
 export TF_JOB="$(pwd)/job.yaml"

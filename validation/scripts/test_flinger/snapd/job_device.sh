@@ -36,7 +36,6 @@ test_data:
         git clone $JOBS_URL
         (cd $JOBS_PROJECT && git checkout $JOBS_BRANCH)
         "$JOBS_PROJECT/validation/scripts/utils/get_project.sh" "$SNAPD_URL" "$PROJECT" "$BRANCH" "$COMMIT"
-        $PRE_HOOK
         . $PROJECT/tests/lib/external/prepare-ssh.sh "$DEVICE_IP" "$DEVICE_PORT" "$DEVICE_USER"
         . $JOBS_PROJECT/validation/scripts/utils/remote/add_root_key.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS"
         . $JOBS_PROJECT/validation/scripts/utils/remote/refresh.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS" "$CHANNEL" "$CORE_CHANNEL" "$SNAPD_CHANNEL"
@@ -44,7 +43,6 @@ test_data:
         . $JOBS_PROJECT/validation/scripts/utils/run_setup.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS" "$SETUP"
         . $JOBS_PROJECT/validation/scripts/utils/get_spread.sh "$SPREAD_URL"
         . $JOBS_PROJECT/validation/scripts/utils/run_spread.sh "$DEVICE_IP" "$DEVICE_PORT" "$PROJECT" "$SPREAD_TESTS" "$SPREAD_ENV" "$SKIP_TESTS" "$SPREAD_PARAMS"
-        $POST_HOOK
 EOF
 
 export TF_JOB="$(pwd)/job.yaml"
