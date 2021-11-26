@@ -1,0 +1,17 @@
+#!/bin/bash
+
+deb_deps="python3-pip python3-setuptools jq unzip"
+if ! dpkg -l $deb_deps >/dev/null; then
+	echo "Deb dependencies not satisfied, please install all the dependencies: $deb_deps"
+	exit 1
+fi
+
+py_deps="jsonpath-ng pyOpenSSL urllib3 pytz"
+for dep in $py_deps; do
+	if ! pip3 show $dep >/dev/null; then
+		echo "Python dependency not satisfied, please install all the dependencies: $dep"	
+		exit 1
+	fi
+done
+
+echo "All the dependencies are installed"

@@ -1,5 +1,8 @@
 #!/bin/bash
 
 sudo apt update
-sudo apt install -y python3-pip python3-setuptools
-pip3 install jsonpath-ng pyOpenSSL urllib3 pytz
+deb_deps="python3-pip python3-setuptools jq unzip"
+py_deps="jsonpath-ng pyOpenSSL urllib3 pytz"
+
+sudo apt install -y $deb_deps
+pip3 install $py_deps

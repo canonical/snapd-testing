@@ -1,13 +1,5 @@
 #!/bin/bash
 
-get_snap_revision(){
-    local ARCHITECTURE=$1
-    local SNAP=$2
-    local CHANNEL=$3
-
-    curl -s -H "X-Ubuntu-Architecture: $ARCHITECTURE" -H 'X-Ubuntu-Series: 16' https://search.apps.ubuntu.com/api/v1/snaps/details/"$SNAP"?channel="$CHANNEL" | jq -j '.revision'
-}
-
 get_snap_version(){
     local ARCHITECTURE=$1
     local SNAP=$2
@@ -34,6 +26,12 @@ get_beta_branch(){
     local ARCHITECTURE=$1
     local version
     version=$(get_snap_version "$ARCHITECTURE" core beta)
+
+    if [ -n "$HTTPS_PROXY" ]; then
+        git config --global http.sslVerify false
+        git config --global --unset http.proxy
+        git config --global https.proxy "$HTTPS_PROXY"
+    fi
 
     if git ls-remote --tags https://github.com/snapcore/snapd.git "$version" | grep -q "$version"; then
         echo "$version"

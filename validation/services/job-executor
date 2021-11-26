@@ -9,6 +9,11 @@ TESTS_SCRIPT=$4
 TESTS_CONFIG=$5
 WORKSPACE=$6
 
+if ! "$WORKSPACE"/snapd-testing/validation/services/check-env; then
+    echo "Error checking dependencies, please run "$WORKSPACE"/snapd-testing/validation/services/create-env script"
+    exti 1
+fi
+
 if [ ! "$PROJECT" ]; then
     echo "Porject not defined, exiting..."
     exit 1
@@ -22,21 +27,21 @@ if [ ! -f "${WORKSPACE}/snapd-testing/validation/services/env/${SERVICE_ENV}.sh"
 fi
 . "${WORKSPACE}/snapd-testing/validation/services/env/${SERVICE_ENV}.sh"
 
-export HTTPS_PROXY=https://squid.internal:3128
-export https_proxy=https://squid.internal:3128
-export NO_PROXY=testflinger.canonical.com,api.snapcraft.io
-export no_proxy=testflinger.canonical.com,api.snapcraft.io
+if [ -n "$HTTPS_PROXY" ]; then
+    export HTTPS_PROXY=https://squid.internal:3128
+    export https_proxy=https://squid.internal:3128
+    export HTTP_PROXY=https://squid.internal:3128
+    export http_proxy=https://squid.internal:3128
+    export NO_PROXY=testflinger.canonical.com,api.snapcraft.io
+    export no_proxy=testflinger.canonical.com,api.snapcraft.io
+fi
 export $TESTS_ENV
 
 # Prepare tests environment
 if [ "$PROJECT" = "snapd" ]; then
     VERSION="$(${WORKSPACE}/snapd-testing/scripts/snap-version.sh $SNAP_UT $TARGET_CHANNEL amd64)"
     if [ "$SNAP_UT" = "snapd" ] || [ "$SNAP_UT" = "core" ]; then
-        echo "Git config before git branch script"
-        git config --global --list
         export BRANCH="$(${WORKSPACE}/snapd-testing/scripts/git-branch.sh $VERSION)"
-        echo "Git config after git branch script"
-        git config --global --list
     else
         export BRANCH=master
     fi
@@ -75,8 +80,8 @@ else
     EXIT_STATUS=1
 fi
 
-if [ -z "$IMAGE_UT" ]; then
-    # Get version and revision for snap under test
+# Get version and revision for either snap or image under test
+if [ -z "$IMAGE_UT" ]; then    
     OBJECT_UT="$SNAP_UT"
     VERSION_UT="$(${WORKSPACE}/snapd-testing/scripts/snap-version.sh $SNAP_UT $TARGET_CHANNEL amd64)"
     REVISION_UT="$(${WORKSPACE}/snapd-testing/scripts/snap-revision.sh $SNAP_UT $TARGET_CHANNEL amd64)"

@@ -10,17 +10,6 @@ else
     PROVISION_VAR="$IMAGE_URL"
 fi
 
-. "$SCRIPTS_DIR/utils/snap_info.sh"
-if ! dpkg -l jq unzip >/dev/null; then
-    sudo apt install -y jq unzip
-fi
-
-if [ "$BRANCH" = beta ]; then
-    BRANCH=$(get_beta_branch "$ARCH")
-elif [ "$BRANCH" = edge ]; then
-    BRANCH=$(get_edge_commit "$ARCH")
-fi
-
 DEVICE_IP='$DEVICE_IP'
 
 cat > job.yaml <<EOF
