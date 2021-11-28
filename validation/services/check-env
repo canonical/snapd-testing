@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 deb_deps="python3-pip python3-setuptools jq unzip"
 if ! dpkg -l $deb_deps >/dev/null; then
 	echo "Deb dependencies not satisfied, please install all the dependencies: $deb_deps"
@@ -7,9 +8,18 @@ if ! dpkg -l $deb_deps >/dev/null; then
 fi
 
 py_deps="jsonpath-ng pyOpenSSL urllib3 pytz"
+py_installed="$(pip3 list 2>/dev/null)"
 for dep in $py_deps; do
-	if ! pip3 show $dep >/dev/null; then
+	if ! echo "$py_installed" | grep -qE "^$dep "; then
 		echo "Python dependency not satisfied, please install all the dependencies: $dep"	
+		exit 1
+	fi
+done
+
+snap_dep="testflinger-cli"
+for dep in $snap_dep; do
+	if ! snap list $dep >/dev/null; then
+		echo "Snap dependencies not satisfied, please install all the dependencies: $snap_dep"
 		exit 1
 	fi
 done

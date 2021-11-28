@@ -1,7 +1,5 @@
 #!/bin/sh
 
-. "$SCRIPTS_DIR/env/common.sh"
-
 export ARCH=${ARCH:-"amd64"}
 export PROJECT=${PROJECT:-"snapd"}
 export CHANNEL=${CHANNEL:-"stable"}

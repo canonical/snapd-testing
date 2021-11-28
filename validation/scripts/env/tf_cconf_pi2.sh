@@ -1,7 +1,5 @@
 #!/bin/sh
 
-. "$SCRIPTS_DIR/env/common.sh"
-
 export ARCH=${ARCH:-"armhf"}
 export PROJECT=${PROJECT:-"console-conf-tests"}
 export CHANNEL=${CHANNEL:-"beta"}

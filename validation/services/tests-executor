@@ -1,0 +1,357 @@
+#!/bin/bash
+
+contains() {
+    ELEM=$1
+    LIST=$2
+    if [[ $ELEM =~ (^|[[:space:]])$LIST($|[[:space:]]) ]]; then
+        return 1
+    fi
+    return 0
+}
+
+check_url() {
+    curl --head --silent --fail "$1" &> /dev/null
+}
+
+find_dir() {
+    DIRNAME=$1
+    CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    while [[ "$CURRENT_DIR" != "" && ! -e "$CURRENT_DIR/$DIRNAME" ]]; do
+        CURRENT_DIR=${CURRENT_DIR%/*}
+    done
+    echo "${CURRENT_DIR}/${DIRNAME}"
+}
+
+SUPPORTED_DEVICES="amd64 i386 pi2 pi3 pi4 cm3 nuc dragonboard"
+SUPPORTED_CHANNELS="edge beta candidate stable"
+SUPPORTED_VERSIONS="16 18 20"
+SUPPORTED_PROJECTS="cconf snapd"
+SUPPORTED_BRANCHES="edge beta candidate stable master <COMMIT>"
+CONFIG_FILE=config.test
+PROJECT_DIR="$(find_dir snapd-testing)"
+
+show_help() {
+    echo "usage: tests-executor --image-channel <channel> --device <arch> --version <ver> [--branch <branch>] [--core-channel <channel>] [--image-url <image>] [--project <project>] [--project-url <url>] [--tests <tests>] [--skip-tests <tests>] [--spread-url <url>] [--spread-params <params>]"
+    echo ""
+    echo "Notes about the parametes"
+    echo ""
+    echo "<channel> -> supported: $SUPPORTED_CHANNELS"
+    echo "<device> -> supported: $SUPPORTED_DEVICES"
+    echo "<version> -> supported: $SUPPORTED_VERSIONS"
+    echo "<project> -> supported: $SUPPORTED_PROJECTS"
+    echo "<branch> -> supported: $SUPPORTED_BRANCHES"
+    echo ""
+    echo "--image-channel -> is the channel used to build the image"
+    echo "--core-channel -> is the channel used to build the core/snapd snap"
+    echo "--branch -> is the branch used to run the tests"
+    echo "         -> default: master"
+    echo "--tests -> not include backend:system in tests format"
+    echo "        -> default: all the tests are executed"
+    echo "        -> example: --tests tests/main/abort,tests/core/basic20"
+    echo "        -> example: --tests \"tests/main/abort tests/core/basic20\""
+    echo "--skip-tests -> not include backend:system in tests format"
+    echo "             -> dafault: no tests are skipped"
+    echo "             -> example: --skip-tests tests/core/uc20-recovery"
+    echo "             -> example: --skip-tests tests/main/interfaces-many-snap-provided,tests/main/interfaces-many-core-provided"
+    echo "             -> example: --skip-tests \"tests/main/interfaces-many-snap-provided tests/main/interfaces-many-core-provided\""
+    echo "--project-url -> url used for the project where the tests are stored"
+    echo "              -> dafault: for snapd https://github.com/snapcore/snapd.git"
+    echo "              -> dafault: for cconf https://github.com/sergiocazzolato/console-conf-tests.git"
+    echo "--spread-url -> url either to the spread binary or to the spread.tar.gz"
+    echo "             -> dafault: https://storage.googleapis.com/snapd-spread-tests/spread/spread-amd64.tar.gz"
+    echo "--spread-params -> parameters used to execute spread"
+    echo "                -> dafault: no parameters are used"
+    echo "                -> example: --spread-params -debug,-repeat,5"
+    echo "                -> example: --spread-params \"-debug -repeat 5\""
+    echo ""
+}
+
+if [ $# -eq 0 ]; then
+    show_help
+    exit 0
+fi
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        --image-channel)
+            image_channel="$2"
+            shift 2
+            ;;
+        --core-channel)
+            core_channel="$2"
+            shift 2
+            ;;
+        --device)
+            device="$2"
+            shift 2
+            ;;
+        --version)
+            version="$2"
+            shift 2
+            ;;
+        --branch)
+            branch="$2"
+            shift 2
+            ;;
+        --project)
+            project="$2"
+            shift 2
+            ;;
+        --project-url)
+            project_url="$2"
+            shift 2
+            ;;
+        --image-url)
+            image_url="$2"
+            shift 2
+            ;;
+        --tests)
+            tests="$2"
+            shift 2
+            ;;
+        --skip-tests)
+            skip_tests="$2"
+            shift 2
+            ;;
+        --spread-url)
+            spread_url="$2"
+            shift 2
+            ;;
+        --spread-params)
+            spread_params="$2"
+            shift 2
+            ;;
+        *)
+            snap="$1"
+            shift 1
+            ;;
+    esac
+done
+
+# Validate channels
+
+if [ -z "$image_channel" ]; then
+    echo "Channel for image not defined"
+    show_help
+    exit 1
+
+fi
+
+if ! $(contains "$channel" "$SUPPORTED_CHANNELS"); then
+    echo "Channel $channel for image not supported"
+    show_help
+    exit 1
+fi
+
+if [ -z "$core_channel" ]; then
+    core_channel=$image_channel
+elif ! $(contains "$core_channel" "$SUPPORTED_CHANNELS"); then
+    eecho "Channel $core_channel for core not supported"
+    show_help
+    exit 1
+fi
+
+# Validate Device
+
+if [ -z "$device" ]; then
+    echo "Device not defined"
+    show_help
+    exit 1
+
+fi
+
+if ! $(contains "$device" "$SUPPORTED_DEVICES"); then
+    echo "Device $device not supported"
+    show_help
+    exit 1
+fi
+
+# Validate Version
+
+if [ -z "$version" ]; then
+    echo "Version not defined"
+    show_help
+    exit 1
+
+fi
+
+if ! $(contains "$version" "$SUPPORTED_VERSIONS"); then
+    echo "Version $version not supported"
+    show_help
+    exit 1
+fi
+
+# Validate Project
+
+if [ -z "$project" ]; then
+    project=snapd
+elif ! $(contains "$project" "$SUPPORTED_PROJECTS"); then
+    echo "Project $project not supported"
+    show_help
+    exit 1
+fi
+
+# Start creating the config file
+echo "#!/bin/sh" > "$CONFIG_FILE"
+echo "" >> "$CONFIG_FILE"
+
+echo "# Create env var related to the device" >> "$CONFIG_FILE"
+TESTS_DEVICE="device"
+case "$device" in
+    amd64)
+        ARCH=amd64
+        DEVICE_QUEUE=maas-x86-node
+        TESTS_DEVICE="vm"
+        ;;
+    i386)
+        ARCH=i386
+        DEVICE_QUEUE=maas-x86-node
+        TESTS_DEVICE="vm"
+        ;;
+    pi2)
+        export ARCH
+        DEVICE_QUEUE=rpi2
+        ;;
+    pi3)
+        ARCH=armhf
+        DEVICE_QUEUE=rpi3b
+        ;;
+    pi4)
+        ARCH=arm64
+        DEVICE_QUEUE=rpi4b4g
+        ;;
+    cm3)
+        ARCH=armhf
+        DEVICE_QUEUE=cm3
+        ;;
+    nuc)
+        ARCH=amd64
+        DEVICE_QUEUE=dawson-i-uc20-fde
+        DEVICE_DISTRO=core20
+        ;;
+    dragonboard)
+        ARCH=arm64
+        DEVICE_QUEUE=dragonboard
+        ;;
+    *)
+        echo "Device \"$device\" not supported, exiting..."
+        exit 1
+        ;;
+esac
+echo "export ARCH=$ARCH" >> "$CONFIG_FILE"
+echo "export DEVICE_QUEUE=$DEVICE_QUEUE" >> "$CONFIG_FILE"
+echo "export TESTS_DEVICE=$TESTS_DEVICE" >> "$CONFIG_FILE"
+if [ "$TESTS_DEVICE" = "vm" ]; then
+    if [ "$version" = 16 ]; then
+        echo "export DEVICE_DISTRO=xenial" >> "$CONFIG_FILE"
+    elif [ "$version" = 18 ]; then
+        echo "export DEVICE_DISTRO=bionic" >> "$CONFIG_FILE"
+    else
+        echo "export DEVICE_DISTRO=focal" >> "$CONFIG_FILE"
+    fi
+fi
+echo "" >> "$CONFIG_FILE"
+
+echo "# Create env var to indicate tests to execute and skip" >> "$CONFIG_FILE"
+ARM_TAG=""
+if [[ "$ARCH" =~ arm* ]]; then
+    ARM_TAG="arm-"
+fi
+BITS_TAG=32
+if [ "$ARCH" = "amd64" ] || [ "$ARCH" = "arm64" ]; then
+    BITS_TAG=64
+fi
+TESTS_PREFIX="external:ubuntu-core-$version-${ARM_TAG}${BITS_TAG}"
+
+if [ -z "$tests" ]; then
+    echo "export SPREAD_TESTS=$TESTS_PREFIX" >> "$CONFIG_FILE"
+else
+    TESTS_TO_RUN="$(echo $tests | tr ',' ' ')"
+    TESTS_LIST=""
+    for TEST_TO_RUN in $TESTS_TO_RUN; do
+        TESTS_LIST="$TESTS_LIST ${TESTS_PREFIX}:${TEST_TO_RUN}"
+    done
+    echo "export SPREAD_TESTS=\"$TESTS_LIST\"" >> "$CONFIG_FILE"
+fi
+if [ -n "$skip_tests" ]; then
+    echo "export SKIP_TESTS=\"$skip_tests\"" >> "$CONFIG_FILE"
+fi
+echo "" >> "$CONFIG_FILE"
+
+
+echo "# Create env var related to the channel and image" >> "$CONFIG_FILE"
+echo "export CHANNEL=$image_channel" >> "$CONFIG_FILE"
+echo "export CORE_CHANNEL=$core_channel" >> "$CONFIG_FILE"
+echo "export SNAPD_CHANNEL=$core_channel" >> "$CONFIG_FILE"
+echo "" >> "$CONFIG_FILE"
+
+
+echo "# Create env var related to the test image" >> "$CONFIG_FILE"
+if [ -n "$image_url" ]; then
+    URL="$image_url"
+else
+    if [ "$ARCH" = amd64 ] || [ "$ARCH" = i386 ]; then
+        IMAGE="pc.img.xz"
+    elif [ "$version" != 16 ] && [[ "$device" =~ pi* ]]; then
+        IMAGE="pi.img.xz"
+    else    
+        IMAGE="${device}.img.xz"
+    fi
+    if [ "$image_channel" == "$core_channel" ]; then
+        URL=https://storage.googleapis.com/snapd-spread-tests/images/${device}-${version}-${image_channel}/$IMAGE
+    elif [ "$version" == 16 ]; then
+        URL=https://storage.googleapis.com/snapd-spread-tests/images/${device}-${version}-${image_channel}-core_${core_channel}/$IMAGE
+    else
+        URL=https://storage.googleapis.com/snapd-spread-tests/images/${device}-${version}-${image_channel}-snapd_${core_channel}/$IMAGE
+    fi
+fi
+if check_url "$URL"; then
+    echo "export IMAGE_URL=$URL" >> "$CONFIG_FILE"
+else
+    echo "The url $URL does not exist, exiting..."
+    if command -v gsutil >/dev/null; then
+        echo "Please check if one of the following images works for you"
+        echo ""
+        gsutil ls -R gs://snapd-spread-tests/images/ | grep .img.xz | sed 's/gs:\/\//https:\/\/storage.googleapis.com\//g'
+    fi
+    exit 1
+fi
+echo "" >> "$CONFIG_FILE"
+
+
+echo "# Create env var related to spread" >> "$CONFIG_FILE"
+if [ -n "$spread_url" ]; then
+    echo "export SPREAD_URL=$spread_url" >> "$CONFIG_FILE"
+fi
+if [ -n "$spread_params" ]; then
+    echo "export SPREAD_PARAMS=$spread_params" >> "$CONFIG_FILE"
+fi
+echo "" >> "$CONFIG_FILE"
+
+
+echo "# Create env var related to the project" >> "$CONFIG_FILE"
+echo "export PROJECT=$project" >> "$CONFIG_FILE"
+if [ -n "$project_url" ] && [ "$project" = "snapd" ]; then
+    echo "export SNAPD_URL=$project_url" >> "$CONFIG_FILE"
+elif [ -n "$project_url" ] && [ "$project" = "cconf" ]; then
+    echo "export CCONF_URL=$project_url" >> "$CONFIG_FILE"
+fi
+echo "" >> "$CONFIG_FILE"
+
+echo "# Create env var related to the backend" >> "$CONFIG_FILE"
+echo "export TESTS_BACKEND=testflinger" >> "$CONFIG_FILE"
+
+echo "Config file generated: $CONFIG_FILE"
+echo "---"
+cat "$CONFIG_FILE"
+echo "---"
+
+echo "Checking dependencies"
+"$PROJECT_DIR"/validation/services/check-env
+
+echo "Executing $PROJECT_DIR/validation/scripts/run_tests.sh $CONFIG_FILE"
+"$PROJECT_DIR"/validation/scripts/run_tests.sh "$CONFIG_FILE"

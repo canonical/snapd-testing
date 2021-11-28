@@ -12,7 +12,8 @@ if [ -z "$ENV_FILE" ]; then
     exit 1	
 fi
 
-. "$SCRIPTS_DIR/utils/load_env.sh" "$1"
+echo "Loading env: $ENV_FILE"
+. "$SCRIPTS_DIR/utils/load_env.sh" "$ENV_FILE"
 
 if [ -z "$TESTS_BACKEND" ]; then
     echo "Backend not defined in environment config"
@@ -42,7 +43,6 @@ case "$TESTS_BACKEND" in
         . "$SCRIPTS_DIR/google/$PROJECT/run_google.sh"
         ;;
     testflinger)
-        sudo rm -f $TF_DATA/*
         case "$TESTS_DEVICE" in
             device)
                 . "$SCRIPTS_DIR/test_flinger/$PROJECT/job_device.sh"
