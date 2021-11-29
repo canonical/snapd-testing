@@ -189,6 +189,8 @@ fi
 
 if [ -z "$project" ]; then
     project=snapd
+elif [ "$project" = "cconf" ]; then
+    project=console-conf-tests
 elif ! $(contains "$project" "$SUPPORTED_PROJECTS"); then
     echo "Project $project not supported"
     show_help
