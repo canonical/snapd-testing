@@ -1,6 +1,6 @@
 #!/bin/bash
 
-deb_deps="python3-pip python3-setuptools jq unzip"
+deb_deps="python3-pip python3-setuptools jq"
 py_deps="jsonpath-ng pyOpenSSL urllib3 pytz"
 
 sudo apt update
