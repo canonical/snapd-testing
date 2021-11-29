@@ -11,7 +11,7 @@ WORKSPACE=$6
 
 if ! "$WORKSPACE"/snapd-testing/validation/services/check-env; then
     echo "Error checking dependencies, please run "$WORKSPACE"/snapd-testing/validation/services/create-env script"
-    exti 1
+    exit 1
 fi
 
 if [ ! "$PROJECT" ]; then
