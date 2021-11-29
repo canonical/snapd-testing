@@ -197,6 +197,12 @@ elif ! $(contains "$project" "$SUPPORTED_PROJECTS"); then
     exit 1
 fi
 
+# Validate branch
+
+if [ -z "$branch" ]; then
+    branch=master
+fi
+
 # Start creating the config file
 echo "#!/bin/sh" > "$CONFIG_FILE"
 echo "" >> "$CONFIG_FILE"
@@ -335,13 +341,14 @@ fi
 echo "" >> "$CONFIG_FILE"
 
 
-echo "# Create env var related to the project" >> "$CONFIG_FILE"
+echo "# Create env var related to the project and branch" >> "$CONFIG_FILE"
 echo "export PROJECT=$project" >> "$CONFIG_FILE"
 if [ -n "$project_url" ] && [ "$project" = "snapd" ]; then
     echo "export SNAPD_URL=$project_url" >> "$CONFIG_FILE"
 elif [ -n "$project_url" ] && [ "$project" = "cconf" ]; then
     echo "export CCONF_URL=$project_url" >> "$CONFIG_FILE"
 fi
+echo "export BRANCH=$branch" >> "$CONFIG_FILE"  
 echo "" >> "$CONFIG_FILE"
 
 echo "# Create env var related to the backend" >> "$CONFIG_FILE"
