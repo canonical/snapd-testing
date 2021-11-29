@@ -9,6 +9,8 @@ export CHANNEL=${CHANNEL:-"beta"}
 export CORE_CHANNEL=${CORE_CHANNEL:-"beta"}
 export SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
 
+export BRANCH=${BRANCH:-"beta"}
+
 export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-20-64:tests/smoke/"}
 
 export TESTS_BACKEND=testflinger

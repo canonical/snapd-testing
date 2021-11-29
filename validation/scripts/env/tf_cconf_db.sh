@@ -6,6 +6,8 @@ export DEVICE_QUEUE=${DEVICE_QUEUE:-"dragonboard"}
 
 export CHANNEL=${CHANNEL:-"beta"}
 
+export BRANCH=${BRANCH:-"master"}
+
 export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-16-arm-64"}
 export SPREAD_ENV=${SPREAD_ENV:-"WIFI_READY=false"}
 
