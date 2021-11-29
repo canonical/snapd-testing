@@ -18,6 +18,19 @@ if [ -z "$PROJECT_NAME" ]; then
 	exit 1
 fi
 
+if [ "$BRANCH" = beta ] || [ "$BRANCH" = edge ]; then
+	# Get current dir
+	CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+	. "$CURR_DIR/snap_info.sh"
+
+	if [ "$BRANCH" = beta ]; then
+	    BRANCH=$(get_beta_branch "$ARCH")
+	elif [ "$BRANCH" = edge ]; then
+	    BRANCH=$(get_edge_commit "$ARCH")
+	fi
+fi
+echo "Using branch $BRANCH for project $PROJECT_NAME"
+
 if [ -d "$PROJECT_NAME" ]; then
 	( cd "$PROJECT_NAME" && git reset --hard origin && git fetch origin && git checkout "$BRANCH" && git pull )
 else

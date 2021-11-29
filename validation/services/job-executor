@@ -37,16 +37,6 @@ if [ -n "$HTTPS_PROXY" ]; then
 fi
 export $TESTS_ENV
 
-# Prepare tests environment
-if [ "$PROJECT" = "snapd" ]; then
-    VERSION="$(${WORKSPACE}/snapd-testing/scripts/snap-version.sh $SNAP_UT $TARGET_CHANNEL amd64)"
-    if [ "$SNAP_UT" = "snapd" ] || [ "$SNAP_UT" = "core" ]; then
-        export BRANCH="$(${WORKSPACE}/snapd-testing/scripts/git-branch.sh $VERSION)"
-    else
-        export BRANCH=master
-    fi
-fi
-
 # Run spread tests
 "${WORKSPACE}/snapd-testing/validation/scripts/run_tests.sh" "$TESTS_CONFIG" | tee "$SPREAD_LOG"
 

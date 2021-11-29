@@ -30,14 +30,6 @@ if [ -z "$PROJECT" ]; then
     exit 1  
 fi
 
-if [ "$BRANCH" = beta ]; then
-    . "$SCRIPTS_DIR/utils/snap_info.sh"
-    export BRANCH=$(get_beta_branch "$ARCH")
-elif [ "$BRANCH" = edge ]; then
-    . "$SCRIPTS_DIR/utils/snap_info.sh"
-    export BRANCH=$(get_edge_commit "$ARCH")
-fi
-
 case "$TESTS_BACKEND" in
     google)
         . "$SCRIPTS_DIR/google/$PROJECT/run_google.sh"

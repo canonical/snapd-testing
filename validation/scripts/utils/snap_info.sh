@@ -27,12 +27,6 @@ get_beta_branch(){
     local version
     version=$(get_snap_version "$ARCHITECTURE" core beta)
 
-    if [ -n "$HTTPS_PROXY" ]; then
-        git config --global http.sslVerify false
-        git config --global --unset http.proxy
-        git config --global https.proxy "$HTTPS_PROXY"
-    fi
-
     if git ls-remote --tags https://github.com/snapcore/snapd.git "$version" | grep -q "$version"; then
         echo "$version"
     elif git ls-remote --heads https://github.com/snapcore/snapd.git "release/$version" | grep -q "$version"; then
