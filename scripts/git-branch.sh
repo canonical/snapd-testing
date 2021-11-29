@@ -8,6 +8,12 @@ VERSION="${VERSION//16-/}"
 # Clean version when it is like 2.38~pre1
 VERSION=$(echo "$VERSION" | cut -f1 -d "~")
 
+if [ -n "$HTTPS_PROXY" ]; then
+    git config --global http.sslVerify false
+    git config --global --unset http.proxy
+    git config --global https.proxy "$HTTPS_PROXY"
+fi
+
 if git ls-remote --tags "$GITHUB_URL" "$VERSION" | grep -q "$VERSION"; then
     echo "$VERSION"
 elif git ls-remote --heads "$GITHUB_URL" "release/$VERSION" | grep -q "$VERSION"; then
