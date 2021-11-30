@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SNAP_UT=core
-ARCH_UT=arm32
-BOARD_UT=pi3-cconf
-TARGET_CHANNEL=beta
-JIRA_CONFIG=jira_card_core_beta.yaml
+export SNAP_UT=core
+export ARCH_UT=arm32
+export BOARD_UT=pi3-cconf
+export TARGET_CHANNEL=beta
+export JIRA_CONFIG=jira_card_core_beta.yaml

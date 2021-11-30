@@ -1,20 +1,20 @@
-#!/bin/bash
+#!/bin/sh
 
-ARCH=${ARCH:-"armhf"}
+export ARCH=${ARCH:-"armhf"}
 
-PROJECT=${PROJECT:-"console-conf-tests"}
-PROJECT_URL=${PROJECT_URL:-"https://github.com/sergiocazzolato/console-conf-tests.git"}
+export PROJECT=${PROJECT:-"console-conf-tests"}
+export PROJECT_URL=${PROJECT_URL:-"https://github.com/sergiocazzolato/console-conf-tests.git"}
 
-DEVICE_QUEUE=${DEVICE_QUEUE:-"dragonboard"}
+export DEVICE_QUEUE=${DEVICE_QUEUE:-"dragonboard"}
 
-CHANNEL=${CHANNEL:-"beta"}
+export CHANNEL=${CHANNEL:-"beta"}
 
-BRANCH=${BRANCH:-"master"}
+export BRANCH=${BRANCH:-"master"}
 
-SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-16-arm-64"}
-SPREAD_ENV=${SPREAD_ENV:-"WIFI_READY=false"}
+export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-16-arm-64"}
+export SPREAD_ENV=${SPREAD_ENV:-"WIFI_READY=false"}
 
-SKIP_REFRESH=${SKIP_REFRESH:-"true"}
+export SKIP_REFRESH=${SKIP_REFRESH:-"true"}
 
-TESTS_BACKEND=testflinger
-TESTS_DEVICE=device
+export TESTS_BACKEND=testflinger
+export TESTS_DEVICE=device

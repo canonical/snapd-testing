@@ -36,12 +36,12 @@ if [ -n "$HTTPS_PROXY" ]; then
 fi
 
 echo "Loading tests config: $CURR_DIR/config/tests/$TESTS_CONFIG.sh"
-. "$CURR_DIR"/config/tests/"$TESTS_CONFIG".sh
-. "$CURR_DIR"/config/tests/common.sh
+"$CURR_DIR"/config/tests/"$TESTS_CONFIG".sh
+"$CURR_DIR"/config/tests/common.sh
 
 echo "Loading job config: $CURR_DIR/config/jobs/$JOB_CONFIG.sh"
-. "$CURR_DIR"/config/jobs/"${JOB_CONFIG}".sh
-. "$CURR_DIR"/config/jobs/common.sh
+"$CURR_DIR"/config/jobs/"${JOB_CONFIG}".sh
+"$CURR_DIR"/config/jobs/common.sh
 
 echo "Running tests"
 "$CURR_DIR"/scripts/run-tests.sh | tee "$SPREAD_LOG"

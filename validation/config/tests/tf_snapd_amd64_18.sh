@@ -1,21 +1,21 @@
-#!/bin/bash
+#!/bin/sh
 
-ARCH=${ARCH:-"amd64"}
+export ARCH=${ARCH:-"amd64"}
 
-PROJECT=${PROJECT:-"snapd"}
-PROJECT_URL=${PROJECT_URL:-"https://github.com/snapcore/snapd.git"}
+export PROJECT=${PROJECT:-"snapd"}
+export PROJECT_URL=${PROJECT_URL:-"https://github.com/snapcore/snapd.git"}
 
-DEVICE_QUEUE=${DEVICE_QUEUE:-"maas-x86-node"}
-DEVICE_DISTRO=${DEVICE_DISTRO:-"bionic"}
+export DEVICE_QUEUE=${DEVICE_QUEUE:-"maas-x86-node"}
+export DEVICE_DISTRO=${DEVICE_DISTRO:-"bionic"}
 
-CHANNEL=${CHANNEL:-"stable"}
-CORE_CHANNEL=${CORE_CHANNEL:-"beta"}
-SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
+export CHANNEL=${CHANNEL:-"stable"}
+export CORE_CHANNEL=${CORE_CHANNEL:-"beta"}
+export SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
 
-BRANCH=${BRANCH:-"beta"}
+export BRANCH=${BRANCH:-"beta"}
 
-SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-18-64"}
-SKIP_TESTS=${SKIP_TESTS:-"tests/main/interfaces-many-snap-provided,tests/main/interfaces-many-core-provided"}
+export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-18-64"}
+export SKIP_TESTS=${SKIP_TESTS:-"tests/main/interfaces-many-snap-provided,tests/main/interfaces-many-core-provided"}
 
-TESTS_BACKEND=testflinger
-TESTS_DEVICE=vm
+export TESTS_BACKEND=testflinger
+export TESTS_DEVICE=vm

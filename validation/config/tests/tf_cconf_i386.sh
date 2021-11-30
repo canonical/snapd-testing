@@ -1,17 +1,17 @@
-#!/bin/bash
+#!/bin/sh
 
-ARCH=${ARCH:-"i386"}
+export ARCH=${ARCH:-"i386"}
 
-PROJECT=${PROJECT:-"console-conf-tests"}
-PROJECT_URL=${PROJECT_URL:-"https://github.com/sergiocazzolato/console-conf-tests.git"}
+export PROJECT=${PROJECT:-"console-conf-tests"}
+export PROJECT_URL=${PROJECT_URL:-"https://github.com/sergiocazzolato/console-conf-tests.git"}
 
-DEVICE_QUEUE=${DEVICE_QUEUE:-"maas-x86-node"}
+export DEVICE_QUEUE=${DEVICE_QUEUE:-"maas-x86-node"}
 
-CHANNEL=${CHANNEL:-"beta"}
+export CHANNEL=${CHANNEL:-"beta"}
 
-BRANCH=${BRANCH:-"master"}
+export BRANCH=${BRANCH:-"master"}
 
-SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-16-32"}
+export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-16-32"}
 
-TESTS_BACKEND=testflinger
-TESTS_DEVICE=vm
+export TESTS_BACKEND=testflinger
+export TESTS_DEVICE=vm

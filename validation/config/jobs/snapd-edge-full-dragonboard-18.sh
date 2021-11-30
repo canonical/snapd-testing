@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SNAP_UT=snapd
-ARCH_UT=arm64
-BOARD_UT=dragonboard-refresh-18
-TARGET_CHANNEL=edge
-JIRA_CONFIG=jira_card_snapd_edge.yaml
+export SNAP_UT=snapd
+export ARCH_UT=arm64
+export BOARD_UT=dragonboard-refresh-18
+export TARGET_CHANNEL=edge
+export JIRA_CONFIG=jira_card_snapd_edge.yaml
