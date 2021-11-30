@@ -1,11 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 
 export ARCH=${ARCH:-"armhf"}
 
 export PROJECT=${PROJECT:-"console-conf-tests"}
 export PROJECT_URL=${PROJECT_URL:-"https://github.com/sergiocazzolato/console-conf-tests.git"}
 
-export DEVICE_QUEUE=${DEVICE_QUEUE:-"rpi2"}
+export DEVICE_QUEUE=${DEVICE_QUEUE:-"cert-rpi2"}
 
 export CHANNEL=${CHANNEL:-"beta"}
 
