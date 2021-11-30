@@ -2,19 +2,6 @@
 
 echo "Running tests"
 
-export WORKSPACE=${WORKSPACE:-$(pwd)}
-export SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-ENV_FILE="$1"
-
-if [ -z "$ENV_FILE" ]; then
-    echo "Illegal number of parameters"
-    exit 1	
-fi
-
-echo "Loading env: $ENV_FILE"
-. "$SCRIPTS_DIR/utils/load_env.sh" "$ENV_FILE"
-
 if [ -z "$TESTS_BACKEND" ]; then
     echo "Backend not defined in environment config"
     exit 1  
@@ -29,6 +16,8 @@ if [ -z "$PROJECT" ]; then
     echo "Project not defined in environment config"
     exit 1  
 fi
+
+SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 case "$TESTS_BACKEND" in
     google)

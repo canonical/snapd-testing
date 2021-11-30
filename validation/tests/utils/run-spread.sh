@@ -13,8 +13,6 @@ if [ "$#" -ne 7 ]; then
     exit 1
 fi
 
-export WORKSPACE=${WORKSPACE:-$(pwd)}
-
 DEVICE_IP=$1
 DEVICE_PORT=$2
 PROJECT_PATH=$3
@@ -35,15 +33,16 @@ if [ ! -z "$SPREAD_ENV" ]; then
 fi
 export SPREAD_EXTERNAL_ADDRESS=$DEVICE_IP:$DEVICE_PORT
 
-if [[ $(which spread) ]]; then
-    echo "Spread found"
-else
-    if [ -f "$WORKSPACE/spread/spread" ]; then
-        export PATH=$PATH:$WORKSPACE/spread
-    else
+# Determine the spread location
+SPREAD=$(which spread)
+if [ -z "$SPREAD" ]]; then
+    SPREAD="$(pwd)/spread"
+    if [ ! -x "$SPREAD" ]; then
         echo "Spread not found"
+        exit 1
     fi
 fi
+echo "Using spread $SPREAD"
 
 # Run spread
 cd $PROJECT_PATH

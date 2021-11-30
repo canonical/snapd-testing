@@ -13,22 +13,13 @@ check_url() {
     curl --head --silent --fail "$1" &> /dev/null
 }
 
-find_dir() {
-    DIRNAME=$1
-    CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    while [[ "$CURRENT_DIR" != "" && ! -e "$CURRENT_DIR/$DIRNAME" ]]; do
-        CURRENT_DIR=${CURRENT_DIR%/*}
-    done
-    echo "${CURRENT_DIR}/${DIRNAME}"
-}
-
 SUPPORTED_DEVICES="amd64 i386 pi2 pi3 pi4 cm3 nuc dragonboard"
 SUPPORTED_CHANNELS="edge beta candidate stable"
 SUPPORTED_VERSIONS="16 18 20"
 SUPPORTED_PROJECTS="cconf snapd"
 SUPPORTED_BRANCHES="edge beta candidate stable master <COMMIT>"
 CONFIG_FILE=/tmp/config_test.sh
-PROJECT_DIR="$(find_dir snapd-testing)"
+CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 show_help() {
     echo "usage: tests-executor --image-channel <channel> --device <arch> --version <ver> [--branch <branch>] [--core-channel <channel>] [--image-url <image>] [--project <project>] [--project-url <url>] [--tests <tests>] [--skip-tests <tests>] [--spread-url <url>] [--spread-params <params>]"
@@ -354,13 +345,22 @@ echo "" >> "$CONFIG_FILE"
 echo "# Create env var related to the backend" >> "$CONFIG_FILE"
 echo "export TESTS_BACKEND=testflinger" >> "$CONFIG_FILE"
 
+# The configuration for the tests is ready 
+
 echo "Config file generated: $CONFIG_FILE"
 echo "---"
 cat "$CONFIG_FILE"
 echo "---"
 
 echo "Checking dependencies"
-"$PROJECT_DIR"/validation/check-env
+if ! "$CURR_DIR"/tools/check-env; then
+    echo "Error checking dependencies, please run "$CURR_DIR"/tools/create-env script"
+    exit 1
+fi
 
-echo "Executing $PROJECT_DIR/validation/scripts/run-tests.sh $CONFIG_FILE"
-"$PROJECT_DIR"/validation/scripts/run-tests.sh "$CONFIG_FILE"
+echo "Loading tests config: $CONFIG_FILE"
+"$CONFIG_FILE"
+"$CURR_DIR"/config/tests/common.sh
+
+echo "Executing $PROJECT_DIR/validation/tests/run-tests.sh $CONFIG_FILE"
+"$CURR_DIR"/tests/run-tests.sh "$CONFIG_FILE"

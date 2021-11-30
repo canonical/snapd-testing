@@ -2,31 +2,30 @@
 
 set -x
 
-PROJECT=$1
-SERVICE_ENV=$2
-TESTS_ENV=$3
-TESTS_SCRIPT=$4
-TESTS_CONFIG=$5
-WORKSPACE=$6
+TESTS_CONFIG=$1
+JOB_CONFIG=$2
 
-if ! "$WORKSPACE"/snapd-testing/validation/check-env; then
-    echo "Error checking dependencies, please run "$WORKSPACE"/snapd-testing/validation/create-env script"
-    exit 1
+CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+PROJECT_DIR="$(dirname $CURR_DIR)"
+
+echo "Checking input files"
+if [ ! -f "$TESTS_CONFIG" ]; then
+    echo "Configuration file does not exist: $TESTS_CONFIG"
+    exit 1  
 fi
 
-if [ ! "$PROJECT" ]; then
-    echo "Porject not defined, exiting..."
-    exit 1
-fi
-
-# Load environment variables
-. "${WORKSPACE}/snapd-testing/validation/config/jobs/common.sh" "$WORKSPACE"
-if [ ! -f "${WORKSPACE}/snapd-testing/validation/config/jobs/${SERVICE_ENV}.sh" ]; then
+if [ ! -f "$CURR_DIR"/config/jobs/"${JOB_CONFIG}".sh ]; then
     echo "configuration file does not exist, exiting"
     exit 1
 fi
-. "${WORKSPACE}/snapd-testing/validation/config/jobs/${SERVICE_ENV}.sh"
 
+echo "Checking dependencies"
+if ! "$CURR_DIR"/tools/check-env; then
+    echo "Error checking dependencies, please run "$CURR_DIR"/tools/create-env script"
+    exit 1
+fi
+
+echo "Configuring proxy"
 if [ -n "$HTTPS_PROXY" ]; then
     export HTTPS_PROXY=https://squid.internal:3128
     export https_proxy=https://squid.internal:3128
@@ -35,12 +34,19 @@ if [ -n "$HTTPS_PROXY" ]; then
     export NO_PROXY=testflinger.canonical.com,api.snapcraft.io
     export no_proxy=testflinger.canonical.com,api.snapcraft.io
 fi
-export $TESTS_ENV
 
-# Run spread tests
-"${WORKSPACE}/snapd-testing/validation/scripts/run-tests.sh" "$TESTS_CONFIG" | tee "$SPREAD_LOG"
+echo "Loading tests config: $CURR_DIR/config/tests/$TESTS_CONFIG.sh"
+"$CURR_DIR"/config/tests/"$TESTS_CONFIG".sh
+"$CURR_DIR"/config/tests/common.sh
 
+echo "Loading job config: $CURR_DIR/config/jobs/$JOB_CONFIG.sh"
+"$CURR_DIR"/config/jobs/"${JOB_CONFIG}".sh
+"$CURR_DIR"/config/jobs/common.sh
 
+echo "Running tests"
+"$CURR_DIR"/scripts/run-tests.sh | tee "$SPREAD_LOG"
+
+echo "Analyzing results and exis status"
 # Determining the exit status for the run
 # In case there are successful tasks it means the execution finished and there is at least 1 test executed successfully
 if grep -e "Successful tasks:" "$SPREAD_LOG"; then
@@ -70,22 +76,23 @@ else
     EXIT_STATUS=1
 fi
 
-# Get version and revision for either snap or image under test
+echo "Geting version and revision for either snap or image under test"
 if [ -z "$IMAGE_UT" ]; then    
     OBJECT_UT="$SNAP_UT"
-    VERSION_UT="$(${WORKSPACE}/snapd-testing/scripts/snap-version.sh $SNAP_UT $TARGET_CHANNEL amd64)"
-    REVISION_UT="$(${WORKSPACE}/snapd-testing/scripts/snap-revision.sh $SNAP_UT $TARGET_CHANNEL amd64)"
+    VERSION_UT="$($PROJECT_DIR/scripts/snap-version.sh $SNAP_UT $TARGET_CHANNEL amd64)"
+    REVISION_UT="$($PROJECT_DIR/scripts/snap-revision.sh $SNAP_UT $TARGET_CHANNEL amd64)"
 else
     OBJECT_UT="$IMAGE_UT"
     VERSION_UT="$TARGET_CHANNEL"
     REVISION_UT="($(date +%Y%m%d))"
 fi
 
-# Integrate results with jira board
+echo "Integrating results with jira board"
 if [ -n "$JIRA_ACCESS_TOKEN" ] && [ -n "$JIRA_ACCESS_TOKEN_SECRET" ] && [ -n "$JIRA_KEY_CERT" ]; then
-    "${WORKSPACE}/snapd-testing/validation/jira-integrator" "$OBJECT_UT" "$VERSION_UT" "$REVISION_UT" "$TARGET_CHANNEL" "$JIRA_CONFIG" "$BOARD_UT" "$ARCH_UT" "$SPREAD_LOG" "$SUMMARY_LOG" "$ATTACH_LOG"
+    "$CURR_DIR"/tools/jira-integrator "$OBJECT_UT" "$VERSION_UT" "$REVISION_UT" "$TARGET_CHANNEL" "$JIRA_CONFIG" "$BOARD_UT" "$ARCH_UT" "$SPREAD_LOG" "$SUMMARY_LOG" "$ATTACH_LOG"
 else
     echo "Skipping jira integration, variables needed in the environment: JIRA_ACCESS_TOKEN, JIRA_ACCESS_TOKEN_SECRET and JIRA_KEY_CERT"
 fi
 
+echo "Finishing"
 exit "$EXIT_STATUS"
