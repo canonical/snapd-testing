@@ -195,7 +195,7 @@ if [ -z "$branch" ]; then
 fi
 
 # Start creating the config file
-echo "#!/bin/bash" >> "$CONFIG_FILE"
+echo "#!/bin/bash" > "$CONFIG_FILE"
 echo "" >> "$CONFIG_FILE"
 
 echo "# Create env var related to the device" >> "$CONFIG_FILE"
