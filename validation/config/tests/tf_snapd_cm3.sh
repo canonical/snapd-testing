@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 export ARCH=${ARCH:-"armhf"}
 
@@ -7,7 +7,7 @@ export PROJECT_URL=${PROJECT_URL:-"https://github.com/snapcore/snapd.git"}
 
 export DEVICE_QUEUE=${DEVICE_QUEUE:-"cm3"}
 
-export CORE_CHANNEL=${CHANNEL:-"stable"}
+export CHANNEL=${CHANNEL:-"stable"}
 export CORE_CHANNEL=${CORE_CHANNEL:-"beta"}
 export SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
 

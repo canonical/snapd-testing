@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 export ARCH=${ARCH:-"amd64"}
 
@@ -10,7 +10,7 @@ export DEVICE_DISTRO=${DEVICE_DISTRO:-"xenial"}
 
 export CHANNEL=${CHANNEL:-"stable"}
 export CORE_CHANNEL=${CORE_CHANNEL:-"beta"}
-export SNAPD_CHANNEL=${CORE_CHANNEL:-"beta"}
+export SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
 
 export BRANCH=${BRANCH:-"beta"}
 
