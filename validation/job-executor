@@ -9,7 +9,7 @@ CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 PROJECT_DIR="$(dirname $CURR_DIR)"
 
 echo "Checking input files"
-if [ ! -f "$TESTS_CONFIG" ]; then
+if [ ! -f "$CURR_DIR"/config/tests/"${TESTS_CONFIG}".sh ]; then
     echo "Configuration file does not exist: $TESTS_CONFIG"
     exit 1  
 fi
