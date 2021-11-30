@@ -293,19 +293,21 @@ echo "# Create env var related to the test image" >> "$CONFIG_FILE"
 if [ -n "$image_url" ]; then
     URL="$image_url"
 else
+    DEVICE=$device
     if [ "$ARCH" = amd64 ] || [ "$ARCH" = i386 ]; then
         IMAGE="pc.img.xz"
+        DEVICE=pc-"$ARCH"
     elif [ "$version" != 16 ] && [[ "$device" =~ pi* ]]; then
         IMAGE="pi.img.xz"
     else    
         IMAGE="${device}.img.xz"
     fi
     if [ "$image_channel" == "$core_channel" ]; then
-        URL=https://storage.googleapis.com/snapd-spread-tests/images/${device}-${version}-${image_channel}/$IMAGE
+        URL=https://storage.googleapis.com/snapd-spread-tests/images/${DEVICE}-${version}-${image_channel}/$IMAGE
     elif [ "$version" == 16 ]; then
-        URL=https://storage.googleapis.com/snapd-spread-tests/images/${device}-${version}-${image_channel}-core_${core_channel}/$IMAGE
+        URL=https://storage.googleapis.com/snapd-spread-tests/images/${DEVICE}-${version}-${image_channel}-core_${core_channel}/$IMAGE
     else
-        URL=https://storage.googleapis.com/snapd-spread-tests/images/${device}-${version}-${image_channel}-snapd_${core_channel}/$IMAGE
+        URL=https://storage.googleapis.com/snapd-spread-tests/images/${DEVICE}-${version}-${image_channel}-snapd_${core_channel}/$IMAGE
     fi
 fi
 if check_url "$URL"; then
