@@ -195,8 +195,6 @@ if [ -z "$branch" ]; then
 fi
 
 # Start creating the config file
-touch "$CONFIG_FILE"
-chmod +x "$CONFIG_FILE"
 echo "#!/bin/bash" >> "$CONFIG_FILE"
 echo "" >> "$CONFIG_FILE"
 
@@ -360,7 +358,7 @@ if ! "$CURR_DIR"/tools/check-env; then
     exit 1
 fi
 
-echo "Loading tests config: $CONFIG_FILE"
+echo "Loading tests config: $CONFIG_FILE and $CURR_DIR/config/tests/common.sh"
 . "$CONFIG_FILE"
 . "$CURR_DIR"/config/tests/common.sh
 
