@@ -1,5 +1,11 @@
 #!/bin/bash
 
+TF_JOB=$1
+
+if [ -z "$TF_JOB" ]; then
+    echo "Job file var cannot be empty"
+fi
+
 echo "Creating job for snapd using a device"
 
 if [ -z "$IMAGE_URL" ]; then
@@ -12,7 +18,7 @@ fi
 
 DEVICE_IP='$DEVICE_IP'
 
-cat > job.yaml <<EOF
+cat > "$TF_JOB" <<EOF
 job_queue: $DEVICE_QUEUE
 global_timeout: 50400
 provision_data:
@@ -24,13 +30,11 @@ test_data:
         sudo apt install -y git curl sshpass jq unzip
         git clone "$JOBS_URL"
         (cd "$JOBS_PROJECT" && git checkout "$JOBS_BRANCH")
-        "$JOBS_PROJECT"/validation/scripts/utils/get_project.sh "$SNAPD_URL" "$PROJECT" "$BRANCH" "$COMMIT"
+        "$JOBS_PROJECT"/validation/scripts/utils/get-project.sh "$SNAPD_URL" "$PROJECT" "$BRANCH" "$COMMIT"
         "$PROJECT"/tests/lib/external/prepare-ssh.sh "$DEVICE_IP" "$DEVICE_PORT" "$DEVICE_USER"
-        "$JOBS_PROJECT"/validation/scripts/utils/remote/add_root_key.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS"
+        "$JOBS_PROJECT"/validation/scripts/utils/remote/add-root-key.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS"
         "$JOBS_PROJECT"/validation/scripts/utils/remote/refresh.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS" "$CHANNEL" "$CORE_CHANNEL" "$SNAPD_CHANNEL"
-        "$JOBS_PROJECT"/validation/scripts/utils/register_device.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS" "$REGISTER_EMAIL"
-        "$JOBS_PROJECT"/validation/scripts/utils/get_spread.sh "$SPREAD_URL"
-        "$JOBS_PROJECT"/validation/scripts/utils/run_spread.sh "$DEVICE_IP" "$DEVICE_PORT" "$PROJECT" "$SPREAD_TESTS" "$SPREAD_ENV" "$SKIP_TESTS" "$SPREAD_PARAMS"
+        "$JOBS_PROJECT"/validation/scripts/utils/register-device.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS" "$REGISTER_EMAIL"
+        "$JOBS_PROJECT"/validation/scripts/utils/get-spread.sh "$SPREAD_URL"
+        "$JOBS_PROJECT"/validation/scripts/utils/run-spread.sh "$DEVICE_IP" "$DEVICE_PORT" "$PROJECT" "$SPREAD_TESTS" "$SPREAD_ENV" "$SKIP_TESTS" "$SPREAD_PARAMS"
 EOF
-
-export TF_JOB="$(pwd)/job.yaml"

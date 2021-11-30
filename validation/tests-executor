@@ -27,7 +27,7 @@ SUPPORTED_CHANNELS="edge beta candidate stable"
 SUPPORTED_VERSIONS="16 18 20"
 SUPPORTED_PROJECTS="cconf snapd"
 SUPPORTED_BRANCHES="edge beta candidate stable master <COMMIT>"
-CONFIG_FILE=config.test
+CONFIG_FILE=/tmp/config_test.sh
 PROJECT_DIR="$(find_dir snapd-testing)"
 
 show_help() {
@@ -362,5 +362,5 @@ echo "---"
 echo "Checking dependencies"
 "$PROJECT_DIR"/validation/check-env
 
-echo "Executing $PROJECT_DIR/validation/scripts/run_tests.sh $CONFIG_FILE"
-"$PROJECT_DIR"/validation/scripts/run_tests.sh "$CONFIG_FILE"
+echo "Executing $PROJECT_DIR/validation/scripts/run-tests.sh $CONFIG_FILE"
+"$PROJECT_DIR"/validation/scripts/run-tests.sh "$CONFIG_FILE"

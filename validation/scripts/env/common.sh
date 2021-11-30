@@ -19,7 +19,8 @@ export SPREAD_PARAMS=${SPREAD_PARAMS:-"-v"}
 
 # Testflinger confir
 export TF_CLIENT=${TF_CLIENT:-"/snap/bin/testflinger-cli"}
-export TF_DATA=${TF_DATA:-"/var/snap/testflinger-cli/current"}
+export TF_DATA=${TF_DATA:-"/var/snap/testflinger-cli/common"}
+export TF_JOB=${TF_JOB:-"tf_job.yaml"}
 
 # User/pass to access the device under test
 export DEVICE_USER=${DEVICE_USER:-"ubuntu"}

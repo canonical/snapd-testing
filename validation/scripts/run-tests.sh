@@ -32,22 +32,23 @@ fi
 
 case "$TESTS_BACKEND" in
     google)
-        . "$SCRIPTS_DIR/google/$PROJECT/run_google.sh"
+        . "$SCRIPTS_DIR/google/$PROJECT/run-google.sh"
         ;;
     testflinger)
         case "$TESTS_DEVICE" in
             device)
-                . "$SCRIPTS_DIR/test_flinger/$PROJECT/job_device.sh"
+                "$SCRIPTS_DIR"/test_flinger/"$PROJECT"/create-job-device.sh "$TF_JOB"
                 ;;
             vm)
-                . "$SCRIPTS_DIR/test_flinger/$PROJECT/job_vm.sh"
+                "$SCRIPTS_DIR"/test_flinger/"$PROJECT"/create-job-vm.sh "$TF_JOB"
                 ;;
             *)
                 echo "$TESTS_DEVICE not supported for testflinger"
                 exit 1  
                 ;;
         esac
-        . "$SCRIPTS_DIR/test_flinger/run_job.sh"
+        "$SCRIPTS_DIR"/test_flinger/run-job.sh "$TF_JOB"
+        rm -f "$TF_JOB"
         ;;
     *)
         echo "$TESTS_BACKEND not supported"

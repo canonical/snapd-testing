@@ -1,0 +1,18 @@
+job_queue: rpi4b4g
+global_timeout: 50400
+provision_data:
+    url: https://storage.googleapis.com/snapd-spread-tests/images/pi4-20-stable-snapd_beta/pi.img.xz
+test_data:
+    test_cmds: |
+        #!/bin/bash
+        sudo apt update || ps aux | grep apt
+        sudo apt install -y git curl sshpass jq unzip
+        git clone "https://github.com/snapcore/snapd-testing.git"
+        (cd "snapd-testing" && git checkout "master")
+        "snapd-testing"/validation/scripts/utils/get-project.sh "https://github.com/snapcore/snapd" "snapd" "beta" "HEAD"
+        "snapd"/tests/lib/external/prepare-ssh.sh "$DEVICE_IP" "22" "ubuntu"
+        "snapd-testing"/validation/scripts/utils/remote/add-root-key.sh "$DEVICE_IP" "22" "test" "ubuntu"
+        "snapd-testing"/validation/scripts/utils/remote/refresh.sh "$DEVICE_IP" "22" "test" "ubuntu" "stable" "beta" "beta"
+        "snapd-testing"/validation/scripts/utils/register-device.sh "$DEVICE_IP" "22" "test" "ubuntu" ""
+        "snapd-testing"/validation/scripts/utils/get-spread.sh "https://storage.googleapis.com/snapd-spread-tests/spread/spread-amd64.tar.gz"
+        "snapd-testing"/validation/scripts/utils/run-spread.sh "$DEVICE_IP" "22" "snapd" " external:ubuntu-core-20-arm-64:tests/smoke/" "" "" "-v"
