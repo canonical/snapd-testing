@@ -360,7 +360,7 @@ cat "$CONFIG_FILE"
 echo "---"
 
 echo "Checking dependencies"
-"$PROJECT_DIR"/validation/services/check-env
+"$PROJECT_DIR"/validation/check-env
 
 echo "Executing $PROJECT_DIR/validation/scripts/run_tests.sh $CONFIG_FILE"
 "$PROJECT_DIR"/validation/scripts/run_tests.sh "$CONFIG_FILE"

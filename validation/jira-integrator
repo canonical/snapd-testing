@@ -37,7 +37,7 @@ fi
 "${DIR}"/log-analyzer "$SPREAD_LOG" -pd error-debug -pr all | tee "$ERRORS_LOG"
 
 # Create card in jira
-"${DIR}"/jira-board-updater create -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --channel "$TARGET_CHANNEL" --config "${DIR}/data/${CONFIG}"
+"${DIR}"/jira-board-updater create -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --channel "$TARGET_CHANNEL" --config "${DIR}/config/jira/${CONFIG}"
 
 # Calculate the results to upload to jira
 # If "Successful tasks:" is found it means the spread execution was done
@@ -56,7 +56,7 @@ if [ -z "$RESULT" ]; then
 else
     "${DIR}"/jira-board-updater add-result -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" -n "$BOARD_UT" -a "$ARCH_UT" --summary "$SUMMARY_LOG" "$RESULT"
 fi
-"${DIR}"/jira-board-updater complete -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --config "${DIR}/data/${CONFIG}"
+"${DIR}"/jira-board-updater complete -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --config "${DIR}/config/jira/${CONFIG}"
 
 # Generate the reduced log and upload to jira as an attachment
 "${DIR}"/log-analyzer "$SPREAD_LOG" -c 200 --store-setup -pd all | tee "$ATTACH_LOG"

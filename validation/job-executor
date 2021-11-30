@@ -9,8 +9,8 @@ TESTS_SCRIPT=$4
 TESTS_CONFIG=$5
 WORKSPACE=$6
 
-if ! "$WORKSPACE"/snapd-testing/validation/services/check-env; then
-    echo "Error checking dependencies, please run "$WORKSPACE"/snapd-testing/validation/services/create-env script"
+if ! "$WORKSPACE"/snapd-testing/validation/check-env; then
+    echo "Error checking dependencies, please run "$WORKSPACE"/snapd-testing/validation/create-env script"
     exit 1
 fi
 
@@ -20,12 +20,12 @@ if [ ! "$PROJECT" ]; then
 fi
 
 # Load environment variables
-. "${WORKSPACE}/snapd-testing/validation/services/env/common.sh" "$WORKSPACE"
-if [ ! -f "${WORKSPACE}/snapd-testing/validation/services/env/${SERVICE_ENV}.sh" ]; then
+. "${WORKSPACE}/snapd-testing/validation/config/jobs/common.sh" "$WORKSPACE"
+if [ ! -f "${WORKSPACE}/snapd-testing/validation/config/jobs/${SERVICE_ENV}.sh" ]; then
     echo "configuration file does not exist, exiting"
     exit 1
 fi
-. "${WORKSPACE}/snapd-testing/validation/services/env/${SERVICE_ENV}.sh"
+. "${WORKSPACE}/snapd-testing/validation/config/jobs/${SERVICE_ENV}.sh"
 
 if [ -n "$HTTPS_PROXY" ]; then
     export HTTPS_PROXY=https://squid.internal:3128
