@@ -359,9 +359,8 @@ if ! "$CURR_DIR"/tools/check-env; then
 fi
 
 echo "Loading tests config: $CONFIG_FILE and $CURR_DIR/config/tests/common.sh"
-
-"$CONFIG_FILE"
-"$CURR_DIR"/config/tests/common.sh
+. "$CONFIG_FILE"
+. "$CURR_DIR"/config/tests/common.sh
 
 echo "Executing $PROJECT_DIR/validation/tests/run-tests.sh $CONFIG_FILE"
 "$CURR_DIR"/tests/run-tests.sh "$CONFIG_FILE"
