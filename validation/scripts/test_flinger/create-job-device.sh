@@ -10,7 +10,7 @@ echo "Creating job for snapd using a device"
 
 if [ -n "$DEVICE_DISTRO" ]; then
     PROVISION_METHOD="distro"
-    PROVISION_VAR="$DEVICE_DISTRO"}
+    PROVISION_VAR="$DEVICE_DISTRO"
 elif [ -n "$IMAGE_URL" ]; then
     PROVISION_METHOD="url"
     PROVISION_VAR="$IMAGE_URL"
