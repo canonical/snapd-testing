@@ -1,7 +1,10 @@
 #!/bin/sh
 
 export ARCH=${ARCH:-"armhf"}
+
 export PROJECT=${PROJECT:-"snapd"}
+export PROJECT_URL=${PROJECT_URL:-"https://github.com/snapcore/snapd.git"}
+
 export DEVICE_QUEUE=${DEVICE_QUEUE:-"rpi2"}
 
 export CHANNEL=${CHANNEL:-"stable"}

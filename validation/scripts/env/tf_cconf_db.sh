@@ -1,7 +1,10 @@
 #!/bin/sh
 
 export ARCH=${ARCH:-"armhf"}
+
 export PROJECT=${PROJECT:-"console-conf-tests"}
+export PROJECT_URL=${PROJECT_URL:-"https://github.com/sergiocazzolato/console-conf-tests.git"}
+
 export DEVICE_QUEUE=${DEVICE_QUEUE:-"dragonboard"}
 
 export CHANNEL=${CHANNEL:-"beta"}

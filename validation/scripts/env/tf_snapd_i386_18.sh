@@ -1,7 +1,10 @@
 #!/bin/sh
 
 export ARCH=${ARCH:-"i386"}
+
 export PROJECT=${PROJECT:-"snapd"}
+export PROJECT_URL=${PROJECT_URL:-"https://github.com/snapcore/snapd.git"}
+
 export DEVICE_QUEUE=${DEVICE_QUEUE:-"maas-x86-node"}
 export DEVICE_DISTRO=${DEVICE_DISTRO:-"bionic"}
 
