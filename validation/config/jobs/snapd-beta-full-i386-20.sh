@@ -1,7 +1,7 @@
 #!/bin/bash
 
-export SNAP_UT=snapd
-export ARCH_UT=i386
-export BOARD_UT=pc-i386-20
-export TARGET_CHANNEL=beta
-export JIRA_CONFIG=jira_card_snapd_beta.yaml
+SNAP_UT=snapd
+ARCH_UT=i386
+BOARD_UT=pc-i386-20
+TARGET_CHANNEL=beta
+JIRA_CONFIG=jira_card_snapd_beta.yaml

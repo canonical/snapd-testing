@@ -197,7 +197,7 @@ fi
 # Start creating the config file
 touch "$CONFIG_FILE"
 chmod +x "$CONFIG_FILE"
-echo "#!/bin/sh" >> "$CONFIG_FILE"
+echo "#!/bin/bash" >> "$CONFIG_FILE"
 echo "" >> "$CONFIG_FILE"
 
 echo "# Create env var related to the device" >> "$CONFIG_FILE"
@@ -361,9 +361,8 @@ if ! "$CURR_DIR"/tools/check-env; then
 fi
 
 echo "Loading tests config: $CONFIG_FILE"
-
-"$CONFIG_FILE"
-"$CURR_DIR"/config/tests/common.sh
+. "$CONFIG_FILE"
+. "$CURR_DIR"/config/tests/common.sh
 
 echo "Executing $PROJECT_DIR/validation/tests/run-tests.sh $CONFIG_FILE"
 "$CURR_DIR"/tests/run-tests.sh "$CONFIG_FILE"

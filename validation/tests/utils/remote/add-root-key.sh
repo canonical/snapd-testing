@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -ex
 
 INSTANCE_IP="${1:-localhost}"
