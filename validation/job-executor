@@ -44,7 +44,7 @@ echo "Loading job config: $CURR_DIR/config/jobs/$JOB_CONFIG.sh"
 . "$CURR_DIR"/config/jobs/common.sh
 
 echo "Running tests"
-"$CURR_DIR"/scripts/run-tests.sh | tee "$SPREAD_LOG"
+"$CURR_DIR"/tests/run-tests.sh | tee "$SPREAD_LOG"
 
 echo "Analyzing results and exis status"
 # Determining the exit status for the run
