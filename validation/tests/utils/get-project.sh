@@ -4,7 +4,8 @@ set -x
 PROJECT_URL=$1
 PROJECT_NAME=$2
 BRANCH=${3:-master}
-COMMIT=${4:-}
+ARCH=${4:-}
+COMMIT=${5:-}
 
 SNAPD_NAME=snapd
 SNAPD_ZIP="https://github.com/snapcore/snapd/archive/$BRANCH.zip"
