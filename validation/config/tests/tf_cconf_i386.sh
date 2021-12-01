@@ -6,6 +6,7 @@ export PROJECT=${PROJECT:-"console-conf-tests"}
 export PROJECT_URL=${PROJECT_URL:-"https://github.com/sergiocazzolato/console-conf-tests.git"}
 
 export DEVICE_QUEUE=${DEVICE_QUEUE:-"maas-x86-node"}
+export DEVICE_DISTRO=${DEVICE_DISTRO:-"bionic"}
 
 export CHANNEL=${CHANNEL:-"beta"}
 
