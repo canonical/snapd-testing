@@ -17,7 +17,8 @@ ATTACH_LOG=${10}
 # apt install -y python3-jira
 
 # Get current dir
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+VALIDATION_DIR="$(dirname $CURR_DIR)"
 
 # Exit in case important data is not defined
 if [ ! -s "$SPREAD_LOG" ]; then
@@ -31,13 +32,13 @@ if [ -z "$VERSION_UT" ] || [ -z "$REVISION_UT" ]; then
 fi
 
 # Generate the summary of the test execution
-"${DIR}"/log-analyzer "$SPREAD_LOG" -pr all | tee "$SUMMARY_LOG"
+"${CURR_DIR}"/log-analyzer "$SPREAD_LOG" -pr all | tee "$SUMMARY_LOG"
 
 # Generate the errors log of the test execution
-"${DIR}"/log-analyzer "$SPREAD_LOG" -pd error-debug -pr all | tee "$ERRORS_LOG"
+"${CURR_DIR}"/log-analyzer "$SPREAD_LOG" -pd error-debug -pr all | tee "$ERRORS_LOG"
 
 # Create card in jira
-"${DIR}"/jira-board-updater create -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --channel "$TARGET_CHANNEL" --config "${DIR}/config/jira/${CONFIG}"
+"${CURR_DIR}"/jira-board-updater create -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --channel "$TARGET_CHANNEL" --config "${VALIDATION_DIR}/config/jira/${CONFIG}"
 
 # Calculate the results to upload to jira
 # If "Successful tasks:" is found it means the spread execution was done
@@ -52,17 +53,17 @@ fi
 
 # Upload the results to jira
 if [ -z "$RESULT" ]; then
-    "${DIR}"/jira-board-updater add-result -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" -n "$BOARD_UT" -a "$ARCH_UT" --summary "$SUMMARY_LOG"
+    "${CURR_DIR}"/jira-board-updater add-result -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" -n "$BOARD_UT" -a "$ARCH_UT" --summary "$SUMMARY_LOG"
 else
-    "${DIR}"/jira-board-updater add-result -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" -n "$BOARD_UT" -a "$ARCH_UT" --summary "$SUMMARY_LOG" "$RESULT"
+    "${CURR_DIR}"/jira-board-updater add-result -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" -n "$BOARD_UT" -a "$ARCH_UT" --summary "$SUMMARY_LOG" "$RESULT"
 fi
-"${DIR}"/jira-board-updater complete -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --config "${DIR}/config/jira/${CONFIG}"
+"${CURR_DIR}"/jira-board-updater complete -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --config "${VALIDATION_DIR}/config/jira/${CONFIG}"
 
 # Generate the reduced log and upload to jira as an attachment
-"${DIR}"/log-analyzer "$SPREAD_LOG" -c 200 --store-setup -pd all | tee "$ATTACH_LOG"
+"${CURR_DIR}"/log-analyzer "$SPREAD_LOG" -c 200 --store-setup -pd all | tee "$ATTACH_LOG"
 attachment="${SNAP_UT}_${VERSION_UT}_${REVISION_UT}_${BOARD_UT}_${ARCH_UT}.log"
 if [ -s "$ATTACH_LOG" ]; then
-    "${DIR}"/jira-board-updater attach -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --name "$attachment" --file "$ATTACH_LOG"
+    "${CURR_DIR}"/jira-board-updater attach -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --name "$attachment" --file "$ATTACH_LOG"
 else
     echo "Attachment file is empty so it is not uploaded"
 fi
