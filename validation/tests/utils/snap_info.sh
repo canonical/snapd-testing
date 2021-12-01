@@ -42,16 +42,14 @@ get_edge_commit(){
     local snapd_vendor_commit
 
     git clone --bare -q https://git.launchpad.net/snapd-vendor
-    cd snapd-vendor.git || return
      
     last_updated=$(get_snap_last_updated "$ARCHITECTURE" core edge)
     if [ "$last_updated" = null ]; then
         echo "NULL"
     else
-        snapd_vendor_commit=$(git rev-list -n 1 --first-parent --before="$last_updated" master)
-        git log -n1 "$snapd_vendor_commit" | grep "Content updated" | sed -e "s|.*(\(.*\))|\1|"
+        snapd_vendor_commit=$(cd snapd-vendor.git && git rev-list -n 1 --first-parent --before="$last_updated" master)
+        (cd snapd-vendor.git && git log -n1 "$snapd_vendor_commit") | grep "Content updated" | sed -e "s|.*(\(.*\))|\1|"
     fi
 
-    cd .. || return
     rm -rf snapd-vendor.git
 }

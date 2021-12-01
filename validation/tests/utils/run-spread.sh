@@ -45,25 +45,30 @@ fi
 echo "Using spread $SPREAD"
 
 # Run spread
-cd $PROJECT_PATH
+if [ ! -d "$PROJECT_PATH" ]; then
+    echo "Project path does not exist: $PROJECT_PATH"
+    ls -al
+    exit 1
+fi
 
 echo "Moving to manual all the tests to skip: $SKIP_TESTS"
 tests_skip="$(echo $SKIP_TESTS | tr ',' ' ')"
 for test in $tests_skip; do
-    if [ -f $test/task.yaml ]; then
-        cp $test/task.yaml $test/task.yaml.back
-        echo "manual: true" >> $test/task.yaml
+    if [ -f "$PROJECT_PATH/$test/task.yaml" ]; then
+        cp "$PROJECT_PATH/$test/task.yaml" "$PROJECT_PATH/$test/task.yaml.back"
+        echo "manual: true" >> "$PROJECT_PATH/$test/task.yaml"
     fi
 done
 
 spread_params="$(echo $SPREAD_PARAMS | tr ',' ' ')"
 spread_tests="$(echo $SPREAD_TESTS | tr ',' ' ')"
+
 echo "Running command: spread $spread_params $spread_tests"
-"$SPREAD" $spread_params $spread_tests
+( cd "$PROJECT_PATH" && "$SPREAD" $spread_params $spread_tests )
 
 echo "Restoring skipped tests"
 for test in $tests_skip; do
-    if [ -f $test/task.yaml.back ]; then
-        mv $test/task.yaml.back $test/task.yaml
+    if [ -f "$PROJECT_PATH/$test/task.yaml.back" ]; then
+        mv "$PROJECT_PATH/$test/task.yaml.back" "$PROJECT_PATH/$test/task.yaml"
     fi
 done
