@@ -34,8 +34,8 @@ fi
 export SPREAD_EXTERNAL_ADDRESS=$DEVICE_IP:$DEVICE_PORT
 
 # Determine the spread location
-SPREAD=$(which spread)
-if [ -z "$SPREAD" ]]; then
+SPREAD="$(which spread)"
+if [ -z "$SPREAD" ]; then
     SPREAD="$(pwd)/spread"
     if [ ! -x "$SPREAD" ]; then
         echo "Spread not found"
