@@ -8,8 +8,8 @@ COMMIT=${4:-}
 
 SNAPD_NAME=snapd
 SNAPD_ZIP="https://github.com/snapcore/snapd/archive/$BRANCH.zip"
-CCONF_NAME=snapd-testing
-CCONF_ZIP="https://github.com/snapcore/snapd-testing/archive/$BRANCH.zip"
+CCONF_NAME=console-conf-tests
+CCONF_ZIP="https://github.com/sergiocazzolato/console-conf-tests/archive/$BRANCH.zip"
 JOBS_NAME=snapd-testing
 JOBS_ZIP="https://github.com/snapcore/snapd-testing/archive/$BRANCH.zip"
 
