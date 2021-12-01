@@ -11,7 +11,7 @@ if [ -f "$SPREAD_DIR/spread" ]; then
 else
     mkdir -p "$SPREAD_DIR"
     SPREAD_NAME="$(basename $SPREAD_URL)"
-    wget -P "$SPREAD_DIR" "$SPREAD_URL"
+    wget -q -P "$SPREAD_DIR" "$SPREAD_URL"
     if [[ "$SPREAD_NAME" =~ .*.tar.gz ]]; then
         ( cd "$SPREAD_DIR" && tar xzvf "$SPREAD_NAME" )
     elif [ "$SPREAD_NAME" != "spread" ]; then
