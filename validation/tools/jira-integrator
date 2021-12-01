@@ -32,10 +32,10 @@ if [ -z "$VERSION_UT" ] || [ -z "$REVISION_UT" ]; then
 fi
 
 # Generate the summary of the test execution
-"${CURR_DIR}"/log-analyzer "$SPREAD_LOG" -pr all | tee "$SUMMARY_LOG"
+"${CURR_DIR}"/log-analyzer "$SPREAD_LOG" -pr all > "$SUMMARY_LOG"
 
 # Generate the errors log of the test execution
-"${CURR_DIR}"/log-analyzer "$SPREAD_LOG" -pd error-debug -pr all | tee "$ERRORS_LOG"
+"${CURR_DIR}"/log-analyzer "$SPREAD_LOG" -pd error-debug -pr all > "$ERRORS_LOG"
 
 # Create card in jira
 "${CURR_DIR}"/jira-board-updater create -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --channel "$TARGET_CHANNEL" --config "${VALIDATION_DIR}/config/jira/${CONFIG}"
@@ -60,7 +60,7 @@ fi
 "${CURR_DIR}"/jira-board-updater complete -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --config "${VALIDATION_DIR}/config/jira/${CONFIG}"
 
 # Generate the reduced log and upload to jira as an attachment
-"${CURR_DIR}"/log-analyzer "$SPREAD_LOG" -c 200 --store-setup -pd all | tee "$ATTACH_LOG"
+"${CURR_DIR}"/log-analyzer "$SPREAD_LOG" -c 200 --store-setup -pd all > "$ATTACH_LOG"
 attachment="${SNAP_UT}_${VERSION_UT}_${REVISION_UT}_${BOARD_UT}_${ARCH_UT}.log"
 if [ -s "$ATTACH_LOG" ]; then
     "${CURR_DIR}"/jira-board-updater attach -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --name "$attachment" --file "$ATTACH_LOG"
