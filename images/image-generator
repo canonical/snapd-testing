@@ -474,7 +474,7 @@ class ImageProcessor:
             raise RuntimeError('Output dir does not exist')
 
         logging.info('Removing image: {}'.format(self.image.output_dir))
-        os.remove(self.image.output_dir)
+        os.rmdir(self.image.output_dir)
 
     def sync_image(self):
         dirname = os.path.basename(self.image.output_dir)
