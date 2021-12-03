@@ -481,7 +481,7 @@ class ImageProcessor:
         proxy = os.environ.get('HTTPS_PROXY','')
         gsutil_config = '-o GSUtil:parallel_composite_upload_threshold=2000M -o Boto:proxy={} -o Boto:proxy_port={}'.format(PROXY_HOST, PROXY_PORT)
 
-        line_delete = 'gsutil {} rm -r {}/{}'.format(gsutil_config, S3_BUCKET_NAME, dirname)
+        line_delete = 'gsutil {} rm -r -f {}/{}'.format(gsutil_config, S3_BUCKET_NAME, dirname)
         logging.info('Running command line: {}'.format(line_delete))
         subprocess.call(line_delete, shell=True, timeout=600)
 
