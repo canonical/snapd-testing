@@ -13,7 +13,7 @@ export SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
 
 export BRANCH=${BRANCH:-"beta"}
 
-export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-16-arm-32:tests/"}
+export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-16-arm-32:tests/smoke/"}
 
 export TESTS_BACKEND=testflinger
 export TESTS_DEVICE=device
