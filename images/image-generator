@@ -370,12 +370,6 @@ class Image:
         logging.info('Output dir used: {}'.format(output_dir))
         return output_dir        
 
-    def _find_in_output_dir(self):
-        images = glob.glob('{}/*{}'.format(self.output_dir, IMAGE_EXT))
-        images.extend(glob.glob('{}/*{}'.format(self.output_dir, COMPRESSION_EXT)))
-        if len(images) == 1:
-            return images[0]
-
     "This method is similar to __eq__ but it doesn't match the manifest"
 
     def match(self, other):
@@ -473,17 +467,21 @@ class ImageProcessor:
         if not os.path.isdir(self.image.output_dir):
             raise RuntimeError('Output dir does not exist')
 
-        image_path = self.image.get_image_already_created()
-        logging.info('Removing image: {}'.format(image_path))
-        os.remove(image_path)
+        logging.info('Removing image: {}'.format(self.image.output_dir))
+        os.remove(self.image.output_dir)
 
     def sync_image(self):
         dirname = os.path.basename(self.image.output_dir)
         proxy = os.environ.get('HTTPS_PROXY','')
         gsutil_config = '-o GSUtil:parallel_composite_upload_threshold=2000M -o Boto:proxy={} -o Boto:proxy_port={}'.format(PROXY_HOST, PROXY_PORT)
-        line = 'gsutil {} rsync -d -r {} {}/{}'.format(gsutil_config, self.image.output_dir, S3_BUCKET_NAME, dirname)
-        logging.info('Running command line: {}'.format(line))
-        subprocess.call(line, shell=True, timeout=600)
+
+        line_delete = 'gsutil {} rm -r {}/{}'.format(gsutil_config, S3_BUCKET_NAME, dirname)
+        logging.info('Running command line: {}'.format(line_delete))
+        subprocess.call(line_delete, shell=True, timeout=600)
+
+        line_cp = 'gsutil {} cp -r {} {}'.format(gsutil_config, self.image.output_dir, S3_BUCKET_NAME)
+        logging.info('Running command line: {}'.format(line_cp))
+        subprocess.call(line_cp, shell=True, timeout=600)
 
     def compress_image(self):
         image_path = self.image.get_image_already_created()
