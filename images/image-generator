@@ -370,6 +370,12 @@ class Image:
         logging.info('Output dir used: {}'.format(output_dir))
         return output_dir        
 
+    def _find_in_output_dir(self):
+        images = glob.glob('{}/*{}'.format(self.output_dir, IMAGE_EXT))
+        images.extend(glob.glob('{}/*{}'.format(self.output_dir, COMPRESSION_EXT)))
+        if len(images) == 1:
+            return images[0]
+
     "This method is similar to __eq__ but it doesn't match the manifest"
 
     def match(self, other):
