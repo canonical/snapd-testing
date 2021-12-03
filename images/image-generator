@@ -394,11 +394,8 @@ class Image:
 
     def get_remote_revision(self, snap):
         if not self.remote_manifest:
-            try:
-                manifest_url = '{}/{}/{}'.format(S3_PUBLIC_URL, self.get_image_name(), 'seed.manifest')
-                self.remote_manifest = ImageManifest(manifest_url=manifest_url)                
-            except:
-                return None
+            manifest_url = '{}/{}/{}'.format(S3_PUBLIC_URL, self.get_image_name(), 'seed.manifest')
+            self.remote_manifest = ImageManifest(manifest_url=manifest_url)                
 
         return self.remote_manifest.get_snap_revision(snap)
 
