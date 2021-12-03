@@ -24,7 +24,6 @@ IMAGE_EXT = '.img'
 COMPRESSION_EXT = '.img.xz'
 SEED_MANIFEST_FILE = 'seed.manifest'
 IMAGE_SETS_FILE = 'image_sets.json'
-IMAGE_DB_FILE = 'image_db.json'
 IMAGES_TAG = 'images'
 
 PROXY_PROTOCOL = 'http'
@@ -519,23 +518,11 @@ class ImageProcessor:
 This class creates a list of images
 """
 class ImagesManager:
-    def __init__(self, images_db_data):
-        self.images_db_data = []
-        for image in images_db_data:
-            self.images_db_data.append(Image(image))
-
-    def _get_image_from_db(self, image):
-        for image_db in self.images_db_data:
-            if image_db.match(image):
-                return image_db
+    def __init__(self):
+        pass
 
     def is_new_image_needed(self, image):
         logging.info('Checking if new image is needed')
-
-        manifest = image.manifest
-        if not manifest or manifest.empty():
-            logging.info('Manifest empty, new image is needed')
-            return True
 
         for trigger in image.triggers:
             trigger_snap = trigger.snap
@@ -547,38 +534,27 @@ class ImagesManager:
                 logging.error('Failed to get snap revision from store for snap {}'.format(trigger_snap))
                 return True
 
-            snap_revision_remote = None
             try:
                 snap_revision_remote = image.get_remote_revision(trigger_snap)
             except Exception:
                 logging.warning('Snap revision could not be found in remote manifest')
+                return True
             
-            # The revision uploaded to the bucket is the primary one, in case it cannot be retrieved, the local one is used
-            if snap_revision_remote:
-                snap_revision = snap_revision_remote
-                logging.info('Revision for snap: {}, obtained from remote manifest: {}'.format(trigger_snap, snap_revision))
-            else:
-                snap_revision = manifest.get_snap_revision(trigger_snap)
-                logging.info('Revision for snap: {}, obtained from local manifest: {}'.format(trigger_snap, snap_revision))
-
-            if not snap_revision or snap_revision_store > snap_revision:
+            if snap_revision_store > snap_revision_remote:
                 logging.info('Revision for snap {} on store is higher {} than in manifest {}'.format(
-                    trigger_snap, snap_revision_store, snap_revision))
+                    trigger_snap, snap_revision_store, snap_revision_remote))
                 return True
 
         logging.info('New image is not needed')
         return False
 
-    def _create(self, images):
+    def create_images(self, images):
         created_images = []
         for image in images:
             logging.info('Starting with image: {}'.format(image))
 
-            image_db = self._get_image_from_db(image)
-            if image_db and image_db.is_image_dir_created() and not self.is_new_image_needed(image_db):
-                logging.info('No image needed for image: {}'.format(image_db))
-                image_db.save_image()
-                created_images.append(image_db)
+            if not self.is_new_image_needed(image):
+                logging.info('No image needed for image: {}'.format(image))
                 continue
 
             processor = ImageProcessor(image)
@@ -596,35 +572,9 @@ class ImagesManager:
 
         return created_images
 
-    def create_images(self, images):
-        return self._create(images)
-
 
 class ImageFiles:
     
-    @staticmethod
-    def write_db(images):
-        images_dict = []
-        for image in images:
-            images_dict.append(image.__dict__())
-
-        full_dict = {
-            IMAGES_TAG: images_dict
-        }
-        if not images:
-            logging.warning('No images to update in db')
-
-        logging.info('Saving images to db: {}'.format(full_dict))    
-        with open(IMAGE_DB_FILE, 'w') as json_file:
-            json.dump(full_dict, json_file)
-
-    @staticmethod
-    def read_images_db():
-        images_db = ImageFiles._read_db(IMAGES_TAG)
-        if not images_db:
-            return []
-        return images_db
-
     @staticmethod
     def read_images_set():
         return ImageFiles._read_sets(IMAGES_TAG)
@@ -639,18 +589,6 @@ class ImageFiles:
             
             if not tag in data.keys():
                 raise RuntimeError('Tag {} not found on file: {}'.format(tag, IMAGE_SETS_FILE))
-
-            return data.get(tag)
-
-    @staticmethod
-    def _read_db(tag):
-        if not os.path.exists(IMAGE_DB_FILE):
-            return
-
-        with open(IMAGE_DB_FILE) as json_file:  
-            data = json.load(json_file)
-            if not tag in data.keys():
-                raise RuntimeError('Tag {} not found on file: {}'.format(tag, IMAGE_DB_FILE))
 
             return data.get(tag)
 
@@ -673,17 +611,20 @@ class ProcessManager:
         return count > 1
 
 
-def process_images_db():
+def process_images():
     images_sets_manager = ImageSetManager(ImageFiles.read_images_set())
-    images_manager = ImagesManager(ImageFiles.read_images_db())
+    images_manager = ImagesManager()
 
     # Create the images
     all_images = images_sets_manager.get_all_images()
     used_images = images_manager.create_images(all_images)
 
-    # Save images to db
-    ImageFiles.write_db(used_images)
-
+    if used_images:
+        logging.info("Images created:")
+        logging.info(used_images)
+    else:
+        logging.info("No images created")
+    
 
 def process_image_cli(version, channel, platform, snaps):
     image_def = {}
@@ -784,4 +725,4 @@ if __name__ == "__main__":
             parser.exit(0)
         process_image_cli(ns.version, ns.channel, ns.platform, ns.snap)
     else:
-        process_images_db()
+        process_images()
