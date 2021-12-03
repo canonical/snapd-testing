@@ -26,7 +26,6 @@ SEED_MANIFEST_FILE = 'seed.manifest'
 IMAGE_SETS_FILE = 'image_sets.json'
 IMAGE_DB_FILE = 'image_db.json'
 IMAGES_TAG = 'images'
-METADATA_TAG = 'metadata'
 
 PROXY_PROTOCOL = 'http'
 PROXY_HOST = 'squid.internal'
@@ -515,13 +514,6 @@ class ImageProcessor:
 
         return self.image
 
-    def process_metadata(self):
-        self.create_image()
-        self.delete_image()
-        self.sync_image()
-
-        return self.image
-
 
 """
 This class creates a list of images
@@ -577,7 +569,7 @@ class ImagesManager:
         logging.info('New image is not needed')
         return False
 
-    def _create(self, images, is_metadata=False):
+    def _create(self, images):
         created_images = []
         for image in images:
             logging.info('Starting with image: {}'.format(image))
@@ -591,10 +583,7 @@ class ImagesManager:
 
             processor = ImageProcessor(image)
             try:
-                if is_metadata:
-                    image_new = processor.process_metadata()
-                else:
-                    image_new = processor.process_image()
+                image_new = processor.process_image()
             except Exception:
                 logging.error('Image {} could not be processed correctly'.format(image))
                 continue
@@ -608,34 +597,24 @@ class ImagesManager:
         return created_images
 
     def create_images(self, images):
-        return self._create(images, is_metadata=False)
-
-    def create_metadata(self, images):
-        return self._create(images, is_metadata=True)
+        return self._create(images)
 
 
 class ImageFiles:
     
     @staticmethod
-    def write_db(images, metadata):
+    def write_db(images):
         images_dict = []
         for image in images:
             images_dict.append(image.__dict__())
 
-        metadata_dict = []
-        for image in metadata:
-            metadata_dict.append(image.__dict__())
-
         full_dict = {
-            IMAGES_TAG: images_dict,
-            METADATA_TAG: metadata_dict
+            IMAGES_TAG: images_dict
         }
         if not images:
             logging.warning('No images to update in db')
-        if not metadata:
-            logging.warning('No metadata to update in db')
 
-        logging.info('Saving to images and metadata to db: {}'.format(full_dict))    
+        logging.info('Saving images to db: {}'.format(full_dict))    
         with open(IMAGE_DB_FILE, 'w') as json_file:
             json.dump(full_dict, json_file)
 
@@ -647,19 +626,8 @@ class ImageFiles:
         return images_db
 
     @staticmethod
-    def read_metadata_db():
-        metadata_db = ImageFiles._read_db(METADATA_TAG)
-        if not metadata_db:
-            return []
-        return metadata_db
-
-    @staticmethod
     def read_images_set():
         return ImageFiles._read_sets(IMAGES_TAG)
-
-    @staticmethod
-    def read_metadata_set():
-        return ImageFiles._read_sets(METADATA_TAG)
 
     @staticmethod
     def _read_sets(tag):
@@ -709,19 +677,12 @@ def process_images_db():
     images_sets_manager = ImageSetManager(ImageFiles.read_images_set())
     images_manager = ImagesManager(ImageFiles.read_images_db())
 
-    metadata_sets_manager = ImageSetManager(ImageFiles.read_metadata_set())
-    metadata_manager = ImagesManager(ImageFiles.read_metadata_db())
-
-    # Create the images and update their metadata
+    # Create the images
     all_images = images_sets_manager.get_all_images()
     used_images = images_manager.create_images(all_images)
 
-    # Update just the metadata for images which don't require image file
-    all_metadata = metadata_sets_manager.get_all_images()
-    used_metadata = metadata_manager.create_metadata(all_metadata)
-
-    # Save all the metadata to db
-    ImageFiles.write_db(used_images, used_metadata)
+    # Save images to db
+    ImageFiles.write_db(used_images)
 
 
 def process_image_cli(version, channel, platform, snaps):
