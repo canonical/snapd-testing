@@ -336,11 +336,10 @@ echo "" >> "$CONFIG_FILE"
 
 echo "# Create env var related to the project and branch" >> "$CONFIG_FILE"
 echo "export PROJECT=$project" >> "$CONFIG_FILE"
-if [ -n "$project_url" ] && [ "$project" = "snapd" ]; then
-    echo "export SNAPD_URL=$project_url" >> "$CONFIG_FILE"
-elif [ -n "$project_url" ] && [ "$project" = "cconf" ]; then
-    echo "export CCONF_URL=$project_url" >> "$CONFIG_FILE"
+if [ -z "$project_url" ]; then
+    project_url=default
 fi
+echo "export PROJECT_URL=$project_url" >> "$CONFIG_FILE"
 echo "export BRANCH=$branch" >> "$CONFIG_FILE"  
 echo "" >> "$CONFIG_FILE"
 

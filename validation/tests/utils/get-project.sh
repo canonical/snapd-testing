@@ -37,9 +37,7 @@ echo "Using branch $BRANCH for project $PROJECT_NAME"
 if [ -d "$PROJECT_NAME" ]; then
     ( cd "$PROJECT_NAME" && git reset --hard origin && git fetch origin && git checkout "$BRANCH" && git pull )
 else
-    if [ -n "$PROJECT_URL" ] && [ ! "$PROJECT_URL" = 'default' ] ; then
-        git clone --branch "$BRANCH" --progress "$PROJECT_URL" "$PROJECT_NAME"
-    else
+    if [ -z "$PROJECT_URL" ] || [ "$PROJECT_URL" = 'default' ]; then 
         if [ "$PROJECT_NAME" == "$SNAPD_NAME" ]; then
             wget -q "$SNAPD_ZIP"
         elif [ "$PROJECT_NAME" == "$CCONF_NAME" ]; then
@@ -54,6 +52,8 @@ else
         unzip -q "$BRANCH.zip"
         mv "$PROJECT_NAME"-"$BRANCH" "$PROJECT_NAME"
         rm -f "$BRANCH.zip"
+    else
+        git clone --branch "$BRANCH" --progress "$PROJECT_URL" "$PROJECT_NAME"
     fi
 fi
 
