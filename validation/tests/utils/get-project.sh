@@ -7,13 +7,6 @@ BRANCH=${3:-master}
 ARCH=${4:-}
 COMMIT=${5:-}
 
-SNAPD_NAME=snapd
-SNAPD_ZIP="https://github.com/snapcore/snapd/archive/$BRANCH.zip"
-CCONF_NAME=console-conf-tests
-CCONF_ZIP="https://github.com/sergiocazzolato/console-conf-tests/archive/$BRANCH.zip"
-JOBS_NAME=snapd-testing
-JOBS_ZIP="https://github.com/snapcore/snapd-testing/archive/$BRANCH.zip"
-
 if [ -z "$PROJECT_NAME" ]; then
     echo "Project name cannot be empty, exiting..."
     exit 1
@@ -33,6 +26,14 @@ if [ "$BRANCH" = beta ] || [ "$BRANCH" = edge ]; then
     fi
 fi
 echo "Using branch $BRANCH for project $PROJECT_NAME"
+
+echo "Getting project from the defined url"
+SNAPD_NAME=snapd
+SNAPD_ZIP="https://github.com/snapcore/snapd/archive/$BRANCH.zip"
+CCONF_NAME=console-conf-tests
+CCONF_ZIP="https://github.com/sergiocazzolato/console-conf-tests/archive/$BRANCH.zip"
+JOBS_NAME=snapd-testing
+JOBS_ZIP="https://github.com/snapcore/snapd-testing/archive/$BRANCH.zip"
 
 if [ -d "$PROJECT_NAME" ]; then
     ( cd "$PROJECT_NAME" && git reset --hard origin && git fetch origin && git checkout "$BRANCH" && git pull )
