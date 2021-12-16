@@ -115,16 +115,19 @@ def get_client(access_token, access_token_secret, key_cert):
         server=JIRA_URL)
 
 
-def get_pattern(snap, version, rev):
+def get_pattern(snap, version='', rev=''):
     if rev:
         pattern = '{}_-_{}_-_({})'.format(
             snap,
             version,
             rev)
-    else:
+    elif version:
         pattern = '{}_-_{}'.format(
             snap,
             version)
+    else:
+        pattern = '{}_-_'.format(snap)
+
     return pattern
 
 
@@ -134,9 +137,8 @@ def _get_all_cards(client):
 def _search_cards(client, query):
     return client.search_issues("project = {} AND summary ~ '{}'".format(PROJECT_ID, query))
 
-def _search_cards_on_list(lane, query):
+def _search_cards_on_list(client, query, lane):
     return client.search_issues("project = {} AND summary ~ '{}' AND status = {}".format(PROJECT_ID, query, lane))
-
 
 def search(client, snap, version, revision=None):
     pattern = get_pattern(snap, version, revision)
@@ -150,6 +152,15 @@ def search(client, snap, version, revision=None):
     card = cards[0] 
     print('card found: {}'.format(card))
     return card
+
+def search_by_key(client, key):
+    cards = client.search_issues("project = {} AND key = '{}'".format(PROJECT_ID, key))
+    if not cards:
+        print('error: card not found')
+        return None
+    
+    print('card found: {}'.format(cards[0]))
+    return cards[0]
 
 
 def show(client, snap, version, revision=None):
@@ -178,9 +189,9 @@ def show(client, snap, version, revision=None):
     print(card.fields.customfield_10038)
 
 
-def search_on_list(lane, snap, version, revision=None):
+def search_on_list(client, lane, snap, version, revision=None):
     pattern = get_pattern(snap, version, revision)
-    card = _search_cards_on_list(lane, pattern)
+    card = _search_cards_on_list(client, pattern, lane)
     if card:
         print('card found: {}'.format(card.fields.summary))
     return card
@@ -217,7 +228,7 @@ def create(client, snap, version, revision, channel, configfile):
 
 def create_sru(client, package, version, srulist, configfile):
     config = _load_config(configfile)
-    card = search_on_list(srulist, package, version)
+    card = search_on_list(client, srulist, package, version)
     if card:
         print('info:card already exists')
         return
@@ -602,8 +613,8 @@ def auto_clean(client, configfile):
             print("last activity: {}s".format(last_activity_seconds))
 
 
-def _get_snap_info_by_channel(snapname, arch=DEFAULT_ARCH):
-    response = requests.get("https://api.snapcraft.io/v2/snaps/info/{}".format(snapname), 
+def _get_snap_info_by_channel(snap, arch=DEFAULT_ARCH):
+    response = requests.get("https://api.snapcraft.io/v2/snaps/info/{}".format(snap), 
         headers={'Snap-Device-Architecture': 'amd64', 'Snap-Device-Series': '16', 'Content-Type': 'application/json'})
     
     snap_info = {}
@@ -616,10 +627,23 @@ def _get_snap_info_by_channel(snapname, arch=DEFAULT_ARCH):
 
     return snap_info
 
+def _get_cards_info_by_channel(client, snap, channel):
+    pattern = get_pattern(snap)
+    cards = _search_cards_on_list(client, pattern, channel)
+    cards_info = {}
+    for card in cards:
+        key = card.key
+        summary = card.fields.summary
+        # Card summary pattern -> '{snap} - {version} - ({revision})'
+        ver = summary[summary.find("-")+2:summary.find("(")-3]
+        rev = summary[summary.find("(")+1:summary.find(")")]
+        cards_info[key] = {'snap': snap, 'version': ver, 'revision': rev, 'channel': channel}
+    return cards_info
 
 def auto_move(client, configfile):
     config = _load_config(configfile)
     snaps_auto_move = config.get('snaps-auto-move', {})
+    archive_list_name = config.get('archive-list')
 
     movements = {}
     moved_cards = []
@@ -627,6 +651,8 @@ def auto_move(client, configfile):
         print('-'*10)
 
         snap_channels_info = _get_snap_info_by_channel(snap)
+
+        # Archiving cards when snaps have been promoted to a different channel
         for channel in reversed(SUPPORTED_CHANNELS):
             print('Checking snap: {} on channel {}'.format(snap, channel))
             channel_info = snap_channels_info.get(channel, {})
@@ -653,6 +679,24 @@ def auto_move(client, configfile):
             else:
                 print('card {} previously moved, skipping...'.format(card.key))
 
+        # Archiving card no longer in the channel
+        for channel in reversed(SUPPORTED_CHANNELS):
+            cards_info = _get_cards_info_by_channel(client, snap, channel)
+
+            channel_info = snap_channels_info.get(channel, {})
+            if not channel_info:
+                print('No version and revision detected')
+                continue
+
+            store_revision = channel_info.get('revision')
+
+            for card_key, card_info in cards_info.items():
+                card_revision = card_info['revision']
+                if not int(store_revision) == int(card_revision):
+                    print('On card {} there is a revision missmatch'.format(card_key))
+                    print('For channel {}, the snap {} has revision {} in the store and {} in the board'.format(channel, snap, store_revision, card_revision))
+                    card = search_by_key(client, card_key)
+                    _move_card(client, card, archive_list_name)
 
 def main():
     parser = _make_parser()
