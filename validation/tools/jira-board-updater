@@ -652,7 +652,7 @@ def auto_move(client, configfile):
 
         snap_channels_info = _get_snap_info_by_channel(snap)
 
-        # Archiving cards when snaps have been promoted to a different channel
+        print('Moving cards when snaps have been promoted to a different channel')
         for channel in reversed(SUPPORTED_CHANNELS):
             print('Checking snap: {} on channel {}'.format(snap, channel))
             channel_info = snap_channels_info.get(channel, {})
@@ -679,7 +679,7 @@ def auto_move(client, configfile):
             else:
                 print('card {} previously moved, skipping...'.format(card.key))
 
-        # Archiving card no longer in the channel
+        print('Archiving cards no longer in the channel')
         for channel in reversed(SUPPORTED_CHANNELS):
             cards_info = _get_cards_info_by_channel(client, snap, channel)
 
