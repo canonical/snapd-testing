@@ -108,7 +108,6 @@ class Snap:
             raise RuntimeError('Error requesting the snap revision: {}'.format(response.text))
 
         revision = response.json().get('revision')
-        logging.info('Revision requested for snap: {}, channel: {} and arch: {} is: {}'.format(self.name, self.channel, arch, revision))
         if Snap.check_name_and_revision(self.name, revision):
             return int(revision)
 
