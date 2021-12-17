@@ -14,7 +14,7 @@ export SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
 export BRANCH=${BRANCH:-"beta"}
 
 export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-18-arm-32:tests/"}
-export SKIP_TESTS=${SKIP_TESTS:-"tests/main/interfaces-many-snap-provided,tests/main/interfaces-many-core-provided"}
+export SKIP_TESTS=${SKIP_TESTS:-"tests/main/interfaces-many-snap-provided,tests/main/interfaces-many-core-provided,tests/main/remodel,tests/main/remodel-base,tests/main/remodel-gadget,tests/main/remodel-kernel"}
 
 export TESTS_BACKEND=testflinger
 export TESTS_DEVICE=device
