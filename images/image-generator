@@ -534,17 +534,18 @@ class ImagesManager:
 
             try:
                 snap_revision_store = trigger_snap.find_revision(Architecture.from_platform(image.platform))
-                logging.info('Revision for snap: {}, obtained from Store: {}'.format(trigger_snap, snap_revision_store))
+                logging.info('Revision for snap: {}, obtained from store: {}'.format(trigger_snap, snap_revision_store))
             except Exception:
                 logging.error('Failed to get snap revision from store for snap {}'.format(trigger_snap))
                 return True
 
             try:
                 snap_revision_remote = image.get_remote_revision(trigger_snap)
+                logging.info('Revision for snap: {}, obtained from gce storage: {}'.format(trigger_snap, snap_revision_remote))
             except Exception:
                 logging.warning('Snap revision could not be found in remote manifest')
                 return True
-            
+
             if snap_revision_store > snap_revision_remote:
                 logging.info('Revision for snap {} on store is higher {} than in manifest {}'.format(
                     trigger_snap, snap_revision_store, snap_revision_remote))
