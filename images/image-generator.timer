@@ -7,4 +7,4 @@ Unit=image-generator.service
 Persistent=false
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=timers.target
