@@ -18,6 +18,7 @@ from jira.exceptions import JIRAError
 JIRA_URL = 'https://warthogs.atlassian.net'
 PROJECT_ID = 'ST'
 SUPPORTED_CHANNELS = ['edge', 'beta', 'candidate', 'stable']
+SRU_CHANNEL = 'sru'
 DEFAULT_ARCH = 'amd64'
 
 def _make_parser():
@@ -239,8 +240,9 @@ def create_sru(client, package, version, srulist, configfile):
         print('error:card cannot be created')
         return
 
-    print('info:card created {}'.format(card.name))
+    print('info:card created {}'.format(card.key))
     _configure_card(card, config)
+    _move_card(client, card, SRU_CHANNEL)
 
 
 def get_checklist_item(client, snap, version, revision, title, item):
@@ -269,9 +271,9 @@ def get_checklist_item(client, snap, version, revision, title, item):
 def _move_card(client, card, channel):
     transitions = client.transitions(card.key)
     for transition in transitions:
-        if transition.get('name') == channel.capitalize():
+        if transition.get('name').capitalize() == channel.capitalize():
             client.transition_issue(card, transition.get('id'))
-            print('card {} moved to list: {}'.format(card.key, channel.capitalize()))
+            print('card {} moved to list: {}'.format(card.key, transition.get('name')))
             return
 
     print('error:channel not found')

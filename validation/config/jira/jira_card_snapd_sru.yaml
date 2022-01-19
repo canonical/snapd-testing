@@ -12,6 +12,10 @@ checklists:
           default: false
         - name: Hirsute - https://people.canonical.com/~ubuntu-archive/proposed-migration/hirsute/update_excuses.html#snapd
           default: false
+        - name: Impish - https://people.canonical.com/~ubuntu-archive/proposed-migration/impish/update_excuses.html#snapd
+          default: false
+        - name: Jammy - https://people.canonical.com/~ubuntu-archive/proposed-migration/jammy/update_excuses.html#snapd
+          default: false
     Manual checks:
         - name: Review changelog
           default: false
@@ -26,10 +30,18 @@ checklists:
           default: false
         - name: Hirsute
           default: false
+        - name: Impish
+          default: false
+        - name: Jammy
+          default: false
     Manual tests:
         - name: Bionic
           default: false
         - name: Focal
           default: false
         - name: Hirsute
+          default: false
+        - name: Impish
+          default: false
+        - name: Jammy
           default: false
