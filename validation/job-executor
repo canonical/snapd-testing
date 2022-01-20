@@ -52,7 +52,7 @@ echo "Analyzing results and exis status"
 if grep -e "Successful tasks:" "$SPREAD_LOG"; then
     # For edge cahnnel, a successful run is when all the tests have pass
     if [ "$TARGET_CHANNEL" = edge ]; then
-        if grep -e "Failed tasks:" "$SPREAD_LOG" && ! grep -e "Aborted tasks: 0" "$SPREAD_LOG"; then
+        if grep -e "Failed task" "$SPREAD_LOG" && ! grep -e "Aborted tasks: 0" "$SPREAD_LOG"; then
             echo "Execution finished and either not spread results included in log or there are failed/aborted tests in the logs"
             EXIT_STATUS=1
         else
