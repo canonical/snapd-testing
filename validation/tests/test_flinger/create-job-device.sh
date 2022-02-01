@@ -37,7 +37,7 @@ test_data:
         "$PROJECT"/tests/lib/external/prepare-ssh.sh "$DEVICE_IP" "$DEVICE_PORT" "$DEVICE_USER"
         "$JOBS_PROJECT"/validation/tests/utils/remote/add-root-key.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS"
         "$JOBS_PROJECT"/validation/tests/utils/remote/refresh.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS" "$CHANNEL" "$CORE_CHANNEL" "$SNAPD_CHANNEL"
-        #"$JOBS_PROJECT"/validation/tests/utils/register-device.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS" "$REGISTER_EMAIL"
+        "$JOBS_PROJECT"/validation/tests/utils/register-device.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS" "$REGISTER_EMAIL"
         "$JOBS_PROJECT"/validation/tests/utils/get-spread.sh "$SPREAD_URL"
         "$JOBS_PROJECT"/validation/tests/utils/run-spread.sh "$DEVICE_IP" "$DEVICE_PORT" "$PROJECT" "$SPREAD_TESTS" "$SPREAD_ENV" "$SKIP_TESTS" "$SPREAD_PARAMS"
 EOF
