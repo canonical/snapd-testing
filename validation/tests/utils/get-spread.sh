@@ -13,7 +13,8 @@ else
     SPREAD_NAME="$(basename $SPREAD_URL)"
     wget -q -P "$SPREAD_DIR" "$SPREAD_URL"
     if [[ "$SPREAD_NAME" =~ .*.tar.gz ]]; then
-        ( cd "$SPREAD_DIR" && tar xzvf "$SPREAD_NAME" )
+        SPREAD_EXEC=$(cd "$SPREAD_DIR" && tar xzvf "$SPREAD_NAME")
+        mv "$SPREAD_DIR/$SPREAD_EXEC" "$SPREAD_DIR/spread"
     elif [ "$SPREAD_NAME" != "spread" ]; then
         mv "$SPREAD_DIR/$SPREAD_NAME" "$SPREAD_DIR/spread"
     fi
