@@ -358,9 +358,9 @@ class Image:
             set(self.snaps) == set(other.snaps)
 
     def get_image_name(self):
-        name = '{}-{}-{}'.format(self.platform, self.version, self.channel)
+        name = '{}-{}-{}'.format(self.platform, self.version, self.channel.replace('/', '~'))
         for snap in self.snaps:
-            name = '{}-{}_{}'.format(name, snap.name, snap.channel)
+            name = '{}-{}_{}'.format(name, snap.name, snap.channel.replace('/', '~'))
         return name
 
     def _get_output_dir(self):
@@ -456,7 +456,7 @@ class ImageProcessor:
         image_option = self.get_image_options()
         snaps_option = self.get_snap_options()
         
-        line = "/snap/bin/ubuntu-image {} {} -c {} -O {} ./models/{}-{}.model".format(
+        line = "/snap/bin/ubuntu-image snap {} {} -c {} -O {} ./models/{}-{}.model".format(
             image_option, snaps_option, 
             self.image.channel, self.image.output_dir, 
             self.image.platform, self.image.version)
@@ -479,10 +479,13 @@ class ImageProcessor:
             logging.error('Failed to delete image dir {}'.format(self.image.output_dir))
 
 
-    def sync_image(self):
+    def sync_image(self, proxy_host, proxy_port):
         dirname = os.path.basename(self.image.output_dir)
         proxy = os.environ.get('HTTPS_PROXY','')
-        gsutil_config = '-o GSUtil:parallel_composite_upload_threshold=2000M -o Boto:proxy={} -o Boto:proxy_port={}'.format(PROXY_HOST, PROXY_PORT)
+        if proxy_host and proxy_port:
+            gsutil_config = '-o GSUtil:parallel_composite_upload_threshold=2000M -o Boto:proxy={} -o Boto:proxy_port={}'.format(proxy_host, proxy_port)
+        else:
+            gsutil_config = '-o GSUtil:parallel_composite_upload_threshold=2000M'
 
         line_delete = 'gsutil {} rm -r -f {}/{}'.format(gsutil_config, S3_BUCKET_NAME, dirname)
         logging.info('Running command line: {}'.format(line_delete))
@@ -509,10 +512,10 @@ class ImageProcessor:
         if not os.path.exists('{}.xz'.format(image_path)):
             raise RuntimeError('Image file with compression has not been created')
 
-    def process_image(self):
+    def process_image(self, proxy_host="", proxy_port=""):
         self.create_image()
         self.compress_image()
-        self.sync_image()
+        self.sync_image(proxy_host, proxy_port)
         self.delete_image()
 
         return self.image
@@ -564,7 +567,7 @@ class ImagesManager:
 
             processor = ImageProcessor(image)
             try:
-                image_new = processor.process_image()
+                image_new = processor.process_image(proxy_host=PROXY_HOST, proxy_port=PROXY_PORT)
             except Exception:
                 logging.error('Image {} could not be processed correctly'.format(image))
                 continue
@@ -631,7 +634,7 @@ def process_images():
         logging.info("No images created")
     
 
-def process_image_cli(version, channel, platform, snaps):
+def process_image_cli(version, channel, platform, snaps, publish, proxy_host, proxy_port):
     image_def = {}
     image_def['version'] = version
     image_def['channel'] = channel
@@ -655,7 +658,10 @@ def process_image_cli(version, channel, platform, snaps):
     image = Image(image_def)
     processor = ImageProcessor(image)
     try:
-        image_new = processor.process_image()
+        if publish:
+            image_new = processor.process_image(proxy_host, proxy_port)
+        else:
+            image_new = processor.create_image()
     except Exception:
         logging.error('Image {} could not be processed correctly'.format(image))
         sys.exit(1)
@@ -709,6 +715,26 @@ Generate an ubuntu core image using the desired parameters
         default=[],
         help="Snap to be used to build the image",
     )
+    parser.add_argument(
+        "--publish",
+        action="store_true",
+        help="Indicate if the image has to be published to gce bucket",
+    )
+    parser.add_argument(
+        "--proxy-host",
+        metavar='PROXY_HOST',
+        default='',
+        type=str,
+        help="proxy url used to connect to gce bucket",
+    )
+    parser.add_argument(
+        "--proxy-port",
+        metavar='PROXY_PORT',
+        default='',
+        type=str,
+        help="proxy port used to connect to gce bucket",
+    )
+
     return parser
 
 
@@ -728,6 +754,6 @@ if __name__ == "__main__":
             logging.error('Version, Channel and platform are needed as parameter to manually trigger an image build')
             parser.print_usage()
             parser.exit(0)
-        process_image_cli(ns.version, ns.channel, ns.platform, ns.snap)
+        process_image_cli(ns.version, ns.channel, ns.platform, ns.snap, ns.publish, ns.proxy_host, ns.proxy_port)
     else:
         process_images()
