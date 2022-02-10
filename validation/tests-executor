@@ -221,7 +221,7 @@ case "$device" in
         ;;
     pi4)
         ARCH=arm64
-        DEVICE_QUEUE=rpi4b4g
+        DEVICE_QUEUE=rpi4b8g
         ;;
     cm3)
         ARCH=armhf
