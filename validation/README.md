@@ -50,8 +50,8 @@ It is possible to use older images too to validate the refresh scenario.
 
 #### Core 16
 
-    amd64: sudo kvm -snapshot -smp 2 -m 1500 -net nic,model=virtio -net user,hostfwd=tcp::8022-:22 -nographic -serial mon:stdio <PATH_TO_VM_IMAGE>
-    i386: sudo kvm -snapshot -smp 2 -m 1500 -net nic,model=virtio -net user,hostfwd=tcp::8023-:22 -nographic -serial mon:stdio <PATH_TO_VM_IMAGE>
+    amd64: sudo kvm -snapshot -smp 2 -m 1500 -net nic,model=virtio -net user,hostfwd=tcp::8022-:22 -serial mon:stdio <PATH_TO_VM_IMAGE>
+    i386: sudo kvm -snapshot -smp 2 -m 1500 -net nic,model=virtio -net user,hostfwd=tcp::8023-:22 -serial mon:stdio <PATH_TO_VM_IMAGE>
 
 #### Core 18
 
