@@ -246,7 +246,7 @@ echo "export DEVICE_QUEUE=$DEVICE_QUEUE" >> "$CONFIG_FILE"
 echo "export TESTS_DEVICE=$TESTS_DEVICE" >> "$CONFIG_FILE"
 if [ "$TESTS_DEVICE" = "vm" ]; then
     if [ "$version" = 16 ]; then
-        echo "export DEVICE_DISTRO=xenial" >> "$CONFIG_FILE"
+        echo "export DEVICE_DISTRO=bionic" >> "$CONFIG_FILE"
     elif [ "$version" = 18 ]; then
         echo "export DEVICE_DISTRO=bionic" >> "$CONFIG_FILE"
     else
