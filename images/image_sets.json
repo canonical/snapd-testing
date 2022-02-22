@@ -188,6 +188,27 @@
                }
             }
          ]
+      },
+      {
+         "version":22,
+         "channel":"stable",
+         "snaps":[
+            {
+               "name":"snapd",
+               "channel":"edge"
+            }
+         ],
+         "platforms":[
+            "pc-amd64"
+         ],
+         "triggers":[
+            {
+               "snap":{
+                  "name":"snapd",
+                  "channel":"edge"
+               }
+            }
+         ]
       }
    ]
 }
