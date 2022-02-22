@@ -15,7 +15,7 @@ check_url() {
 
 SUPPORTED_DEVICES="amd64 i386 pi2 pi3 pi4 cm3 nuc dragonboard"
 SUPPORTED_CHANNELS="edge beta candidate stable"
-SUPPORTED_VERSIONS="16 18 20"
+SUPPORTED_VERSIONS="16 18 20 22"
 SUPPORTED_PROJECTS="cconf snapd"
 SUPPORTED_BRANCHES="edge beta candidate stable master <COMMIT>"
 CONFIG_FILE=/tmp/config_test.sh
@@ -249,8 +249,10 @@ if [ "$TESTS_DEVICE" = "vm" ]; then
         echo "export DEVICE_DISTRO=xenial" >> "$CONFIG_FILE"
     elif [ "$version" = 18 ]; then
         echo "export DEVICE_DISTRO=bionic" >> "$CONFIG_FILE"
-    else
+    elif [ "$version" = 20 ]; then
         echo "export DEVICE_DISTRO=focal" >> "$CONFIG_FILE"
+    else
+        echo "export DEVICE_DISTRO=jammy" >> "$CONFIG_FILE"
     fi
 fi
 echo "" >> "$CONFIG_FILE"
