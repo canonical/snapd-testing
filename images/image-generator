@@ -18,7 +18,7 @@ S3_BUCKET_NAME = 'gs://snapd-spread-tests/images'
 S3_PUBLIC_URL = 'https://storage.googleapis.com/snapd-spread-tests/images'
 SUPPORTED_PLATFORMS = ['dragonboard','pc-amd64','pc-i386','pi4','pi3','pi2']
 SUPPORTED_CHANNELS = ['edge', 'beta', 'candidate', 'stable']
-SUPPORTED_VERSIONS = [16, 18, 20]
+SUPPORTED_VERSIONS = [16, 18, 20, 22]
 
 IMAGE_EXT = '.img'
 COMPRESSION_EXT = '.img.xz'
