@@ -16,7 +16,7 @@ In this section it is explained how to run beta validation by using this project
 By running the following lines, the script will create the images for beta validation for all the supported devices.
 
     git clone https://github.com/snapcore/snapd-testing.git
-    cd images
+    cd snapd-testing/images
     sudo ./create.sh beta <core-number> <snaps-by-channel> <extra-snaps> <models>
 
 with
@@ -123,6 +123,19 @@ Some examples
 
     # Run all the console-conf tests for amd64 on uc16
     ./validation/tests-executor --image-channel stable --core-channel beta --device amd64 --version 16 --project cconf
+
+##### Testing an unreleased branch
+
+It is also possible to run the tests on a specific branch, even if it hasn't been released into a channel yet:
+
+    # Checkout the example branch from the https://github.com/user/snapd.git fork
+    ./validation/tests-executor --image-channel stable --core-channel beta --device pi4 --version 20 \
+        --branch example --project-url https://github.com/user/snapd.git
+
+    # This can also be combined with the --tests option described above:
+    ./validation/tests-executor --image-channel stable --core-channel beta --device pi4 --version 20 \
+        --branch example2 --project-url https://github.com/user/snapd.git \
+        --tests tests/main/interface-example2
 
 ### SRU validation
 
