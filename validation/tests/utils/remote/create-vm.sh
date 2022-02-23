@@ -140,7 +140,7 @@ get_qemu_for_nested_vm(){
 ensure_vmimage_size() {
     # set a minimum size of 8gb
     local image_file="$1"
-    local minimum_size=8*1024*1024*1024
+    local minimum_size=$((8*1024*1024*1024))
     local actual_size=$(stat -c %s "$image_file")
     if [ $actual_size -lt $minimum_size ]; then
         echo "Image size is too small, resizing to 8gb"
