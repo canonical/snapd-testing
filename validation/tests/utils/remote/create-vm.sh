@@ -165,9 +165,8 @@ if [[ "$IMAGE_URL" == *.img.xz ]]; then
     else
         wget -q -O "$WORK_DIR/ubuntu-core.img.xz" "$IMAGE_URL"
     fi
-    
+
     unxz "$WORK_DIR/ubuntu-core.img.xz"
-    ensure_vmimage_size "$WORK_DIR/ubuntu-core.img"
 
 elif [[ "$IMAGE_URL" == *.img ]]; then
     if [ -f "$IMAGE_URL" ]; then
@@ -179,6 +178,10 @@ else
     echo "Image extension not supported, exiting..."
     exit 1
 fi
+
+# to support the cdimages we need to ensure they are 
+# expanded, as they come in 4gb flavors.
+ensure_vmimage_size "$WORK_DIR/ubuntu-core.img"
 
 if test "$(lsb_release -cs)" = focal; then
     snap install swtpm-mvo --beta
