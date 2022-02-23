@@ -4,7 +4,7 @@ set -x
 echo "Creating vm"
 
 echo "installing nested dependencies"
-sudo apt install -y qemu qemu-utils genisoimage sshpass qemu-kvm cloud-image-utils ovmf kpartx git unzip
+sudo apt install -y qemu qemu-utils genisoimage sshpass qemu-kvm cloud-image-utils ovmf kpartx git unzip gdisk
 
 echo "installing snapd"
 sudo apt update
@@ -137,6 +137,21 @@ get_qemu_for_nested_vm(){
     esac
 }
 
+ensure_vmimage_size() {
+    # set a minimum size of 8gb
+    local image_file="$1"
+    local minimum_size=8*1024*1024*1024
+    local actual_size=$(stat -c %s "$image_file")
+    if [ $actual_size -lt $minimum_size ]; then
+        echo "Image size is too small, resizing to 8gb"
+        qemu-img resize "$image_file" 8G
+
+        # TODO: workaround in place to ensure that the GPT header is correct
+        # (see PR https://github.com/snapcore/snapd/pull/11394)
+        printf "w\nY\nY\nq\n" | gdisk "$WORK_DIR/ubuntu-core.img"
+    fi
+}
+
 export PORT=8022
 export WORK_DIR=/tmp/work-dir
 export QEMU=$(get_qemu_for_nested_vm)
@@ -150,7 +165,10 @@ if [[ "$IMAGE_URL" == *.img.xz ]]; then
     else
         wget -q -O "$WORK_DIR/ubuntu-core.img.xz" "$IMAGE_URL"
     fi
+    
     unxz "$WORK_DIR/ubuntu-core.img.xz"
+    ensure_vmimage_size "$WORK_DIR/ubuntu-core.img"
+
 elif [[ "$IMAGE_URL" == *.img ]]; then
     if [ -f "$IMAGE_URL" ]; then
         cp "$IMAGE_URL" "$WORK_DIR/ubuntu-core.img"
