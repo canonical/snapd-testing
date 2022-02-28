@@ -24,7 +24,7 @@ execute_remote(){
 }
 
 wait_for_ssh(){
-    retry=150
+    retry=200
     while ! execute_remote true; do
         retry=$(( retry - 1 ))
         if [ $retry -le 0 ]; then
@@ -147,7 +147,8 @@ ensure_vmimage_size() {
         qemu-img resize "$image_file" 8G
 
         # TODO: workaround in place to ensure that the GPT header is correct
-        # (see PR https://github.com/snapcore/snapd/pull/11394)
+        # (see PR https://github.com/snapcore/snapd/pull/11394), maybe remove this
+        # once this has been merged?
         printf "w\nY\nY\nq\n" | gdisk "$WORK_DIR/ubuntu-core.img"
     fi
 }
@@ -165,9 +166,7 @@ if [[ "$IMAGE_URL" == *.img.xz ]]; then
     else
         wget -q -O "$WORK_DIR/ubuntu-core.img.xz" "$IMAGE_URL"
     fi
-
     unxz "$WORK_DIR/ubuntu-core.img.xz"
-
 elif [[ "$IMAGE_URL" == *.img ]]; then
     if [ -f "$IMAGE_URL" ]; then
         cp "$IMAGE_URL" "$WORK_DIR/ubuntu-core.img"
