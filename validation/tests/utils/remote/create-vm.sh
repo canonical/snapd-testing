@@ -4,7 +4,7 @@ set -x
 echo "Creating vm"
 
 echo "installing nested dependencies"
-sudo apt install -y qemu qemu-utils genisoimage sshpass qemu-kvm cloud-image-utils ovmf kpartx git unzip
+sudo apt install -y qemu qemu-utils genisoimage sshpass qemu-kvm cloud-image-utils ovmf kpartx git unzip gdisk
 
 echo "installing snapd"
 sudo apt update
@@ -24,7 +24,7 @@ execute_remote(){
 }
 
 wait_for_ssh(){
-    retry=150
+    retry=200
     while ! execute_remote true; do
         retry=$(( retry - 1 ))
         if [ $retry -le 0 ]; then
@@ -137,6 +137,22 @@ get_qemu_for_nested_vm(){
     esac
 }
 
+ensure_vmimage_size() {
+    # set a minimum size of 8gb
+    local image_file="$1"
+    local minimum_size=$((8*1024*1024*1024))
+    local actual_size=$(stat -c %s "$image_file")
+    if [ $actual_size -lt $minimum_size ]; then
+        echo "Image size is too small, resizing to 8gb"
+        qemu-img resize "$image_file" 8G
+
+        # TODO: workaround in place to ensure that the GPT header is correct
+        # (see PR https://github.com/snapcore/snapd/pull/11394), maybe remove this
+        # once this has been merged?
+        printf "w\nY\nY\nq\n" | gdisk "$WORK_DIR/ubuntu-core.img"
+    fi
+}
+
 export PORT=8022
 export WORK_DIR=/tmp/work-dir
 export QEMU=$(get_qemu_for_nested_vm)
@@ -161,6 +177,10 @@ else
     echo "Image extension not supported, exiting..."
     exit 1
 fi
+
+# to support the cdimages we need to ensure they are 
+# expanded, as they come in 4gb flavors.
+ensure_vmimage_size "$WORK_DIR/ubuntu-core.img"
 
 if test "$(lsb_release -cs)" = focal; then
     snap install swtpm-mvo --beta
