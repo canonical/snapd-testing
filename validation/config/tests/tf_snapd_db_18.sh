@@ -8,7 +8,7 @@ export PROJECT_URL=${PROJECT_URL:-"https://github.com/snapcore/snapd.git"}
 export DEVICE_QUEUE=${DEVICE_QUEUE:-"dragonboard"}
 
 export CHANNEL=${CHANNEL:-"stable"}
-export CORE_CHANNEL=${CORE_CHANNEL:-"beta"}
+export CORE_CHANNEL=${CORE_CHANNEL:-"stable"}
 export SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
 
 export BRANCH=${BRANCH:-"beta"}

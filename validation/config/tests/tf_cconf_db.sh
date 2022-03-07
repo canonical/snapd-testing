@@ -8,6 +8,8 @@ export PROJECT_URL=${PROJECT_URL:-"https://github.com/sergiocazzolato/console-co
 export DEVICE_QUEUE=${DEVICE_QUEUE:-"dragonboard"}
 
 export CHANNEL=${CHANNEL:-"beta"}
+export CORE_CHANNEL=${CORE_CHANNEL:-"beta"}
+export SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
 
 export BRANCH=${BRANCH:-"master"}
 
