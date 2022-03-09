@@ -391,10 +391,13 @@ class Image:
         if os.path.isdir(self.output_dir):
             return self._find_in_output_dir()
 
+    def get_manifest_url(self)
+        return '{}/{}/{}'.format(S3_PUBLIC_URL, self.get_image_name(), 'seed.manifest')
+
     def get_remote_revision(self, snap):
         if not self.remote_manifest:
-            manifest_url = '{}/{}/{}'.format(S3_PUBLIC_URL, self.get_image_name(), 'seed.manifest')
-            self.remote_manifest = ImageManifest(manifest_url=manifest_url)                
+            manifest_url = self.get_manifest_url()
+            self.remote_manifest = ImageManifest(manifest_url=manifest_url)
 
         return self.remote_manifest.get_snap_revision(snap)
 
@@ -416,6 +419,35 @@ class Image:
         logging.info('Saving to image info: {}'.format(image_file))
         with open(image_file, 'w+') as json_file:
             json.dump(self.__dict__(), json_file)
+
+
+    def is_new_image_needed(self):
+        logging.info('Checking if new image is needed')
+
+        for trigger in self.triggers:
+            trigger_snap = trigger.snap
+
+            try:
+                snap_revision_store = trigger_snap.find_revision(Architecture.from_platform(self.platform))
+                logging.info('Revision for snap: {}, obtained from store: {}'.format(trigger_snap, snap_revision_store))
+            except Exception:
+                logging.error('Failed to get snap revision from store for snap {}'.format(trigger_snap))
+                return True
+
+            try:
+                snap_revision_remote = self.get_remote_revision(trigger_snap)
+                logging.info('Revision for snap: {}, obtained from gce storage: {}'.format(trigger_snap, snap_revision_remote))
+            except Exception:
+                logging.warning('Snap revision could not be found in remote manifest')
+                return True
+
+            if snap_revision_store > snap_revision_remote:
+                logging.info('Revision for snap {} on store is higher {} than in manifest {}'.format(
+                    trigger_snap, snap_revision_store, snap_revision_remote))
+                return True
+
+        logging.info('New image is not needed')
+        return False
 
 
 """
@@ -449,6 +481,7 @@ class ImageProcessor:
     def create_image(self):
         # Clean the output dir
         if os.path.isdir(self.image.output_dir):
+            logging.info('Regenerating output dir: {}'.format(self.image.output_dir))
             shutil.rmtree(self.image.output_dir)
             os.mkdir(self.image.output_dir)
 
@@ -466,6 +499,43 @@ class ImageProcessor:
 
         self.image.read_manifest()
         self.image.save_image()
+
+    def _check_trigger(self, trigger_snap):
+        logging.info('Checking revisions for snap {}'.format(trigger_snap.name))
+            
+        # Get remote revision
+        remote_rev = ImageManifest(manifest_url=self.image.get_manifest_url()).get_snap_revision(trigger_snap)
+
+        # Get store revision
+        store_rev = trigger_snap.find_revision(Architecture.from_platform(self.image.platform))
+
+        # Get image revision
+        image_rev = self.image.manifest.get_snap_revision(trigger_snap)
+
+        if not image_rev == store_rev:
+            logging.info("Revision from the image manifest '{}' is different of the the revision from the store '{}'".format(image_rev, store_rev))
+            return False
+
+        if not image_rev > remote_rev:
+            logging.info("Revision from the image '{}' is not higher than revision from remote manifest'{}'".format(image_rev, remote_rev))
+            return False                
+
+        return True
+
+
+    def check_image(self):
+        if not os.path.isdir(self.image.output_dir):
+            raise RuntimeError('Output dir for the image to check does not exist: {}'.format(self.image.output_dir))
+
+        manifest = self.image.manifest
+        for trigger in self.image.triggers:
+            if self._check_trigger(trigger.snap):
+                logging.info("Check for trigger snap '{}' passed".format(trigger.snap.name))
+                return True
+            
+        logging.error("Check for triggers failed")
+        return False
+
 
     def delete_image(self):
         # Clean the output dir
@@ -514,11 +584,18 @@ class ImageProcessor:
 
     def process_image(self, proxy_host="", proxy_port=""):
         self.create_image()
-        self.compress_image()
-        self.sync_image(proxy_host, proxy_port)
+
+        checked = self.check_image():
+        if checked:
+            self.compress_image()
+            self.sync_image(proxy_host, proxy_port)
+
         self.delete_image()
 
-        return self.image
+        if checked:
+            return self.image
+
+        return None
 
 
 """
@@ -528,40 +605,12 @@ class ImagesManager:
     def __init__(self):
         pass
 
-    def is_new_image_needed(self, image):
-        logging.info('Checking if new image is needed')
-
-        for trigger in image.triggers:
-            trigger_snap = trigger.snap
-
-            try:
-                snap_revision_store = trigger_snap.find_revision(Architecture.from_platform(image.platform))
-                logging.info('Revision for snap: {}, obtained from store: {}'.format(trigger_snap, snap_revision_store))
-            except Exception:
-                logging.error('Failed to get snap revision from store for snap {}'.format(trigger_snap))
-                return True
-
-            try:
-                snap_revision_remote = image.get_remote_revision(trigger_snap)
-                logging.info('Revision for snap: {}, obtained from gce storage: {}'.format(trigger_snap, snap_revision_remote))
-            except Exception:
-                logging.warning('Snap revision could not be found in remote manifest')
-                return True
-
-            if snap_revision_store > snap_revision_remote:
-                logging.info('Revision for snap {} on store is higher {} than in manifest {}'.format(
-                    trigger_snap, snap_revision_store, snap_revision_remote))
-                return True
-
-        logging.info('New image is not needed')
-        return False
-
     def create_images(self, images):
         created_images = []
         for image in images:
             logging.info('Starting with image: {}'.format(image))
 
-            if not self.is_new_image_needed(image):
+            if not image.is_new_image_needed():
                 logging.info('No image needed for image: {}'.format(image))
                 continue
 
