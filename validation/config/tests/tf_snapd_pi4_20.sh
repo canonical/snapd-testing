@@ -5,7 +5,7 @@ export ARCH=${ARCH:-"arm64"}
 export PROJECT=${PROJECT:-"snapd"}
 export PROJECT_URL=${PROJECT_URL:-"https://github.com/snapcore/snapd.git"}
 
-export DEVICE_QUEUE=${DEVICE_QUEUE:-"rpi4b4g"}
+export DEVICE_QUEUE=${DEVICE_QUEUE:-"rpi4b8g"}
 
 export CHANNEL=${CHANNEL:-"stable"}
 export CORE_CHANNEL=${CORE_CHANNEL:-"stable"}
