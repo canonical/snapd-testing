@@ -506,14 +506,14 @@ class ImageProcessor:
         # Get store revision
         try:
             store_rev = trigger_snap.find_revision(Architecture.from_platform(self.image.platform))
-        except RuntimeError:
+        except:
             logging.warning("Revision from the store couldn't be retrieved, skiping checks")
             return False
 
         # Get remote revision
         try:
             remote_rev = ImageManifest(manifest_url=self.image.get_manifest_url()).get_snap_revision(trigger_snap)
-        except RuntimeError:
+        except:
             logging.warning("Revision from the remote manifes couldn't be retrieved, skiping checks for this rev")
             return True
 
