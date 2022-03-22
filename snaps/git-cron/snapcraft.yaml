@@ -1,5 +1,5 @@
 name: git-cron
-version: '1.0.0'
+version: '1.1.1'
 summary: Basic support for launching git-cron jobs
 base: core20
 confinement: strict
@@ -32,6 +32,13 @@ apps:
         command: bin/cron
         daemon: simple
         plugs: [network]
+        passthrough:
+            # Run every 15 minutes
+            timer: 0:00-24:00/96
+
+layout:
+  /etc/wgetrc:
+    bind-file: $SNAP_DATA/etc/wgetrc
 
 parts:
     git:
