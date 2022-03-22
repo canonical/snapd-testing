@@ -511,12 +511,11 @@ class ImageProcessor:
             return False
 
         # Get remote revision
-        skip_remote_check = False
         try:
             remote_rev = ImageManifest(manifest_url=self.image.get_manifest_url()).get_snap_revision(trigger_snap)
         except RuntimeError:
             logging.warning("Revision from the remote manifes couldn't be retrieved, skiping checks for this rev")
-            skip_remote_check = True
+            return True
 
         # Get image revision
         image_rev = self.image.manifest.get_snap_revision(trigger_snap)
@@ -525,7 +524,7 @@ class ImageProcessor:
             logging.info("Revision from the image manifest '{}' is different of the the revision from the store '{}'".format(image_rev, store_rev))
             return False
 
-        if not skip_remote_check and not image_rev > remote_rev:
+        if not image_rev > remote_rev:
             logging.info("Revision from the image '{}' is not higher than revision from remote manifest'{}'".format(image_rev, remote_rev))
             return False                
 
