@@ -199,8 +199,6 @@
             }
          ],
          "platforms":[
-            "pi3",
-            "pi4",
             "pc-amd64"
          ],
          "triggers":[
@@ -222,8 +220,6 @@
             }
          ],
          "platforms":[
-            "pi3",
-            "pi4",
             "pc-amd64"
          ],
          "triggers":[
