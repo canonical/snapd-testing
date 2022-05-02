@@ -33,7 +33,7 @@ test_data:
         sudo apt install -y git curl sshpass jq unzip
         git clone "$JOBS_URL"
         (cd "$JOBS_PROJECT" && git checkout "$JOBS_BRANCH")
-        "$JOBS_PROJECT"/validation/tests/utils/get-project.sh "$PROJECT_URL" "$PROJECT" "$BRANCH" "$VERSION" $ARCH" "$COMMIT"
+        "$JOBS_PROJECT"/validation/tests/utils/get-project.sh "$PROJECT_URL" "$PROJECT" "$BRANCH" "$VERSION" "$ARCH" "$COMMIT"
         "$PROJECT"/tests/lib/external/prepare-ssh.sh "$DEVICE_IP" "$DEVICE_PORT" "$DEVICE_USER" || sleep 15 && "$PROJECT"/tests/lib/external/prepare-ssh.sh "$DEVICE_IP" "$DEVICE_PORT" "$DEVICE_USER"
         "$JOBS_PROJECT"/validation/tests/utils/remote/add-root-key.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS"
         "$JOBS_PROJECT"/validation/tests/utils/remote/refresh.sh "$DEVICE_IP" "$DEVICE_PORT" "$TEST_USER" "$TEST_PASS" "$CHANNEL" "$CORE_CHANNEL" "$SNAPD_CHANNEL"
