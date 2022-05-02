@@ -22,7 +22,7 @@ CONFIG_FILE=/tmp/config_test.sh
 CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 show_help() {
-    echo "usage: tests-executor --image-channel <channel> --device <arch> --version <ver> [--branch <branch>] [--core-channel <channel>] [--snapd-channel <channel>] [--image-url <image>] [--project <project>] [--project-url <url>] [--tests <tests>] [--skip-tests <tests>] [--spread-url <url>] [--spread-params <params>]"
+    echo "usage: tests-executor --image-channel <channel> --device <arch> --version <ver> [--branch <branch>] [--core-channel <channel>] [--snapd-channel <channel>] [--skip-refresh] [--image-url <image>] [--project <project>] [--project-url <url>] [--tests <tests>] [--skip-tests <tests>] [--spread-url <url>] [--spread-params <params>]"
     echo ""
     echo "Notes about the parametes"
     echo ""
@@ -35,6 +35,7 @@ show_help() {
     echo "--image-channel -> is the channel used to build the image"
     echo "--core-channel -> is the channel used to build the core snap"
     echo "--snapd-channel -> is the channel used to build the snapd snap"
+    echo "--skip-refresh -> skip snap refresh once the image is booted"
     echo "--branch -> is the branch used to run the tests"
     echo "         -> default: master"
     echo "--tests -> not include backend:system in tests format"
@@ -80,6 +81,10 @@ while [ $# -gt 0 ]; do
         --snapd-channel)
             snapd_channel="$2"
             shift 2
+            ;;
+        --skip-refresh)
+            skip_refresh=true
+            shift 1
             ;;
         --device)
             device="$2"
@@ -157,6 +162,10 @@ elif ! $(contains "$snapd_channel" "$SUPPORTED_CHANNELS"); then
     eecho "Channel $snapd_channel for snapd not supported"
     show_help
     exit 1
+fi
+
+if [ -z "$skip_refresh" ]; then
+    skip_refresh=false
 fi
 
 # Validate Device
@@ -297,10 +306,12 @@ fi
 echo "" >> "$CONFIG_FILE"
 
 
-echo "# Create env var related to the channel and image" >> "$CONFIG_FILE"
+echo "# Create env var related to the channel, version and image" >> "$CONFIG_FILE"
 echo "export CHANNEL=$image_channel" >> "$CONFIG_FILE"
 echo "export CORE_CHANNEL=$core_channel" >> "$CONFIG_FILE"
 echo "export SNAPD_CHANNEL=$snapd_channel" >> "$CONFIG_FILE"
+echo "export SKIP_REFRESH=$skip_refresh" >> "$CONFIG_FILE"
+echo "export VERSION=uc$version" >> "$CONFIG_FILE"
 echo "" >> "$CONFIG_FILE"
 
 
