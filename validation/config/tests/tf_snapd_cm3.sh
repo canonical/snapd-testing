@@ -12,6 +12,7 @@ export CORE_CHANNEL=${CORE_CHANNEL:-"beta"}
 export SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
 
 export BRANCH=${BRANCH:-"beta"}
+export VERSION=${VERSION:-"uc16"}
 
 export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-16-arm-32:tests/smoke/"}
 

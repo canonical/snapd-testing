@@ -13,6 +13,7 @@ export CORE_CHANNEL=${CORE_CHANNEL:-"stable"}
 export SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
 
 export BRANCH=${BRANCH:-"beta"}
+export VERSION=${VERSION:-"uc20"}
 
 export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-20-32"}
 export SKIP_TESTS=${SKIP_TESTS:-"tests/main/interfaces-many-snap-provided,tests/main/interfaces-many-core-provided"}

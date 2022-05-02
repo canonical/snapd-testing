@@ -13,6 +13,7 @@ export CORE_CHANNEL=${CORE_CHANNEL:-"beta"}
 export SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
 
 export BRANCH=${BRANCH:-"beta"}
+export VERSION=${VERSION:-"uc16"}
 
 export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-16-64"}
 export SKIP_TESTS=${SKIP_TESTS:-"tests/main/interfaces-many-snap-provided,tests/main/interfaces-many-core-provided,tests/core/failover"}

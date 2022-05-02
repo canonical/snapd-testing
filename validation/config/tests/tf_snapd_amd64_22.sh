@@ -13,6 +13,7 @@ export CORE_CHANNEL=${CORE_CHANNEL:-"stable"}
 export SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
 
 export BRANCH=${BRANCH:-"beta"}
+export VERSION=${VERSION:-"uc22"}
 
 export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-22-64"}
 export SKIP_TESTS=${SKIP_TESTS:-""}

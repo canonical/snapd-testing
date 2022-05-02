@@ -23,9 +23,10 @@ get_snap_last_updated(){
 }
 
 get_beta_branch(){
-    local ARCHITECTURE=$1
+    local SNAP=$1
+    local ARCHITECTURE=$2
     local version
-    version=$(get_snap_version "$ARCHITECTURE" core beta)
+    version=$(get_snap_version "$ARCHITECTURE" "$SNAP" beta)
 
     if git ls-remote --tags https://github.com/snapcore/snapd.git "$version" | grep -q "$version"; then
         echo "$version"
@@ -37,13 +38,14 @@ get_beta_branch(){
 }
 
 get_edge_commit(){
-    local ARCHITECTURE=$1
+    local SNAP=$1
+    local ARCHITECTURE=$2
     local last_updated
     local snapd_vendor_commit
 
     git clone --bare -q https://git.launchpad.net/snapd-vendor
      
-    last_updated=$(get_snap_last_updated "$ARCHITECTURE" core edge)
+    last_updated=$(get_snap_last_updated "$ARCHITECTURE" "$SNAP" edge)
     if [ "$last_updated" = null ]; then
         echo "NULL"
     else

@@ -4,8 +4,9 @@ set -x
 PROJECT_URL=$1
 PROJECT_NAME=$2
 BRANCH=${3:-master}
-ARCH=${4:-}
-COMMIT=${5:-}
+VERSION=${4:-uc16}
+ARCH=${5:-}
+COMMIT=${6:-}
 
 if [ -z "$PROJECT_NAME" ]; then
     echo "Project name cannot be empty, exiting..."
@@ -17,12 +18,17 @@ if [ "$BRANCH" = beta ] || [ "$BRANCH" = edge ]; then
     CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
     . "$CURR_DIR/snap_info.sh"
 
+    SNAP=core
+    if [ "$VERSION" != 'uc16' ]; then
+        SNAP=snapd
+    fi
+
     if [ "$BRANCH" = beta ]; then
         echo "Getting beta branch, remember that it just works for snapd and core snaps testing"
-        BRANCH=$(get_beta_branch "$ARCH")
+        BRANCH=$(get_beta_branch "$SNAP" "$ARCH")
     elif [ "$BRANCH" = edge ]; then
         echo "Getting edge branch, remember that it just works for core snap testing"
-        BRANCH=$(get_edge_commit "$ARCH")
+        BRANCH=$(get_edge_commit "$SNAP" "$ARCH")
     fi
 fi
 echo "Using branch $BRANCH for project $PROJECT_NAME"
