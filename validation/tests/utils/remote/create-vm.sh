@@ -182,7 +182,8 @@ fi
 # expanded, as they come in 4gb flavors.
 ensure_vmimage_size "$WORK_DIR/ubuntu-core.img"
 
-if test "$(lsb_release -cs)" = focal; then
+CURR_SYSTEM="$(lsb_release -cs)"
+if [ "$CURR_SYSTEM" = focal ] || [ [ "$CURR_SYSTEM" = jammy ]; then
     snap install swtpm-mvo --beta
     create_cloud_init_config_uc20
     rm -f /var/snap/swtpm-mvo/current/tpm2-00.permall
