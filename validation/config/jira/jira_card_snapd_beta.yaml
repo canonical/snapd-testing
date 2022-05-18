@@ -28,6 +28,8 @@ checklists:
           default: false
         - name: pc-amd64-20
           default: false
+        - name: pc-amd64-22
+          default: false
         - name: pc-amd64-nuc-20
           default: false
         - name: pc-i386-18
@@ -46,6 +48,8 @@ checklists:
         - name: pc-amd64-18
           default: false
         - name: pc-amd64-20
+          default: false
+        - name: pc-amd64-22
           default: false
         - name: pc-amd64-nuc-20
           default: false
