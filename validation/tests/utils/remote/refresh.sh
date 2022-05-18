@@ -20,6 +20,7 @@ PASS=$4
 CHANNEL=$5
 CORE_CHANNEL=$6
 SNAPD_CHANNEL=$7
+SKIP_REFRESH=$8
 
 execute_remote(){
     if [ -z "$PASS" ]; then
