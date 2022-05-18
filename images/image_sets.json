@@ -212,7 +212,7 @@
       },
       {
          "version":22,
-         "channel":"edge",
+         "channel":"beta",
          "snaps":[
             {
                "name":"snapd",
