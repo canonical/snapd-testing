@@ -725,7 +725,7 @@ def process_image_cli(version, channel, platform, snaps, publish, proxy_host, pr
 
 
 def check_parameters(ns):
-    return ns.version and ns.channel and ns.platform and ns.snap
+    return ns.version and ns.channel and ns.platform
 
 
 def snap_channel(s):
