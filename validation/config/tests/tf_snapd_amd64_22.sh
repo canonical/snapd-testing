@@ -8,8 +8,8 @@ export PROJECT_URL=${PROJECT_URL:-"https://github.com/snapcore/snapd.git"}
 export DEVICE_QUEUE=${DEVICE_QUEUE:-"maas-x86-node"}
 export DEVICE_DISTRO=${DEVICE_DISTRO:-"jammy"}
 
-export CHANNEL=${CHANNEL:-"edge"}
-export CORE_CHANNEL=${CORE_CHANNEL:-"edge"}
+export CHANNEL=${CHANNEL:-"beta"}
+export CORE_CHANNEL=${CORE_CHANNEL:-"beta"}
 export SNAPD_CHANNEL=${SNAPD_CHANNEL:-"beta"}
 
 export BRANCH=${BRANCH:-"beta"}
