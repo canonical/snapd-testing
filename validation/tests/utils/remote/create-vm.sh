@@ -187,6 +187,14 @@ if [ "$CURR_SYSTEM" = focal ] || [ "$CURR_SYSTEM" = jammy ]; then
     snap install swtpm-mvo --beta
     create_cloud_init_config_uc20
     rm -f /var/snap/swtpm-mvo/current/tpm2-00.permall
+
+    if [ "$CURR_SYSTEM" = jammy ]; then
+        wget https://storage.googleapis.com/snapd-spread-tests/dependencies/OVMF_CODE.secboot.fd
+        mv OVMF_CODE.secboot.fd /usr/share/OVMF/OVMF_CODE.secboot.fd
+        wget https://storage.googleapis.com/snapd-spread-tests/dependencies/OVMF_VARS.snakeoil.fd
+        mv OVMF_VARS.snakeoil.fd /usr/share/OVMF/OVMF_VARS.snakeoil.fd
+    fi
+
     cp /usr/share/OVMF/OVMF_VARS.ms.fd "$WORK_DIR"/OVMF_VARS.ms.fd
     systemd_create_and_start_unit nested-vm "${QEMU} -m 4096 -nographic -snapshot \
         -machine ubuntu-q35,accel=kvm -global ICH9-LPC.disable_s3=1 \
