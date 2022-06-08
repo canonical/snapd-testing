@@ -20,9 +20,13 @@ checklists:
           default: false
         - name: pi3-20
           default: false
+        - name: pi3-22
+          default: false
         - name: dragonboard-18
           default: false
         - name: pi4-20
+          default: false
+        - name: pi4-22
           default: false
         - name: pc-amd64-18
           default: false
@@ -41,9 +45,13 @@ checklists:
           default: false
         - name: pi3-20
           default: false
+        - name: pi3-22
+          default: false
         - name: dragonboard-18
           default: false
         - name: pi4-20
+          default: false
+        - name: pi4-22
           default: false
         - name: pc-amd64-18
           default: false
