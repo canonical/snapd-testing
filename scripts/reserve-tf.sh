@@ -23,7 +23,7 @@ TF_JOB=job.yaml
 TF_CLIENT=/snap/bin/testflinger-cli
 SUPPORTED_DEVICES='pi2 pi3 pi4 dragonboard caracalla caracalla-media caracalla-transport stlouis'
 SUPPORTED_CHANNELS='edge beta candidate stable'
-SUPPORTED_VERSIONS='16 18 20'
+SUPPORTED_VERSIONS='16 18 20 22'
 
 
 # Define the queue to use
@@ -33,7 +33,7 @@ if [ "$DEVICE" = pi2 ]; then
 elif [ "$DEVICE" = pi3 ]; then
 	DEVICE_QUEUE=rpi3b
 elif [ "$DEVICE" = pi4 ]; then
-	DEVICE_QUEUE=rpi4b8g
+	DEVICE_QUEUE=rpi4b4g
 elif [ "$DEVICE" = caracalla ] || [ "$DEVICE" = "caracalla-media" ]; then
 	DEVICE_QUEUE=caracalla-media
 elif [ "$DEVICE" = "caracalla-transport" ]; then
