@@ -77,14 +77,17 @@ else
 fi
 
 echo "Geting version and revision for either snap or image under test"
-if [ -z "$IMAGE_UT" ]; then    
+if [ -n "$SNAP_UT" ]; then
     OBJECT_UT="$SNAP_UT"
     VERSION_UT="$($PROJECT_DIR/scripts/snap-version.sh $SNAP_UT $TARGET_CHANNEL amd64)"
     REVISION_UT="$($PROJECT_DIR/scripts/snap-revision.sh $SNAP_UT $TARGET_CHANNEL amd64)"
-else
+elif [ -n "$IMAGE_UT" ]; then
     OBJECT_UT="$IMAGE_UT"
     VERSION_UT="$TARGET_CHANNEL"
     REVISION_UT="($(date +%Y%m%d))"
+else
+    echo "Neither snap nor image under test found, exiting"
+    EXIT_STATUS=1
 fi
 
 echo "Integrating results with jira board"
