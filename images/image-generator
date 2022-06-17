@@ -489,7 +489,7 @@ class ImageProcessor:
         image_option = self.get_image_options()
         snaps_option = self.get_snap_options()
         
-        line = "/snap/bin/ubuntu-image snap {} {} -c {} -O {} ./models/{}-{}.model".format(
+        line = "/snap/bin/ubuntu-image snap --validation=ignore {} {} -c {} -O {} ./models/{}-{}.model".format(
             image_option, snaps_option, 
             self.image.channel, self.image.output_dir, 
             self.image.platform, self.image.version)
