@@ -138,7 +138,6 @@ do_kernel_refresh(){
 
     local kernel_line=$(execute_remote "snap list | grep 'kernel$'")
     local kernel_name=$(echo $kernel_line | awk '{ print $1 }')
-
     if [ -z "$kernel_name" ]; then
         echo "No kernel snap to update"
         return
@@ -156,11 +155,11 @@ do_snapd_refresh(){
     local refresh_channel=$1
 
     local snapd_line=$(execute_remote "snap list | grep 'snapd'")
-    if [ -z "$snapd_line" ]; then
+    local snapd_name=$(echo $snapd_line | awk '{ print $1 }')
+    if [ -z "$snapd_name" ]; then
         echo "No snapd snap to update"
         return
     fi
-    local snapd_name=$(echo $snapd_line | awk '{ print $1 }')
 
     # Run update and make "|| true" to continue when the connection is closed by remote host
     output=$(execute_remote "sudo snap refresh --channel ${refresh_channel} $snapd_name 2>&1" || true)
@@ -179,6 +178,10 @@ do_core_refresh(){
         core_line=$(execute_remote "snap list | grep 'core'")
     fi
     local core_name=$(echo $core_line | awk '{ print $1 }')
+    if [ -z "$core_name" ]; then
+        echo "No core snap to update"
+        return
+    fi
 
     # Run update and make "|| true" to continue when the connection is closed by remote host
     output=$(execute_remote "sudo snap refresh --channel ${refresh_channel} $core_name 2>&1" || true)
