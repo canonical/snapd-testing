@@ -7,7 +7,7 @@ USER="${3:-user1}"
 
 execute_remote(){
     # shellcheck disable=SC2029
-    ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p "$INSTANCE_PORT" "$USER@$INSTANCE_IP" \"$@\"
+    ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p "$INSTANCE_PORT" "$USER@$INSTANCE_IP" "$@"
 }
 
 execute_remote "sudo adduser --uid 12345 --extrausers --quiet --disabled-password --gecos '' test"

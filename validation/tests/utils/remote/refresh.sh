@@ -3,7 +3,7 @@ set -x
 
 echo "Refresh core on device"
 
-if [ "$#" -ne 7 ]; then
+if [ "$#" -ne 8 ]; then
     echo "Illegal number of parameters: $#"
     i=1
     for param in $*; do
