@@ -10,6 +10,7 @@ echo "Creating job for snapd using a vm"
 
 HOST=localhost
 PORT=8022
+DEVICE_USER=user1
 DEVICE_IP='$DEVICE_IP'
 
 cat > "$TF_JOB" <<EOF
@@ -25,7 +26,8 @@ test_data:
         ssh ${DEVICE_USER}@${DEVICE_IP} "git clone $JOBS_URL"
         ssh ${DEVICE_USER}@${DEVICE_IP} "(cd $JOBS_PROJECT && git checkout $JOBS_BRANCH)"
         ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/get-project.sh \"$PROJECT_URL\" \"$PROJECT\" \"$BRANCH\" \"$VERSION\" \"$ARCH\" \"$COMMIT\""
-        ssh ${DEVICE_USER}@${DEVICE_IP} "sudo $JOBS_PROJECT/validation/tests/utils/remote/create-vm.sh \"$ARCH\" \"$IMAGE_URL\" \"$USER_ASSERTION_URL\" \"$BUILD_SNAPD\""        
+        ssh ${DEVICE_USER}@${DEVICE_IP} "sudo $JOBS_PROJECT/validation/tests/utils/remote/create-vm.sh \"$ARCH\" \"$IMAGE_URL\" \"$USER_ASSERTION_URL\" \"$BUILD_SNAPD\""
+        ssh ${DEVICE_USER}@${DEVICE_IP} "sudo $JOBS_PROJECT/validation/tests/utils/prepare-ssh.sh \"$HOST\" \"$PORT\" \"$DEVICE_USER\""
         ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/remote/refresh.sh \"$HOST\" \"$PORT\" \"$TEST_USER\" \"$TEST_PASS\" \"$SKIP_REFRESH\""
         ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/register-device.sh \"$HOST\" \"$PORT\" \"$TEST_USER\" \"$TEST_PASS\" \"$REGISTER_EMAIL\""
         ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/remote/add-root-key.sh \"$HOST\" \"$PORT\" \"$TEST_USER\" \"$TEST_PASS\""

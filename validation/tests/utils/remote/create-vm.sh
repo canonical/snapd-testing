@@ -215,7 +215,7 @@ else
 fi
 
 if wait_for_ssh; then
-    prepare_ssh
+    echo "ssh established"
 else
     echo "ssh not established, exiting..."
     journalctl -u nested-vm -n 150
