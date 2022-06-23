@@ -191,7 +191,30 @@
       },
       {
          "version":22,
-         "channel":"edge",
+         "channel":"stable",
+         "snaps":[
+            {
+               "name":"core22",
+               "channel":"edge"
+            }
+         ],
+         "platforms":[
+            "pi3",
+            "pi4",
+            "pc-amd64"
+         ],
+         "triggers":[
+            {
+               "snap":{
+                  "name":"core22",
+                  "channel":"edge"
+               }
+            }
+         ]
+      },
+      {
+         "version":22,
+         "channel":"stable",
          "snaps":[
             {
                "name":"snapd",
