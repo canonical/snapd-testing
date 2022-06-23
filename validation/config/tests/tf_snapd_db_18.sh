@@ -15,7 +15,7 @@ export BRANCH=${BRANCH:-"beta"}
 export VERSION=${VERSION:-"uc18"}
 
 export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-18-arm-64:tests/"}
-export SKIP_TESTS=${SKIP_TESTS:-"tests/main/interfaces-many-snap-provided,tests/main/interfaces-many-core-provided,tests/core/remodel,tests/core/remodel-base,tests/core/remodel-kernel,tests/core/remodel-gadget,tests/core/failover,tests/main/interfaces-network-manager,tests/main/interfaces-cups"}
+export SKIP_TESTS=${SKIP_TESTS:-"tests/main/interfaces-many-snap-provided,tests/main/interfaces-many-core-provided,tests/core/remodel,tests/core/remodel-base,tests/core/remodel-kernel,tests/core/remodel-gadget,tests/core/failover,tests/main/interfaces-network-manager"}
 
 export SKIP_REFRESH=${SKIP_REFRESH:-"true"}
 export TESTS_BACKEND=testflinger
