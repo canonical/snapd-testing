@@ -29,6 +29,7 @@ provision_data:
 test_data:
     test_cmds: |
         #!/bin/bash
+        set -x
         sudo apt update || ps aux | grep apt
         sudo apt install -y git curl sshpass jq unzip
         git clone "$JOBS_URL"
