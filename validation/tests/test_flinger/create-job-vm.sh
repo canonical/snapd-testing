@@ -8,10 +8,6 @@ fi
 
 echo "Creating job for snapd using a vm"
 
-HOST=localhost
-PORT=8022
-DEVICE_USER=user1
-DEVICE_PASS=ubuntu
 DEVICE_IP='$DEVICE_IP'
 
 cat > "$TF_JOB" <<EOF
@@ -28,10 +24,10 @@ test_data:
         ssh ${DEVICE_USER}@${DEVICE_IP} "(cd $JOBS_PROJECT && git checkout $JOBS_BRANCH)"
         ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/get-project.sh \"$PROJECT_URL\" \"$PROJECT\" \"$BRANCH\" \"$VERSION\" \"$ARCH\" \"$COMMIT\""
         ssh ${DEVICE_USER}@${DEVICE_IP} "sudo $JOBS_PROJECT/validation/tests/utils/remote/create-vm.sh \"$ARCH\" \"$IMAGE_URL\" \"$USER_ASSERTION_URL\" \"$BUILD_SNAPD\""
-        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/prepare-ssh.sh \"$HOST\" \"$PORT\" \"$DEVICE_USER\" \"$DEVICE_PASS\""
-        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/remote/refresh.sh \"$HOST\" \"$PORT\" \"$TEST_USER\" \"$TEST_PASS\" \"$CHANNEL\" \"$CORE_CHANNEL\" \"$SNAPD_CHANNEL\" \"$SKIP_REFRESH\""
-        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/register-device.sh \"$HOST\" \"$PORT\" \"$TEST_USER\" \"$TEST_PASS\" \"$REGISTER_EMAIL\""
-        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/remote/add-root-key.sh \"$HOST\" \"$PORT\" \"$TEST_USER\" \"$TEST_PASS\""
+        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/prepare-ssh.sh \"$VM_HOST\" \"$VM_PORT\" \"$VM_USER\" \"$VM_PASS\""
+        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/remote/refresh.sh \"$VM_HOST\" \"$VM_PORT\" \"$TEST_USER\" \"$TEST_PASS\" \"$CHANNEL\" \"$CORE_CHANNEL\" \"$SNAPD_CHANNEL\" \"$SKIP_REFRESH\""
+        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/register-device.sh \"$VM_HOST\" \"$VM_PORT\" \"$TEST_USER\" \"$TEST_PASS\" \"$REGISTER_EMAIL\""
+        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/remote/add-root-key.sh \"$VM_HOST\" \"$VM_PORT\" \"$TEST_USER\" \"$TEST_PASS\""
         ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/get-spread.sh \"$SPREAD_URL\""
-        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/run-spread.sh \"$HOST\" \"$PORT\" \"$PROJECT\" \"$SPREAD_TESTS\" \"$SPREAD_ENV\" \"$SKIP_TESTS\" \"$SPREAD_PARAMS\""
+        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/run-spread.sh \"$VM_HOST\" \"$VM_PORT\" \"$PROJECT\" \"$SPREAD_TESTS\" \"$SPREAD_ENV\" \"$SKIP_TESTS\" \"$SPREAD_PARAMS\""
 EOF

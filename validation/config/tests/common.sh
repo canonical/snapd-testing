@@ -27,6 +27,12 @@ export DEVICE_USER=${DEVICE_USER:-"ubuntu"}
 export DEVICE_PASS=${DEVICE_PASS:-""}
 export DEVICE_PORT=${DEVICE_PORT:-22}
 
+# User/pass to access the vm under test
+export VM_USER=${VM_USER:-"user1"}
+export VM_PASS=${VM_PASS:-"ubuntu"}
+export VM_HOST=${VM_HOST:-"localhost"}
+export VM_PORT=${VM_PORT:-8022}
+
 # User/pass to access the vm used for i386/amd64 architectures + other vm configuration
 export TEST_USER=${TEST_USER:-"test"}
 export TEST_PASS=${TEST_PASS:-"ubuntu"}
