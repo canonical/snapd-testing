@@ -22,7 +22,6 @@ provision_data:
 test_data:
     test_cmds: |
         #!/bin/bash
-        set -x
         ssh ${DEVICE_USER}@${DEVICE_IP} "sudo apt update || ps aux | grep apt"
         ssh ${DEVICE_USER}@${DEVICE_IP} "sudo apt install -y git curl jq sshpass unzip"
         ssh ${DEVICE_USER}@${DEVICE_IP} "git clone $JOBS_URL"
