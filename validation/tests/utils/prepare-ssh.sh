@@ -4,10 +4,14 @@ set -ex
 INSTANCE_IP="${1:-localhost}"
 INSTANCE_PORT="${2:-8022}"
 USER="${3:-user1}"
+PASS="${4:-}"
 
 execute_remote(){
-    # shellcheck disable=SC2029
-    ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p "$INSTANCE_PORT" "$USER@$INSTANCE_IP" "$@"
+    if [ -z "$PASS" ]; then
+        ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p "$INSTANCE_PORT" "$USER@$INSTANCE_IP" "$@"
+    else
+        sshpass -p "$PASS" ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p "$INSTANCE_PORT" "$USER@$INSTANCE_IP" "$@"
+    fi
 }
 
 execute_remote "sudo adduser --uid 12345 --extrausers --quiet --disabled-password --gecos '' test"
