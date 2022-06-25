@@ -49,16 +49,6 @@ wait_for_no_ssh(){
     return 0
 }
 
-prepare_ssh(){
-    execute_remote "sudo adduser --uid 12345 --extrausers --quiet --disabled-password --gecos '' test"
-    execute_remote "echo test:ubuntu | sudo chpasswd"
-    execute_remote "echo 'test ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/create-user-test"
-
-    execute_remote "sudo adduser --extrausers --quiet --disabled-password --gecos '' external"
-    execute_remote "echo external:ubuntu | sudo chpasswd"
-    execute_remote "echo 'external ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/create-user-external"
-}
-
 create_cloud_init_config(){
     cat <<EOF > "$WORK_DIR/user-data"
 #cloud-config
