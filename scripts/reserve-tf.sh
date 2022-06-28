@@ -59,9 +59,9 @@ fi
 
 if [ -z "$URL" ]; then
 	if [[ "$DEVICE_QUEUE" =~ caracalla-* ]]; then
-		URL=http://10.101.47.1/plano/caracalla-current.img.xz
+		URL=http://10.102.156.22/plano/caracalla-current.img.xz
 	elif [ "$DEVICE_QUEUE" = stlouis ]; then
-		URL=http://10.101.47.1/plano/stlouis-current.img.xz
+		URL=http://10.102.156.22/plano/stlouis-current.img.xz
 	else
 		# Define the url to get
 		if [ "$VERSION" != 16 ] && [[ "$DEVICE" =~ pi* ]]; then
