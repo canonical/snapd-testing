@@ -18,16 +18,25 @@ provision_data:
 test_data:
     test_cmds: |
         #!/bin/bash
-        ssh ${DEVICE_USER}@${DEVICE_IP} "sudo apt update || ps aux | grep apt"
-        ssh ${DEVICE_USER}@${DEVICE_IP} "sudo apt install -y git curl jq sshpass unzip"
-        ssh ${DEVICE_USER}@${DEVICE_IP} "git clone $JOBS_URL"
-        ssh ${DEVICE_USER}@${DEVICE_IP} "(cd $JOBS_PROJECT && git checkout $JOBS_BRANCH)"
-        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/get-project.sh \"$PROJECT_URL\" \"$PROJECT\" \"$BRANCH\" \"$VERSION\" \"$ARCH\" \"$COMMIT\""
-        ssh ${DEVICE_USER}@${DEVICE_IP} "sudo $JOBS_PROJECT/validation/tests/utils/remote/create-vm.sh \"$ARCH\" \"$IMAGE_URL\" \"$USER_ASSERTION_URL\" \"$BUILD_SNAPD\""
-        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/prepare-ssh.sh \"$VM_HOST\" \"$VM_PORT\" \"$VM_USER\" \"$VM_PASS\""
-        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/remote/refresh.sh \"$VM_HOST\" \"$VM_PORT\" \"$TEST_USER\" \"$TEST_PASS\" \"$CHANNEL\" \"$CORE_CHANNEL\" \"$SNAPD_CHANNEL\" \"$SKIP_REFRESH\""
-        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/register-device.sh \"$VM_HOST\" \"$VM_PORT\" \"$TEST_USER\" \"$TEST_PASS\" \"$REGISTER_EMAIL\""
-        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/remote/add-root-key.sh \"$VM_HOST\" \"$VM_PORT\" \"$TEST_USER\" \"$TEST_PASS\""
-        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/get-spread.sh \"$SPREAD_URL\""
-        ssh ${DEVICE_USER}@${DEVICE_IP} "$JOBS_PROJECT/validation/tests/utils/run-spread.sh \"$VM_HOST\" \"$VM_PORT\" \"$PROJECT\" \"$SPREAD_TESTS\" \"$SPREAD_ENV\" \"$SKIP_TESTS\" \"$SPREAD_PARAMS\""
+
+        cat > script.sh <<END
+        #!/bin/bash -e
+        apt -qq update
+        apt -qq install -y git curl sshpass jq unzip
+        git clone "$JOBS_URL"
+        (cd "$JOBS_PROJECT" && git checkout "$JOBS_BRANCH")
+        export PATH="$PATH":"$JOBS_PROJECT"/external/snapd-testing-tools/tools:"$JOBS_PROJECT"/external/snapd-testing-tools/remote
+        
+        "$JOBS_PROJECT"/validation/tests/utils/get-project.sh "$PROJECT_URL" "$PROJECT" "$BRANCH" "$VERSION" "$ARCH" "$COMMIT"
+        "$JOBS_PROJECT"/external/snapd-testing-tools/remote/remote.setup config --host "$VM_HOST" --port "$VM_PORT" --user "$TEST_USER" --pass "$TEST_PASS"
+        "$JOBS_PROJECT"/validation/tests/utils/create-vm.sh "$ARCH" "$IMAGE_URL" "$USER_ASSERTION_URL" "$BUILD_SNAPD"
+        "$JOBS_PROJECT"/validation/tests/utils/prepare-ssh.sh "$VM_USER" "$VM_PASS"
+        "$JOBS_PROJECT"/external/snapd-testing-tools/remote/remote.refresh full
+        "$JOBS_PROJECT"/validation/tests/utils/register-device.sh "$REGISTER_EMAIL"
+        "$JOBS_PROJECT"/validation/tests/utils/add-root-key.sh
+        "$JOBS_PROJECT"/validation/tests/utils/get-spread.sh "$SPREAD_URL"
+        "$JOBS_PROJECT"/validation/tests/utils/run-spread.sh "$VM_HOST" "$VM_PORT" "$PROJECT" "$SPREAD_TESTS" "$SPREAD_ENV" "$SKIP_TESTS" "$SPREAD_PARAMS"
+        END
+
+        ssh ${DEVICE_USER}@${DEVICE_IP} 'sudo bash -s' < script.sh        
 EOF

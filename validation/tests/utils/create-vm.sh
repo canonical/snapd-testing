@@ -19,36 +19,6 @@ USER_ASSERTION_URL=$3
 BUILD_SNAPD=$4
 
 
-execute_remote(){
-    sshpass -p ubuntu ssh -p $PORT -q -o ConnectTimeout=10 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no user1@localhost "$*"
-}
-
-wait_for_ssh(){
-    retry=200
-    while ! execute_remote true; do
-        retry=$(( retry - 1 ))
-        if [ $retry -le 0 ]; then
-            echo "Timed out waiting for ssh. Aborting!"
-            return 1
-        fi
-        sleep 1
-    done
-    return 0
-}
-
-wait_for_no_ssh(){
-    retry=150
-    while execute_remote true; do
-        retry=$(( retry - 1 ))
-        if [ $retry -le 0 ]; then
-            echo "Timed out waiting for no ssh. Aborting!"
-            return 1
-        fi
-        sleep 1
-    done
-    return 0
-}
-
 create_cloud_init_config(){
     cat <<EOF > "$WORK_DIR/user-data"
 #cloud-config
@@ -101,15 +71,6 @@ EOF
     sync
     umount "$tmp"
     kpartx -d "$WORK_DIR/ubuntu-core.img"
-}
-
-systemd_create_and_start_unit() {
-    printf "[Unit]\nDescription=For testing purposes\n[Service]\nType=simple\nExecStart=%s\n" "$2" > "/run/systemd/system/$1.service"
-    if [ -n "${3:-}" ]; then
-        echo "Environment=$3" >> "/run/systemd/system/$1.service"
-    fi
-    systemctl daemon-reload
-    systemctl start "$1"
 }
 
 get_qemu_for_nested_vm(){
@@ -187,7 +148,7 @@ if [ "$CURR_SYSTEM" = focal ] || [ "$CURR_SYSTEM" = jammy ]; then
         cp /usr/share/OVMF/OVMF_VARS.ms.fd "$WORK_DIR"/OVMF_VARS.ms.fd
     fi
 
-    systemd_create_and_start_unit nested-vm "${QEMU} -m 4096 -nographic -snapshot \
+    tests.systemd create-and-start-unit nested-vm "${QEMU} -m 4096 -nographic -snapshot \
         -machine ubuntu-q35,accel=kvm -global ICH9-LPC.disable_s3=1 \
         -netdev user,id=mynet0,hostfwd=tcp::$PORT-:22 -device virtio-net-pci,netdev=mynet0 \
         -drive file=/usr/share/OVMF/OVMF_CODE.secboot.fd,if=pflash,format=raw,unit=0,readonly=on \
@@ -198,13 +159,13 @@ if [ "$CURR_SYSTEM" = focal ] || [ "$CURR_SYSTEM" = jammy ]; then
         -device virtio-blk-pci,drive=disk1,bootindex=1"         
 else
     create_cloud_init_config
-    systemd_create_and_start_unit nested-vm "${QEMU} -m 2048 -nographic -snapshot \
+    tests.systemd create-and-start-unit nested-vm "${QEMU} -m 2048 -nographic -snapshot \
         -net nic,model=virtio -net user,hostfwd=tcp::$PORT-:22 \
         -serial mon:stdio -machine accel=kvm \
         $WORK_DIR/ubuntu-core.img"
 fi
 
-if wait_for_ssh; then
+if remote.wait-for ssh; then
     echo "ssh established"
 else
     echo "ssh not established, exiting..."
@@ -213,8 +174,6 @@ else
 fi
 
 echo "Wait for first boot to be done"
-while ! execute_remote "snap changes" | grep -q -E "Done.*Initialize system state"; do
-    sleep 1
-done
+remote.wait-for device-initialized
 
 echo "VM Ready"

@@ -22,7 +22,7 @@ CONFIG_FILE=/tmp/config_test.sh
 CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 show_help() {
-    echo "usage: tests-executor --image-channel <channel> --device <arch> --version <ver> [--branch <branch>] [--core-channel <channel>] [--snapd-channel <channel>] [--skip-refresh] [--image-url <image>] [--project <project>] [--project-url <url>] [--tests <tests>] [--skip-tests <tests>] [--spread-url <url>] [--spread-params <params>]"
+    echo "usage: tests-executor --image-channel <channel> --device <arch> --version <ver> [--device-queue <queue>] [--branch <branch>] [--core-channel <channel>] [--snapd-channel <channel>] [--skip-refresh] [--image-url <image>] [--project <project>] [--project-url <url>] [--tests <tests>] [--skip-tests <tests>] [--spread-url <url>] [--spread-params <params>]"
     echo ""
     echo "Notes about the parametes"
     echo ""
@@ -32,6 +32,7 @@ show_help() {
     echo "<project> -> supported: $SUPPORTED_PROJECTS"
     echo "<branch> -> supported: $SUPPORTED_BRANCHES"
     echo ""
+    echo "--device-queue -> is the testflinger queue to use"
     echo "--image-channel -> is the channel used to build the image"
     echo "--core-channel -> is the channel used to build the core snap"
     echo "--snapd-channel -> is the channel used to build the snapd snap"
@@ -88,6 +89,10 @@ while [ $# -gt 0 ]; do
             ;;
         --device)
             device="$2"
+            shift 2
+            ;;
+        --device-queue)
+            device_queue="$2"
             shift 2
             ;;
         --version)
@@ -264,7 +269,11 @@ case "$device" in
         ;;
 esac
 echo "export ARCH=$ARCH" >> "$CONFIG_FILE"
-echo "export DEVICE_QUEUE=$DEVICE_QUEUE" >> "$CONFIG_FILE"
+if [ -n "$device_queue" ]; then
+    echo "export DEVICE_QUEUE=$device_queue" >> "$CONFIG_FILE"
+else
+    echo "export DEVICE_QUEUE=$DEVICE_QUEUE" >> "$CONFIG_FILE"
+fi
 echo "export TESTS_DEVICE=$TESTS_DEVICE" >> "$CONFIG_FILE"
 if [ "$TESTS_DEVICE" = "vm" ]; then
     if [ "$version" = 16 ]; then
