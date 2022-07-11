@@ -25,7 +25,7 @@ test_data:
         apt -qq install -y git curl sshpass jq unzip
         git clone "$JOBS_URL"
         (cd "$JOBS_PROJECT" && git checkout "$JOBS_BRANCH")
-        export PATH="$PATH":"$JOBS_PROJECT"/external/snapd-testing-tools/tools:"$JOBS_PROJECT"/external/snapd-testing-tools/remote
+        export PATH="\$PATH":"$JOBS_PROJECT"/external/snapd-testing-tools/tools:"$JOBS_PROJECT"/external/snapd-testing-tools/remote
         
         "$JOBS_PROJECT"/validation/tests/utils/get-project.sh "$PROJECT_URL" "$PROJECT" "$BRANCH" "$VERSION" "$ARCH" "$COMMIT"
         "$JOBS_PROJECT"/external/snapd-testing-tools/remote/remote.setup config --host "$VM_HOST" --port "$VM_PORT" --user "$TEST_USER" --pass "$TEST_PASS"
