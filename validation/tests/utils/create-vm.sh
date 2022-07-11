@@ -4,11 +4,11 @@ set -x
 echo "Creating vm"
 
 echo "installing nested dependencies"
-sudo apt install -y qemu qemu-utils genisoimage sshpass qemu-kvm cloud-image-utils ovmf kpartx git unzip gdisk
+sudo apt update
+sudo apt -qq install -y qemu qemu-utils genisoimage sshpass qemu-kvm cloud-image-utils ovmf kpartx git unzip gdisk
 
 echo "installing snapd"
-sudo apt update
-sudo apt install -y snapd
+sudo apt -qq install -y snapd
 
 echo "Installing snaps needed"
 sudo snap install core
@@ -174,6 +174,7 @@ else
 fi
 
 echo "Wait for first boot to be done"
+remote.wait-for snap-command
 remote.wait-for device-initialized
 
 echo "VM Ready"

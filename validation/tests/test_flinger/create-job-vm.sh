@@ -28,9 +28,10 @@ test_data:
         export PATH="\$PATH":"$JOBS_PROJECT"/external/snapd-testing-tools/tools:"$JOBS_PROJECT"/external/snapd-testing-tools/remote
         
         "$JOBS_PROJECT"/validation/tests/utils/get-project.sh "$PROJECT_URL" "$PROJECT" "$BRANCH" "$VERSION" "$ARCH" "$COMMIT"
-        "$JOBS_PROJECT"/external/snapd-testing-tools/remote/remote.setup config --host "$VM_HOST" --port "$VM_PORT" --user "$TEST_USER" --pass "$TEST_PASS"
+        "$JOBS_PROJECT"/external/snapd-testing-tools/remote/remote.setup config --host "$VM_HOST" --port "$VM_PORT" --user "$VM_USER" --pass "$VM_PASS"
         "$JOBS_PROJECT"/validation/tests/utils/create-vm.sh "$ARCH" "$IMAGE_URL" "$USER_ASSERTION_URL" "$BUILD_SNAPD"
         "$JOBS_PROJECT"/validation/tests/utils/prepare-ssh.sh "$VM_USER" "$VM_PASS"
+        "$JOBS_PROJECT"/external/snapd-testing-tools/remote/remote.setup config --host "$VM_HOST" --port "$VM_PORT" --user "$TEST_USER" --pass "$TEST_PASS"
         "$JOBS_PROJECT"/external/snapd-testing-tools/remote/remote.refresh full
         "$JOBS_PROJECT"/validation/tests/utils/register-device.sh "$REGISTER_EMAIL"
         "$JOBS_PROJECT"/validation/tests/utils/add-root-key.sh
