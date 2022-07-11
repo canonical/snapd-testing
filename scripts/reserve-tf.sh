@@ -59,9 +59,9 @@ fi
 
 if [ -z "$URL" ]; then
 	if [[ "$DEVICE_QUEUE" =~ caracalla-* ]]; then
-		URL=http://10.102.156.22/plano/caracalla-current.img.xz
+		URL=http://10.102.196.9/plano/caracalla-current.img.xz
 	elif [ "$DEVICE_QUEUE" = stlouis ]; then
-		URL=http://10.102.156.22/plano/stlouis-current.img.xz
+		URL=http://10.102.196.9/plano/stlouis-current.img.xz
 	else
 		# Define the url to get
 		if [ "$VERSION" != 16 ] && [[ "$DEVICE" =~ pi* ]]; then
@@ -103,9 +103,15 @@ fi
 echo "Submitting job to testflinger"
 JOB_ID=$("$TF_CLIENT" submit -q "$TF_JOB")
 echo "JOB_ID: ${JOB_ID}"
+echo ""
 
 echo "Print job: $TF_JOB "
 cat "$TF_JOB" | tee "${JOB_ID}.job"
+echo ""
 
-echo "Showing job data"
+echo "Waiting for job output"
+sleep 10
+echo ""
+
+echo "Showing job data for $JOB_ID"
 "$TF_CLIENT" poll "${JOB_ID}" | tee "${JOB_ID}.log"
