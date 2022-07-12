@@ -177,3 +177,4 @@ remote.wait-for snap-command
 remote.wait-for device-initialized
 
 echo "VM Ready"
+exit 0
