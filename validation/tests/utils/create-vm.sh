@@ -1,10 +1,9 @@
-#!/bin/bash
-set -x
+#!/bin/bash -ex
 
 echo "Creating vm"
 
 echo "installing nested dependencies"
-sudo apt update
+sudo apt -qq update
 sudo apt -qq install -y qemu qemu-utils genisoimage sshpass qemu-kvm cloud-image-utils ovmf kpartx git unzip gdisk
 
 echo "installing snapd"
