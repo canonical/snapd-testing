@@ -1,5 +1,5 @@
-#!/bin/sh
-set -ex
+#!/bin/bash 
+set -x
 
 CERT_NAME="spread_external"
 PASSPHRASE=""

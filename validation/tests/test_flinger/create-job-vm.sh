@@ -20,7 +20,7 @@ test_data:
         #!/bin/bash
 
         cat > script.sh <<END
-        #!/bin/bash -ex
+        #!/bin/bash -x
         apt -qq update
         apt -qq install -y git curl sshpass jq unzip
         git clone "$JOBS_URL"

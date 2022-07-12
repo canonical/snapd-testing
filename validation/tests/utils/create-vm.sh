@@ -1,4 +1,5 @@
-#!/bin/bash -ex
+#!/bin/bash 
+set -x
 
 echo "Creating vm"
 
@@ -177,4 +178,3 @@ remote.wait-for snap-command
 remote.wait-for device-initialized
 
 echo "VM Ready"
-exit 0
