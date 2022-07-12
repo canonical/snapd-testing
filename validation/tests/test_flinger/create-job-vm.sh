@@ -21,7 +21,6 @@ test_data:
 
         cat > script.sh <<END
         #!/bin/bash
-        set -x
         apt -qq update
         apt -qq install -y git curl sshpass jq unzip
         git clone "$JOBS_URL"
@@ -40,5 +39,6 @@ test_data:
         "$JOBS_PROJECT"/validation/tests/utils/run-spread.sh "$VM_HOST" "$VM_PORT" "$PROJECT" "$SPREAD_TESTS" "$SPREAD_ENV" "$SKIP_TESTS" "$SPREAD_PARAMS"
         END
 
-        ssh ${DEVICE_USER}@${DEVICE_IP} 'sudo bash -s' < script.sh        
+        scp script.sh ${DEVICE_USER}@${DEVICE_IP}:~
+        ssh ${DEVICE_USER}@${DEVICE_IP} "sudo ./script.sh"
 EOF
