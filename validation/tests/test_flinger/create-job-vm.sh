@@ -39,6 +39,8 @@ test_data:
         "$JOBS_PROJECT"/validation/tests/utils/run-spread.sh "$VM_HOST" "$VM_PORT" "$PROJECT" "$SPREAD_TESTS" "$SPREAD_ENV" "$SKIP_TESTS" "$SPREAD_PARAMS"
         END
 
-        scp script.sh ${DEVICE_USER}@${DEVICE_IP}:~
-        ssh ${DEVICE_USER}@${DEVICE_IP} "sudo ./script.sh"
+        ssh ${DEVICE_USER}@${DEVICE_IP} "mkdir -p /tmp/snapd-testing"
+        scp script.sh ${DEVICE_USER}@${DEVICE_IP}:/tmp/snapd-testing/script.sh
+        ssh ${DEVICE_USER}@${DEVICE_IP} "chmod +x /tmp/snapd-testing/script.sh"
+        ssh ${DEVICE_USER}@${DEVICE_IP} "cd /tmp/snapd-testing && sudo ./script.sh"
 EOF
