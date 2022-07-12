@@ -1,5 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 set -ex
+
+echo "Preparing ssh"
 
 USER=$1
 PASS=$2
