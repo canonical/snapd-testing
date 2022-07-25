@@ -468,7 +468,7 @@ class ImageProcessor:
     def get_image_options(self):
         if self.image.version >= 20:
             return '--image-size 8G'
-        if self.image.platform.startswith('pc'):
+        else:
             return '--image-size 3G'
         return ''
 
