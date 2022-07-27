@@ -28,8 +28,9 @@ fi
 
 # Export env variables
 if [ ! -z "$SPREAD_ENV" ]; then
-    echo "Using spread env: $SPREAD_ENV"
-    export $SPREAD_ENV
+    spread_env="$(echo $SPREAD_ENV | tr ',' ' ')"
+    echo "Using spread env: $spread_env"
+    export $spread_env
 fi
 export SPREAD_EXTERNAL_ADDRESS=$DEVICE_IP:$DEVICE_PORT
 
