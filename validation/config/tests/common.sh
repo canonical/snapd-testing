@@ -33,6 +33,9 @@ export VM_PASS=${VM_PASS:-"ubuntu"}
 export VM_HOST=${VM_HOST:-"localhost"}
 export VM_PORT=${VM_PORT:-8022}
 
+# Configuration for the testflinger job format
+export IS_USERNAME_REQUIRED=${IS_USERNAME_REQUIRED:-"false"}
+
 # User/pass to access the vm used for i386/amd64 architectures + other vm configuration
 export TEST_USER=${TEST_USER:-"test"}
 export TEST_PASS=${TEST_PASS:-"ubuntu"}

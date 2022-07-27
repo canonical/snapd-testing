@@ -36,12 +36,20 @@ test_data:
         (cd "$JOBS_PROJECT" && git checkout "$JOBS_BRANCH")
         export PATH="\$PATH":"$JOBS_PROJECT"/external/snapd-testing-tools/tools:"$JOBS_PROJECT"/external/snapd-testing-tools/remote
 
-        "$JOBS_PROJECT"/external/snapd-testing-tools/remote/remote.setup config --host "$DEVICE_IP" --port "$DEVICE_PORT" --user "$TEST_USER" --pass "$TEST_PASS"
-        "$JOBS_PROJECT"/validation/tests/utils/get-project.sh "$PROJECT_URL" "$PROJECT" "$BRANCH" "$VERSION" "$ARCH" "$COMMIT"
-        "$JOBS_PROJECT"/validation/tests/utils/prepare-ssh.sh "$DEVICE_USER" ""
+        "$JOBS_PROJECT"/external/snapd-testing-tools/remote/remote.setup config --host "$DEVICE_IP" --port "$DEVICE_PORT" --user "$DEVICE_USER" --pass "$DEVICE_PASS"
+        "$JOBS_PROJECT"/external/snapd-testing-tools/remote/remote.wait-for ssh
         "$JOBS_PROJECT"/external/snapd-testing-tools/remote/remote.refresh full
+        "$JOBS_PROJECT"/validation/tests/utils/get-project.sh "$PROJECT_URL" "$PROJECT" "$BRANCH" "$VERSION" "$ARCH" "$COMMIT"
+        "$JOBS_PROJECT"/validation/tests/utils/prepare-ssh.sh "$DEVICE_USER" "$DEVICE_PASS"
         "$JOBS_PROJECT"/validation/tests/utils/register-device.sh "$REGISTER_EMAIL"
         "$JOBS_PROJECT"/validation/tests/utils/add-root-key.sh
         "$JOBS_PROJECT"/validation/tests/utils/get-spread.sh "$SPREAD_URL"
         "$JOBS_PROJECT"/validation/tests/utils/run-spread.sh "$DEVICE_IP" "$DEVICE_PORT" "$PROJECT" "$SPREAD_TESTS" "$SPREAD_ENV" "$SKIP_TESTS" "$SPREAD_PARAMS"
 EOF
+
+if [ "$IS_USERNAME_REQUIRED" = true ]; then
+    cat >> "$TF_JOB" <<EOF
+    test_username: $DEVICE_USER
+    test_password: $DEVICE_PASS
+EOF
+fi

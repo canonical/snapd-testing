@@ -13,7 +13,7 @@ check_url() {
     curl --head --silent --fail "$1" &> /dev/null
 }
 
-SUPPORTED_DEVICES="amd64 i386 pi2 pi3 pi4 cm3 nuc dragonboard"
+SUPPORTED_DEVICES="amd64 i386 pi2 pi3 pi4 cm3 nuc dragonboard caracalla-media caracalla-transport stlouis"
 SUPPORTED_CHANNELS="edge beta candidate stable"
 SUPPORTED_VERSIONS="16 18 20 22"
 SUPPORTED_PROJECTS="cconf snapd"
@@ -22,7 +22,7 @@ CONFIG_FILE=/tmp/config_test.sh
 CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 show_help() {
-    echo "usage: tests-executor --image-channel <channel> --device <arch> --version <ver> [--device-queue <queue>] [--branch <branch>] [--core-channel <channel>] [--snapd-channel <channel>] [--skip-refresh] [--image-url <image>] [--project <project>] [--project-url <url>] [--tests <tests>] [--skip-tests <tests>] [--spread-url <url>] [--spread-params <params>]"
+    echo "usage: tests-executor --image-channel <channel> --device <arch> --version <ver> [--device-queue <queue>] [--branch <branch>] [--core-channel <channel>] [--snapd-channel <channel>] [--skip-refresh] [--image-url <image>] [--project <project>] [--project-url <url>] [--tests <tests>] [--skip-tests <tests>] [--spread-url <url>] [--spread-params <params>] [--env var=value]"
     echo ""
     echo "Notes about the parametes"
     echo ""
@@ -57,6 +57,7 @@ show_help() {
     echo "                -> dafault: no parameters are used"
     echo "                -> example: --spread-params -debug,-repeat,5"
     echo "                -> example: --spread-params \"-debug -repeat 5\""
+    echo "--env -> variable and value used for testst"
     echo ""
 }
 
@@ -129,6 +130,10 @@ while [ $# -gt 0 ]; do
             ;;
         --spread-params)
             spread_params="$2"
+            shift 2
+            ;;
+        --env)
+            env="$env $2"
             shift 2
             ;;
         *)
@@ -263,6 +268,18 @@ case "$device" in
         ARCH=arm64
         DEVICE_QUEUE=dragonboard
         ;;
+    caracalla-media)
+        ARCH=amd64
+        DEVICE_QUEUE=caracalla-media
+        ;;
+    caracalla-transport)
+        ARCH=amd64
+        DEVICE_QUEUE=caracalla-transport
+        ;;
+    stlouis)
+        ARCH=amd64
+        DEVICE_QUEUE=stlouis
+        ;;
     *)
         echo "Device \"$device\" not supported, exiting..."
         exit 1
@@ -327,6 +344,10 @@ echo "" >> "$CONFIG_FILE"
 echo "# Create env var related to the test image" >> "$CONFIG_FILE"
 if [ -n "$image_url" ]; then
     URL="$image_url"
+elif [ "$device" = caracalla-media ] || [ "$device" = caracalla-transport ]; then
+    URL=http://10.102.196.9/plano/caracalla-current.img.xz
+elif [ "$device" = stlouis ]; then
+    URL=http://10.102.196.9/plano/stlouis-current.img.xz
 else
     DEVICE=$device
     if [ "$ARCH" = amd64 ] || [ "$ARCH" = i386 ]; then
@@ -397,6 +418,12 @@ fi
 echo "Loading tests config: $CONFIG_FILE and $CURR_DIR/config/tests/common.sh"
 . "$CONFIG_FILE"
 . "$CURR_DIR"/config/tests/common.sh
+
+echo "Loading environment variables used for tests"
+for env_var in $env; do
+    echo "Using env $env_var"
+    export "$env_var"
+done
 
 echo "Executing $PROJECT_DIR/validation/tests/run-tests.sh $CONFIG_FILE"
 "$CURR_DIR"/tests/run-tests.sh "$CONFIG_FILE"

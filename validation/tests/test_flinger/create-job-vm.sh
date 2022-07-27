@@ -44,3 +44,10 @@ test_data:
         ssh ${DEVICE_USER}@${DEVICE_IP} "chmod +x /tmp/snapd-testing/script.sh"
         ssh ${DEVICE_USER}@${DEVICE_IP} "cd /tmp/snapd-testing && sudo ./script.sh"
 EOF
+
+if [ "$IS_USERNAME_REQUIRED" = true ]; then
+    cat >> "$TF_JOB" <<EOF
+    test_username: $DEVICE_USER
+    test_password: $DEVICE_PASS
+EOF
+fi
