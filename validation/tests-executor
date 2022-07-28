@@ -61,6 +61,18 @@ show_help() {
     echo ""
 }
 
+examples() {
+
+    echo "caracalla-transport device"
+    echo './tests-executor --image-channel stable --core-channel beta --device caracalla-transport --version 16 --project snapd --branch beta  --tests tests/smoke/ --env DEVICE_USER=admin --env DEVICE_PASS=admin --env IS_USERNAME_REQUIRED=true --env SPREAD_ENV="SPREAD_SKIP_REMOVE_SNAPS=alsa-utils,bluez,locationd,modem-manager,network-manager,tpm2,udisks2,uefi-fw-tools,wifi-ap,wpa-supplicant,snapweb"'
+
+    echo "caracalla-media device"
+    echo './tests-executor --image-channel stable --core-channel beta --device caracalla-media --version 16 --project snapd --branch beta  --tests tests/smoke/ --env DEVICE_USER=admin --env DEVICE_PASS=admin --env IS_USERNAME_REQUIRED=true --env SPREAD_ENV="SPREAD_SKIP_REMOVE_SNAPS=alsa-utils,bluez,locationd,modem-manager,network-manager,tpm2,udisks2,uefi-fw-tools,wifi-ap,wpa-supplicant,snapweb"'
+
+    echo "Stlouis device"
+    echo './tests-executor --image-channel stable --core-channel beta --device stlouis --version 16 --project snapd --branch beta  --tests tests/smoke/ --env DEVICE_USER=admin --env DEVICE_PASS=admin --env IS_USERNAME_REQUIRED=true --env SPREAD_ENV="SPREAD_SKIP_REMOVE_SNAPS=alsa-utils,bluez,locationd,modem-manager,network-manager,tpm2,udisks2,uefi-fw-tools,wifi-ap,wpa-supplicant,snapweb"'
+}
+
 if [ $# -eq 0 ]; then
     show_help
     exit 0
