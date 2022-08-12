@@ -5,7 +5,7 @@ export ARCH=${ARCH:-"armhf"}
 export PROJECT=${PROJECT:-"snapd"}
 export PROJECT_URL=${PROJECT_URL:-"https://github.com/snapcore/snapd.git"}
 
-export DEVICE_QUEUE=${DEVICE_QUEUE:-"cert-rpi2"}
+export DEVICE_QUEUE=${DEVICE_QUEUE:-"rpi2005"}
 
 export CHANNEL=${CHANNEL:-"stable"}
 export CORE_CHANNEL=${CORE_CHANNEL:-"stable"}
