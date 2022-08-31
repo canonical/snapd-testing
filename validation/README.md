@@ -112,6 +112,8 @@ It is possible to use older images too to validate the refresh scenario.
     -chardev socket,id=chrtpm,path=/var/snap/test-snapd-swtpm/current/swtpm-sock \
     -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \
     -drive file=<PATH_TO_VM_IMAGE>,cache=none,format=raw,id=disk1,if=none \
+    -object rng-random,filename=/dev/urandom,id=rng0 \
+    -device virtio-rng-pci,rng=rng0,id=rng-device0 \
     -device virtio-blk-pci,drive=disk1,bootindex=1
 
     Note: it is needed to install swtpm-mvo snap as dependency
