@@ -1,0 +1,26 @@
+project: spread-cleaner
+
+backends:
+    google-us-east1-b:
+        type: google
+        key: '$(HOST: echo "$SPREAD_GOOGLE_KEY")'
+        location: snapd-spread/us-east1-b
+        halt-timeout: 2h
+        systems:
+            - ubuntu-20.04-64:
+            - ubuntu-20.04-arm-64:
+            - ubuntu-22.04-64:
+    google-us-central1-a:
+        type: google
+        key: '$(HOST: echo "$SPREAD_GOOGLE_KEY")'
+        location: snapd-spread/us-central1-a
+        plan: t2a-standard-1
+        halt-timeout: 2h
+        systems:
+            - ubuntu-22.04-arm-64:
+
+suites:
+    fakesuite/:
+        summary: This is a fake test suite
+
+path: /tmp

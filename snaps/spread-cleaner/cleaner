@@ -1,14 +1,17 @@
 #!/bin/bash
 
-if [ ! -f "$SNAP_DATA/spread.yaml" ]; then
-    echo "File $SNAP_DATA/spread.yaml does not exist, exiting..."
-    exit
+cd "$SNAP_DATA"
+
+if [ ! -f "spread.yaml" ]; then
+    echo "File $SNAP_DATA/spread.yaml does not exist, using the default one"
+    cp -f "$SNAP/spread.yaml" "spread.yaml"
+    cp -rf "$SNAP/fakesuite" "fakesuite"
 fi
 echo "Using spread.yaml: $SNAP_DATA/spread.yaml"
 
-if [ -f "$SNAP_DATA/sa.json" ]; then
+if [ -f "sa.json" ]; then
     SPREAD_GOOGLE_KEY="$SNAP_DATA/sa.json"
-elif [ -f "$SNAP_DATA/application_default_credentials.json" ]; then
+elif [ -f "application_default_credentials.json" ]; then
     SPREAD_GOOGLE_KEY="$SNAP_DATA/application_default_credentials.json"
 else
     echo "Credentials not found, exiting..."
@@ -16,10 +19,17 @@ else
 fi
 echo "Using service account: $SPREAD_GOOGLE_KEY"
 
-if [ ! -f "$SNAP_DATA/spread" ]; then
+if [ ! -f "spread" ]; then
     echo "Getting spread"
-    cd "$SNAP_DATA" && curl -s -O https://niemeyer.s3.amazonaws.com/spread-amd64.tar.gz && tar xzvf spread-amd64.tar.gz
+    curl -s -O https://storage.googleapis.com/snapd-spread-tests/spread/spread-amd64.tar.gz && tar xzvf spread-amd64.tar.gz && rm -f spread-amd64.tar.gz
 fi
 
 export SPREAD_GOOGLE_KEY
-cd "$SNAP_DATA" && "$SNAP_DATA/spread" -gc google
+
+echo "Cleaning virtual machines in all the backends included in the spread.yaml"
+./spread -gc
+
+echo "Clean up finished"
+
+
+
