@@ -15,7 +15,7 @@ export BRANCH=${BRANCH:-"beta"}
 export VERSION=${VERSION:-"uc20"}
 
 export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-20-arm-32:tests/"}
-export SKIP_TESTS=${SKIP_TESTS:-"tests/core/uc20-recovery,tests/main/interfaces-many-snap-provided,tests/main/interfaces-many-core-provided"}
+export SKIP_TESTS=${SKIP_TESTS:-"tests/core/uc20-recovery,tests/main/interfaces-many-snap-provided,tests/main/interfaces-many-core-provided,tests/core/persistent-journal-namespace"}
 
 export TESTS_BACKEND=testflinger
 export TESTS_DEVICE=device
