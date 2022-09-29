@@ -133,13 +133,13 @@ def get_pattern(snap, version='', rev=''):
 
 
 def _get_all_cards(client):
-    return client.search_issues("project = {} > 0".format(PROJECT_ID))
+    return client.search_issues("project = {}".format(PROJECT_ID))
 
 def _search_cards(client, query):
-    return client.search_issues("project = {} > 0 AND summary ~ '{}'".format(PROJECT_ID, query))
+    return client.search_issues("project = {} AND summary ~ '{}'".format(PROJECT_ID, query))
 
 def _search_cards_on_list(client, query, lane):
-    return client.search_issues("project = {} > 0 AND summary ~ '{}' AND status = {}".format(PROJECT_ID, query, lane))
+    return client.search_issues("project = {} AND summary ~ '{}' AND status = {}".format(PROJECT_ID, query, lane))
 
 def search(client, snap, version, revision=None):
     pattern = get_pattern(snap, version, revision)
