@@ -10,9 +10,9 @@ checklists:
           default: false
         - name: Focal - http://people.canonical.com/~ubuntu-archive/proposed-migration/focal/update_excuses.html#snapd
           default: false
-        - name: Impish - https://people.canonical.com/~ubuntu-archive/proposed-migration/impish/update_excuses.html#snapd
-          default: false
         - name: Jammy - https://people.canonical.com/~ubuntu-archive/proposed-migration/jammy/update_excuses.html#snapd
+          default: false
+        - name: Kinetic - https://people.canonical.com/~ubuntu-archive/proposed-migration/kinetic/update_excuses.html#snapd
           default: false
     Manual checks:
         - name: Review changelog
@@ -26,16 +26,16 @@ checklists:
           default: false
         - name: Focal
           default: false
-        - name: Impish
-          default: false
         - name: Jammy
+          default: false
+        - name: Kinetic
           default: false
     Manual tests:
         - name: Bionic
           default: false
         - name: Focal
           default: false
-        - name: Impish
-          default: false
         - name: Jammy
+          default: false
+        - name: Kinetic
           default: false
