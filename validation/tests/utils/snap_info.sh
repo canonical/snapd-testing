@@ -33,7 +33,7 @@ get_beta_branch(){
     elif git ls-remote --heads https://github.com/snapcore/snapd.git "release/$version" | grep -q "$version"; then
         echo "release/$version"
     else
-        echo "NULL"
+        echo "master"
     fi
 }
 
