@@ -36,6 +36,9 @@ check(){
         return
     fi
 
+    # Default operand is !=, but other ways to compare are also allowed
+    operand="${operand:-"!="}"
+
     # Checkout the branch to get last value to compare it there is a change
     git checkout "$branch"
     log_entry=$(git log HEAD~0 --pretty=%B | grep "^$message" | head -n1)
@@ -45,7 +48,7 @@ check(){
     else
         old_value=$( echo "$log_entry" | sed -e "s|$message (\(.*\))|\1|")
         # check if new value needs to be recorded
-        if [ "$new_value" != "$old_value" ]; then
+        if test "$new_value" "$operand" "$old_value"; then
             record_new_value "$message" "$new_value"
         fi
     fi
