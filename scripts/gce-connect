@@ -1,0 +1,24 @@
+#!/bin/bash	
+
+machine=$1
+
+if [ -z "$machine" ]; then
+	echo "gce-connect: Machine id is needed"
+	exit 1
+fi
+
+machine_address=$(grep -B3 "$machine" .spread-reuse.*.yaml | grep address:  | awk '{print $NF}')
+machine_pass=$(grep -B3 "$machine" .spread-reuse.*.yaml | grep password: | awk '{print $NF}')
+
+if [ -z "$machine_address" ]; then
+	echo "gce-connect: Machine address ($machine) not found"
+	exit 1
+fi
+
+if [ -z "$machine_pass" ]; then
+	echo "gce-connect: Machine password ($machine) not found"
+	exit 1
+fi
+
+
+sshpass -p "$machine_pass" ssh -o ConnectTimeout=10 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@"$machine_address"
