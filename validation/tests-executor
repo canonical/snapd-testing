@@ -21,8 +21,14 @@ SUPPORTED_BRANCHES="edge beta candidate stable master <COMMIT>"
 CONFIG_FILE=/tmp/config_test.sh
 CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+DEFAULT_PROJECT=snapd
+DEFAULT_IMAGE_CHANNEL="stable"
+DEFAULT_CORE_CHANNEL="beta"
+DEFAULT_SNAPD_CHANNEL="beta"
+DEFAULT_BRANCH="beta"
+
 show_help() {
-    echo "usage: tests-executor --image-channel <channel> --device <arch> --version <ver> [--device-queue <queue>] [--branch <branch>] [--core-channel <channel>] [--snapd-channel <channel>] [--skip-refresh] [--image-url <image>] [--project <project>] [--project-url <url>] [--tests <tests>] [--skip-tests <tests>] [--spread-url <url>] [--spread-params <params>] [--env var=value]"
+    echo "usage: tests-executor --device <arch> --version <ver> [OPTIONS]"
     echo ""
     echo "Notes about the parametes"
     echo ""
@@ -32,6 +38,7 @@ show_help() {
     echo "<project> -> supported: $SUPPORTED_PROJECTS"
     echo "<branch> -> supported: $SUPPORTED_BRANCHES"
     echo ""
+    echo "OPTIONS:"
     echo "--device-queue -> is the testflinger queue to use"
     echo "--image-channel -> is the channel used to build the image"
     echo "--core-channel -> is the channel used to build the core snap"
@@ -57,7 +64,7 @@ show_help() {
     echo "                -> dafault: no parameters are used"
     echo "                -> example: --spread-params -debug,-repeat,5"
     echo "                -> example: --spread-params \"-debug -repeat 5\""
-    echo "--env -> variable and value used for testst"
+    echo "--env -> variable and value (var=value) used for tests"
     echo ""
 }
 
@@ -158,20 +165,19 @@ done
 # Validate channels
 
 if [ -z "$image_channel" ]; then
-    echo "Channel for image not defined"
-    show_help
-    exit 1
-
+    echo "Image channel not defined, using default: $DEFAULT_CHANNEL"
+    image_channel="$DEFAULT_IMAGE_CHANNEL"
 fi
 
 if ! $(contains "$channel" "$SUPPORTED_CHANNELS"); then
-    echo "Channel $channel for image not supported"
+    echo "Image channel $channel not supported"
     show_help
     exit 1
 fi
 
 if [ -z "$core_channel" ]; then
-    core_channel=$image_channel
+    echo "core channel not defined, using default: $DEFAULT_CHANNEL"
+    core_channel="$DEFAULT_CORE_CHANNEL"
 elif ! $(contains "$core_channel" "$SUPPORTED_CHANNELS"); then
     eecho "Channel $core_channel for core not supported"
     show_help
@@ -179,7 +185,8 @@ elif ! $(contains "$core_channel" "$SUPPORTED_CHANNELS"); then
 fi
 
 if [ -z "$snapd_channel" ]; then
-    snapd_channel=$image_channel
+    echo "snapd channel not defined, using default: $DEFAULT_CHANNEL"
+    snapd_channel="$DEFAULT_SNAPD_CHANNEL"
 elif ! $(contains "$snapd_channel" "$SUPPORTED_CHANNELS"); then
     eecho "Channel $snapd_channel for snapd not supported"
     show_help
@@ -196,7 +203,6 @@ if [ -z "$device" ]; then
     echo "Device not defined"
     show_help
     exit 1
-
 fi
 
 if ! $(contains "$device" "$SUPPORTED_DEVICES"); then
@@ -223,7 +229,8 @@ fi
 # Validate Project
 
 if [ -z "$project" ]; then
-    project=snapd
+    echo "Project not defined, using default: $DEFAULT_PROJECT"
+    project="$DEFAULT_PROJECT"
 elif [ "$project" = "cconf" ]; then
     project=console-conf-tests
 elif ! $(contains "$project" "$SUPPORTED_PROJECTS"); then
@@ -235,7 +242,8 @@ fi
 # Validate branch
 
 if [ -z "$branch" ]; then
-    branch=master
+    echo "Branch not defined, using default: $DEFAULT_BRANCH"
+    branch="$DEFAULT_BRANCH"
 fi
 
 # Start creating the config file
