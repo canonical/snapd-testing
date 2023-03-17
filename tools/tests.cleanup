@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 
 show_help() {
     echo "usage: tests.cleanup defer <cmd> [args]"
