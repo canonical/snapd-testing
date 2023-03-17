@@ -1,5 +1,7 @@
-#!/bin/bash -e
+#!/bin/bash
 
+# The default values have been selected trying to match with most of
+# the wait times in the tests and also trying to follow common sense.
 DEFAULT_WAIT_FOR_SSH_ATTEMPTS=800
 DEFAULT_WAIT_FOR_SSH_WAIT=1
 DEFAULT_WAIT_FOR_NO_SSH_ATTEMPTS=200
@@ -8,8 +10,8 @@ DEFAULT_WAIT_FOR_SNAP_COMMAND_ATTEMPTS=200
 DEFAULT_WAIT_FOR_SNAP_COMMAND_WAIT=1
 DEFAULT_WAIT_FOR_DEV_INIT_ATTEMPTS=60
 DEFAULT_WAIT_FOR_DEV_INIT_WAIT=1
-DEFAULT_WAIT_FOR_REBOOT_ATTEMPTS=60
-DEFAULT_WAIT_FOR_REBOOT_WAIT=1
+DEFAULT_WAIT_FOR_REBOOT_ATTEMPTS=120
+DEFAULT_WAIT_FOR_REBOOT_WAIT=5
 
 show_help() {
     echo "usage: remote.wait-for ssh [--wait WAIT] [-n|--attempts ATTEMPTS]"
@@ -90,8 +92,8 @@ get_boot_id() {
 
 wait_for_reconnect_ssh() {
     echo "remote.wait-for: waiting for ssh is recoonected"
-    wait_for_no_ssh
-    wait_for_ssh
+    wait_for_no_ssh "$DEFAULT_WAIT_FOR_NO_SSH_ATTEMPTS" "$DEFAULT_WAIT_FOR_NO_SSH_WAIT"
+    wait_for_ssh "$DEFAULT_WAIT_FOR_SSH_ATTEMPTS" "$DEFAULT_WAIT_FOR_SSH_WAIT"
 }
 
 wait_for_reboot() {
@@ -108,11 +110,12 @@ wait_for_reboot() {
         return
     fi
 
-    while [ $attempts -ge 0 ]; do
+    while [ "$attempts" -ge 0 ]; do
         echo -n '.'
         attempts=$(( attempts - 1 ))
         # The get_boot_id could fail because the connection is broken due to the reboot
         last_boot_id="$(get_boot_id)" || true
+        # The boot_id is a GUID, i.e. 450d12a1-9811-464e-8c9e-cec1c60e8684
         if [[ "$last_boot_id" =~ .*-.*-.*-.*-.* ]] && [ "$last_boot_id" != "$initial_boot_id" ]; then
             break
         fi
@@ -166,7 +169,7 @@ wait_for_refresh(){
         echo ""
 
         if ! remote.exec "true" &>/dev/null; then
-            wait_for_ssh
+            wait_for_ssh "$DEFAULT_WAIT_FOR_SSH_ATTEMPTS" "$DEFAULT_WAIT_FOR_SSH_WAIT"
         fi
 
         if remote.exec "snap changes" | grep -Eq "$change_id.*Doing.*(Auto-refresh|Refresh)"; then

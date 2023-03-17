@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 
 show_help() {
     echo "usage: remote.retry [--wait WAIT] [-n|--attempts ATTEMPTS] <CMD>"
