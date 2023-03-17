@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 show_help() {
     echo "usage: tests.pkgs {install,remove} [PACKAGE...]"

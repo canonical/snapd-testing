@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 # Tool used to backup/restore a specific directory
 # It is used by the test tool to make sure each test
 # leaves the test directory as was initially
