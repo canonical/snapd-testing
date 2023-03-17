@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 CFG_FILE="${REMOTE_CFG_FILE:-$(pwd)/remote.setup.cfg}"
 

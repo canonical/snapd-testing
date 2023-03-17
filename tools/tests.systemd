@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 show_help() {
     echo "usage: tests.systemd create-and-start-unit <UNIT-NAME> <UNIT-COMMAND-LINE> <UNIT-OVERRIDE>"

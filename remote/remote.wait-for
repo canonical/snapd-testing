@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 # The default values have been selected trying to match with most of
 # the wait times in the tests and also trying to follow common sense.
