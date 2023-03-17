@@ -21,6 +21,7 @@ test_data:
 
         cat > script.sh <<END
         #!/bin/bash
+        set -x
         apt -qq update
         apt -qq install -y git curl sshpass jq unzip
         git clone "$JOBS_URL"
