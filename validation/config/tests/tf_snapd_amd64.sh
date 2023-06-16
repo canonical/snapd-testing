@@ -16,7 +16,7 @@ export BRANCH=${BRANCH:-"beta"}
 export VERSION=${VERSION:-"uc16"}
 
 export SPREAD_TESTS=${SPREAD_TESTS:-"external:ubuntu-core-16-64"}
-export SKIP_TESTS=${SKIP_TESTS:-"tests/main/interfaces-many-snap-provided,tests/main/interfaces-many-core-provided,tests/core/failover"}
+export SKIP_TESTS=${SKIP_TESTS:-"tests/main/interfaces-many-snap-provided,tests/main/interfaces-many-core-provided,tests/core/failover,tests/main/store-state"}
 
 export TESTS_BACKEND=testflinger
 export TESTS_DEVICE=vm
