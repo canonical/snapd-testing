@@ -152,6 +152,10 @@ wait_for_device_initialized() {
     echo "remote.wait-for: device initialized"
 }
 
+check_waiting_for_reboot() {
+    remote.exec "sudo journalctl -n 30" | grep -q "Waiting for system reboot"
+}
+
 wait_for_refresh(){
     echo "remote.wait-for: waiting for either auto-refresh or refresh"
 
@@ -162,15 +166,17 @@ wait_for_refresh(){
 
         while remote.exec "snap changes" | grep -Eq "$change_id.*Doing.*(Auto-refresh|Refresh)"; do
             echo -n '.'
-            if remote.exec "true" &>/dev/null; then
-                sleep 1
+            if check_waiting_for_reboot; then
+                echo "remote.wait-for: waiting for system reboot"
+                remote.exec --timeout 3 "sudo reboot" || true
+                wait_for_no_ssh "$DEFAULT_WAIT_FOR_NO_SSH_ATTEMPTS" "$DEFAULT_WAIT_FOR_NO_SSH_WAIT"
+                break
             fi
+            sleep 1
         done
         echo ""
 
-        if ! remote.exec "true" &>/dev/null; then
-            wait_for_ssh "$DEFAULT_WAIT_FOR_SSH_ATTEMPTS" "$DEFAULT_WAIT_FOR_SSH_WAIT"
-        fi
+        wait_for_ssh "$DEFAULT_WAIT_FOR_SSH_ATTEMPTS" "$DEFAULT_WAIT_FOR_SSH_WAIT"
 
         changes="$(remote.exec 'snap changes')"
         if echo "$changes" | grep -Eq "$change_id.*Doing.*(Auto-refresh|Refresh)"; then
