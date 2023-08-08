@@ -60,7 +60,7 @@ else
         mv "$PROJECT_NAME"-"$BRANCH" "$PROJECT_NAME"
         rm -f "$BRANCH.zip"
     else
-        git clone --branch "$BRANCH" --progress "$PROJECT_URL" "$PROJECT_NAME"
+        git clone --branch "$BRANCH" "$PROJECT_URL" "$PROJECT_NAME"
     fi
 fi
 
