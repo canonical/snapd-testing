@@ -155,7 +155,7 @@ wait_for_device_initialized() {
 wait_for_refresh_reboot() {
     wait_for_ssh "$DEFAULT_WAIT_FOR_SSH_ATTEMPTS" "$DEFAULT_WAIT_FOR_SSH_WAIT"
     for i in $(seq 3); do
-        if remote.exec "sudo journalctl -n 30" | grep -q "Waiting for system reboot"; then
+        if remote.exec "sudo journalctl -u snapd -n 30" | grep -q "Waiting for system reboot"; then
             echo "remote.wait-for: waiting for system reboot"
             remote.exec --timeout 3 "sudo reboot" || true
             wait_for_no_ssh "$DEFAULT_WAIT_FOR_NO_SSH_ATTEMPTS" "$DEFAULT_WAIT_FOR_NO_SSH_WAIT"
