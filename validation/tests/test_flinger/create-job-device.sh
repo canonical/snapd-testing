@@ -30,8 +30,8 @@ test_data:
     test_cmds: |
         #!/bin/bash
         set -x
-        apt -qq update
-        apt -qq install -y git curl sshpass jq unzip > /dev/null 
+        sudo apt -qq update
+        sudo apt -qq install -y git curl sshpass jq unzip > /dev/null 
         git clone "$JOBS_URL" > /dev/null 
         (cd "$JOBS_PROJECT" && git checkout "$JOBS_BRANCH")
         export PATH="\$PATH":"$JOBS_PROJECT"/external/snapd-testing-tools/tools:"$JOBS_PROJECT"/external/snapd-testing-tools/remote
