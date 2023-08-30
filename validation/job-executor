@@ -31,8 +31,8 @@ if [ -n "$HTTPS_PROXY" ]; then
     export https_proxy=https://squid.internal:3128
     export HTTP_PROXY=https://squid.internal:3128
     export http_proxy=https://squid.internal:3128
-    export NO_PROXY=api.snapcraft.io
-    export no_proxy=api.snapcraft.io
+    #export NO_PROXY=api.snapcraft.io
+    #export no_proxy=api.snapcraft.io
 fi
 
 echo "Loading tests config: $CURR_DIR/config/tests/$TESTS_CONFIG.sh"
