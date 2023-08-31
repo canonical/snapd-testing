@@ -25,16 +25,6 @@ if ! "$CURR_DIR"/tools/check-env; then
     exit 1
 fi
 
-echo "Configuring proxy"
-if [ -n "$HTTPS_PROXY" ]; then
-    export HTTPS_PROXY=https://squid.internal:3128
-    export https_proxy=https://squid.internal:3128
-    export HTTP_PROXY=https://squid.internal:3128
-    export http_proxy=https://squid.internal:3128
-    #export NO_PROXY=api.snapcraft.io
-    #export no_proxy=api.snapcraft.io
-fi
-
 echo "Loading tests config: $CURR_DIR/config/tests/$TESTS_CONFIG.sh"
 . "$CURR_DIR"/config/tests/"$TESTS_CONFIG".sh
 . "$CURR_DIR"/config/tests/common.sh

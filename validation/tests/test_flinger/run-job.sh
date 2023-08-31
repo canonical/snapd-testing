@@ -6,13 +6,13 @@ if [ ! -f "$TF_JOB" ]; then
 	echo "Job file does not exist"
 fi
 
-Echo "listing configuration"
+echo "listing configuration"
 echo "NO_PROXY=$NO_PROXY"
 echo "HTTP_PROXY=$HTTP_PROXY"
 echo "HTTPS_PROXY=$HTTPS_PROXY"
 
-Echo "listing queues"
-"$TF_CLIENT" list-queues
+echo "listing queues"
+HTTP_PROXY=$HTTP_PROXY "$TF_CLIENT" list-queues
 
 echo "Submitting job to testflinger"
 JOB_ID=$($TF_CLIENT submit -q $TF_JOB)
