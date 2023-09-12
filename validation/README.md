@@ -76,13 +76,13 @@ It is possible to use older images too to validate the refresh scenario.
 
     amd64 with tpm:
     sudo cp /usr/share/OVMF/OVMF_VARS.ms.fd .
-    sudo rm -f /var/snap/swtpm-mvo/current/tpm2-00.permall
+    sudo rm -f /var/snap/test-snapd-swtpm/current/tpm2-00.permall
     sudo qemu-system-x86_64 -smp 2 -m 4096 -snapshot \
     -machine ubuntu-q35,accel=kvm -global ICH9-LPC.disable_s3=1 \
     -netdev user,id=mynet0,hostfwd=tcp::$PORT-:22 -device virtio-net-pci,netdev=mynet0 \
     -drive file=/usr/share/OVMF/OVMF_CODE.secboot.fd,if=pflash,format=raw,unit=0,readonly=on \
     -drive file=./OVMF_VARS.ms.fd,if=pflash,format=raw,unit=1 \
-    -chardev socket,id=chrtpm,path=/var/snap/swtpm-mvo/current/swtpm-sock \
+    -chardev socket,id=chrtpm,path=/var/snap/test-snapd-swtpm/current/swtpm-sock \
     -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \
     -drive file=<PATH_TO_VM_IMAGE>,cache=none,format=raw,id=disk1,if=none \
     -device virtio-blk-pci,drive=disk1,bootindex=1
