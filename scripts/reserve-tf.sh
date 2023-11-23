@@ -1,10 +1,10 @@
 #!/bin/bash
 
 show_help() {
-    echo "usage:    reserve_tf <DEVICE> <CHANNEL> <VERSION> [URL] [LAUNCHPAD-ID]"
-    echo "examples: reserve_tf.sh pi3 beta 18"
-    echo "          reserve_tf.sh pi4 beta 20 'https://storage.googleapis.com/snapd-spread-tests/images/pi4-20-beta/pi.img.xz' 'sergio-j-cazzolato'"
-    echo "          reserve_tf.sh caracalla"
+    echo "usage:    reserve-tf <DEVICE> <CHANNEL> <VERSION> [URL] [LAUNCHPAD-ID]"
+    echo "examples: reserve-tf.sh pi3 beta 18"
+    echo "          reserve-tf.sh pi4 beta 20 'https://storage.googleapis.com/snapd-spread-tests/images/pi4-20-stable-snapd_beta/pi.img.xz' 'sergio-j-cazzolato'"
+    echo "          reserve-tf.sh caracalla"
 }
 
 if [ $# -eq 0 ] || [ "$1" = '-h' ] || [ "$1" = '--help' ]; then
@@ -34,10 +34,10 @@ elif [ "$DEVICE" = pi3 ]; then
 	DEVICE_QUEUE=rpi3b
 elif [ "$DEVICE" = pi4 ]; then
 	DEVICE_QUEUE=rpi4b4g
-elif [ "$DEVICE" = caracalla ] || [ "$DEVICE" = "caracalla-media" ]; then
+elif [ "$DEVICE" = caracalla ]; then
 	DEVICE_QUEUE=caracalla-media
-elif [ "$DEVICE" = "caracalla-transport" ]; then
-	DEVICE_QUEUE=caracalla-transport
+elif [[ "$DEVICE" =~ caracalla* ]]; then
+	DEVICE_QUEUE=$DEVICE
 elif [ "$DEVICE" = stlouis ]; then
 	DEVICE_QUEUE=stlouis
 elif [ "$DEVICE" = dragonboard ]; then
@@ -58,7 +58,7 @@ if ! [[ "$SUPPORTED_VERSIONS" =~ "$VERSION" ]]; then
 fi
 
 if [ -z "$URL" ]; then
-	if [[ "$DEVICE_QUEUE" =~ caracalla-* ]]; then
+	if [[ "$DEVICE_QUEUE" =~ caracalla* ]]; then
 		URL=http://10.102.196.9/plano/caracalla-current.img.xz
 	elif [ "$DEVICE_QUEUE" = stlouis ]; then
 		URL=http://10.102.196.9/plano/stlouis-current.img.xz
@@ -69,7 +69,11 @@ if [ -z "$URL" ]; then
 		else	
 			IMAGE="${DEVICE}.img.xz"
 		fi
-		URL=https://storage.googleapis.com/snapd-spread-tests/images/$DEVICE-$VERSION-$CHANNEL/$IMAGE
+		if [ "$CHANNEL" == stable ]; then
+			URL=https://storage.googleapis.com/snapd-spread-tests/images/$DEVICE-$VERSION-$CHANNEL/$IMAGE
+		else
+			URL=https://storage.googleapis.com/snapd-spread-tests/images/$DEVICE-$VERSION-stable-snapd_$CHANNEL/$IMAGE
+		fi
 	fi
 fi
 
