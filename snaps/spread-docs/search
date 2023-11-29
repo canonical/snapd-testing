@@ -2,21 +2,22 @@
 
 show_help() {
     
-    echo "usage: spread-docs.search --project <PROJECT_NAME> --key <KEY_1> [--key <KEY_2>] [--suite <TEST_SUITE>] --count"
+    echo "usage: spread-docs.search --project <PROJECT_NAME> --key <KEY_1> [--key <KEY_2>] [--suite <TEST_SUITE>] [--count] [--match-all]"
     echo ""
     echo "Available options:"
-    echo "  -h --help   show this help message."
-    echo "  --project   is the name of the project to query"
-    echo "  --suite     is the test suite name used to filter tests"
-    echo "  --key       is the keyboard to match. By default any test that mach any key provided is displayed"
-    echo "  --count     show the number of tests matching"
+    echo "  -h --help    show this help message."
+    echo "  --project    is the name of the project to query"
+    echo "  --suite      is the test suite name used to filter tests"
+    echo "  --key        is the keyboard to match. By default any test that mach any key provided is displayed"
+    echo "  --count      show the number of tests matching"
+    echo "  --match-all  when selected all the keys need to match with the test description"
     echo 
 }
 
 filter_suites(){
     PROJECT_NAME=$1
     SUITE=$2
-    SPREAD_FILE="$SNAP_COMMON/$PROJECT_NAME"/spread.yaml
+    SPREAD_FILE="$SNAP_USER_COMMON/$PROJECT_NAME"/spread.yaml
 
     if [ ! -f "$SPREAD_FILE" ]; then
         echo "spread-docs.search: spread file not found $SPREAD_FILE" >&2
@@ -36,7 +37,7 @@ filter_tests(){
     SUITES=$@
 
     for SUITE in $SUITES; do
-        find "$SNAP_COMMON/$PROJECT_NAME/$SUITE" -name task.yaml
+        find "$SNAP_USER_COMMON/$PROJECT_NAME/$SUITE" -name task.yaml
     done
 }
 
@@ -73,7 +74,7 @@ filter_keys(){
     DETAILS=$(yq '.details // ""' "$TEST")
     FULL=$(echo "$SUMMARY $DETAILS" | tr '\n' ' ')
 
-    if echo $FULL | grep $PARAMS; then
+    if echo $FULL | grep -q $PARAMS; then
         echo "test: $TEST"
         echo "summary: $SUMMARY"
         if [ -n "$DETAILS" ]; then

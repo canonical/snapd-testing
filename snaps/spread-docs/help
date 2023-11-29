@@ -1,0 +1,29 @@
+#!/bin/bash
+
+show_help() {
+    BOLD='\033[1m'
+    NC='\033[0m'
+
+    echo -e "${BOLD}SUMMARY${NC}"
+    echo ""
+    echo "This snap allows to generate documentation from a github repo" \
+         "which contains spread tests on it."
+    echo "The snap clones and update the github project and searches all the tests."
+    echo "then based on the tests found generates the output with tests the content."
+    echo ""
+    echo -e "${BOLD}GET PROJECT${NC}"
+    echo ""
+    echo "The snap allows to manage several projects, to setup a project is used" \
+         "the git-project command. See the example:"
+    echo ""
+    echo "> spread-docs.git-project --project snapd --url https://github.com/snapcore/snapd.git"
+    echo ""
+    echo -e "${BOLD}SEARCH${NC}"
+    echo ""
+    echo "Then to filter spread tests and see the description the snap provides the search command. See the example:"
+    echo ""
+    echo "> spread-docs.search --project snapd --key reboot --key upgrade --suite core --match-all"
+    echo ""
+}
+
+show_help

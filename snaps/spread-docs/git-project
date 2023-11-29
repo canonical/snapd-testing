@@ -1,17 +1,71 @@
 #!/bin/bash
 
-PROJECT_NAME="$1"
-GIT_URL="$2"
+show_help() {
+    
+    echo "usage: spread-docs.git-project --project <PROJECT_NAME> --url <GIT_URL>"
+    echo ""
+    echo "Available options:"
+    echo "  -h --help      show this help message."
+    echo "  --project      the name of the project to get"
+    echo "  --url          the git https url used to clone the project"
+    echo 
+}
 
-if [ -z "$PROJECT_NAME" ] || [ -z "$GIT_URL" ]; then
-    echo "usage: git-project <PROJECT_NAME> <GIT_URL>"
-    exit 1
-fi
+get_project(){
+    PROJECT_NAME="$1"
+    GIT_URL="$2"
 
-if [ -d "$SNAP_COMMON/$PROJECT_NAME" ]; then
-    echo "project $PROJECT_NAME already clones, updating..."
-    (cd "$SNAP_COMMON/$PROJECT_NAME" && git pull)
-else
-    git clone "$GIT_URL" "$SNAP_COMMON/$PROJECT_NAME"
-fi
+    if [ -d "$SNAP_USER_COMMON/$PROJECT_NAME" ]; then
+        echo "spread-docs.git-project: project $PROJECT_NAME already cloned, updating..."
+        if ! ( cd "$SNAP_USER_COMMON/$PROJECT_NAME" && git pull ); then
+            echo "spread-docs.git-project: failed to update project $SNAP_USER_COMMON/$PROJECT_NAME," \
+                 "please retry."
+        fi
+    else
+        git clone "$GIT_URL" "$SNAP_USER_COMMON/$PROJECT_NAME"
+    fi
+}
 
+main() {
+    if [ $# -eq 0 ]; then
+        show_help
+        exit 0
+    fi
+
+    PROJECT_NAME=
+    URL=
+    SKIP_UPDATE=0
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            --project)
+                PROJECT_NAME="$2"
+                shift 2
+                ;;
+            --url)
+                URL="$2"
+                shift 2
+                ;;
+            *)
+                echo "spread-docs.search: unknown parameter $1" >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    if [ -z "$PROJECT_NAME" ]; then
+        echo "spread-docs.git-project: project name is required"
+        exit 1
+    fi
+    if [ -z "$URL" ]; then
+        echo "spread-docs.git-project: git url is required"
+        exit 1
+    fi
+
+    get_project "$PROJECT_NAME" "$URL"
+}
+
+main "$@"
