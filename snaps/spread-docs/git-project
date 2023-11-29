@@ -1,0 +1,17 @@
+#!/bin/bash
+
+PROJECT_NAME="$1"
+GIT_URL="$2"
+
+if [ -z "$PROJECT_NAME" ] || [ -z "$GIT_URL" ]; then
+    echo "usage: git-project <PROJECT_NAME> <GIT_URL>"
+    exit 1
+fi
+
+if [ -d "$SNAP_COMMON/$PROJECT_NAME" ]; then
+    echo "project $PROJECT_NAME already clones, updating..."
+    (cd "$SNAP_COMMON/$PROJECT_NAME" && git pull)
+else
+    git clone "$GIT_URL" "$SNAP_COMMON/$PROJECT_NAME"
+fi
+

@@ -1,0 +1,57 @@
+name: spread-docs
+version: '1.1.1'
+summary: Generate spread tests documentation from a github project
+base: core22
+confinement: strict
+grade: stable
+
+description: |
+  This snap allows to generate HTML documentation from a github repo
+  which contains spread tests on it. The snap clones and update the
+  github project and searches all the tests on it, then based on the
+  tests found generates a json file with all the content. This json
+  file is used to generate a HTML with some searching features to
+  allow filtering based on summary and details.
+
+apps:
+    get-project:
+        command: get-project
+
+    search:
+        command: search-tests
+
+parts:
+  git:
+      plugin: make
+      source: .
+      stage-packages:
+          - curl
+          - jq
+          - libcurl4-openssl-dev
+          - wget
+      build-packages:
+          - asciidoc
+          - build-essential
+          - curl
+          - cvs
+          - cvsps
+          - docbook-xsl
+          - gettext
+          - libcurl4-openssl-dev
+          - libdbd-sqlite3-perl
+          - libsvn-perl
+          - libyaml-perl
+          - subversion
+          - xmlto
+          - wget
+          - zlib1g-dev
+      prime:
+          - bin/
+          - meta/hooks
+          - usr/
+  doc:
+      plugin:
+      source: 
+      stage-packages:
+        - yq
+        - jq

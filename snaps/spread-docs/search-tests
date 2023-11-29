@@ -1,0 +1,204 @@
+#!/bin/bash
+
+show_help() {
+    
+    echo "usage: spread-docs.search --project <PROJECT_NAME> --key <KEY_1> [--key <KEY_2>] [--suite <TEST_SUITE>] --count"
+    echo ""
+    echo "Available options:"
+    echo "  -h --help   show this help message."
+    echo "  --project   is the name of the project to query"
+    echo "  --suite     is the test suite name used to filter tests"
+    echo "  --key       is the keyboard to match. By default any test that mach any key provided is displayed"
+    echo "  --count     show the number of tests matching"
+    echo 
+}
+
+filter_suites(){
+    PROJECT_NAME=$1
+    SUITE=$2
+    SPREAD_FILE="$SNAP_COMMON/$PROJECT_NAME"/spread.yaml
+
+    if [ ! -f "$SPREAD_FILE" ]; then
+        echo "spread-docs.search: spread file not found $SPREAD_FILE" >&2
+        exit 1
+    fi
+
+    if [ -z "$SUITE" ]; then
+        yq ".suites|keys|.[]" "$SPREAD_FILE"
+    else
+        yq ".suites | keys | .[] | select(test(\"/$SUITE/\"))" "$SPREAD_FILE"
+    fi
+}
+
+filter_tests(){
+    PROJECT_NAME=$1
+    shift 1
+    SUITES=$@
+
+    for SUITE in $SUITES; do
+        find "$SNAP_COMMON/$PROJECT_NAME/$SUITE" -name task.yaml
+    done
+}
+
+_grep_params(){
+    MATCH=$1
+    shift 1
+    KEYS=$@
+
+    PARAMS=""
+    for KEY in $KEYS; do
+        if [ "$MATCH" == "all" ]; then
+            if [ -z "$PARAMS" ]; then
+                PARAMS="-P ^(?=.*$KEY)"
+            else
+                PARAMS="$PARAMS(?=.*$KEY)"
+            fi
+        else            
+            PARAMS="$PARAMS -e $KEY"
+        fi
+    done
+
+    if [ "$MATCH" == "all" ]; then
+        PARAMS="$PARAMS"
+    fi
+
+    echo "$PARAMS"
+}
+
+filter_keys(){
+    TEST=$1
+    PARAMS=$2
+
+    SUMMARY=$(yq '.summary' "$TEST")
+    DETAILS=$(yq '.details // ""' "$TEST")
+    FULL=$(echo "$SUMMARY $DETAILS" | tr '\n' ' ')
+
+    if echo $FULL | grep $PARAMS; then
+        echo "test: $TEST"
+        echo "summary: $SUMMARY"
+        if [ -n "$DETAILS" ]; then
+            echo "details: $DETAILS" | sed '/^$/d'
+        fi
+    fi
+}
+
+format_output(){
+    OUTPUT=$1
+    shift 1
+    KEYS=$@
+
+    RED='\\033[0;31m'
+    GREEN='\\033[0;32m'
+    NC='\\033[0m'
+
+    OUTPUT=$(echo "$OUTPUT" | sed "s/test:/${RED}test:${NC}/g")
+    OUTPUT=$(echo "$OUTPUT" | sed "s/summary:/${RED}summary:${NC}/g")
+    OUTPUT=$(echo "$OUTPUT" | sed "s/details:/${RED}details:${NC}/g")
+
+    for key in $KEYS; do
+        OUTPUT=$(echo "$OUTPUT" | sed "s/$key/${GREEN}$key${NC}/g")
+    done
+
+    echo -e "$OUTPUT"
+    echo 
+}
+
+search(){
+    PROJECT_NAME=$1
+    SUITE=$2
+    MATCH=$3
+    COUNT=$4
+    shift 4
+    KEYS=$@
+
+    SUITES=$(filter_suites "$PROJECT_NAME" "$SUITE")
+    if [ -z "$SUITES" ]; then
+        echo "spread-docs.search: no suites matching with $SUITE"
+        exit 0
+    fi
+    TESTS=$(filter_tests "$PROJECT_NAME" $SUITES)
+    if [ -z "$TESTS" ]; then
+        echo "spread-docs.search: no tests found in suites: $SUITES"
+        exit 0
+    fi
+
+    NUMBER=0
+    PARAMS=$(_grep_params "$MATCH" $KEYS)
+    for TEST in $TESTS; do
+        OUTPUT="$(filter_keys "$TEST" "$PARAMS")"
+        if [ -n "$OUTPUT" ]; then
+            if [ "$COUNT" = 1 ]; then
+                NUMBER=$(( NUMBER + 1 ))
+            else
+                format_output "$OUTPUT" $KEYS
+            fi
+        fi
+    done
+
+    if [ "$COUNT" = 1 ]; then
+        echo "found: $NUMBER tests matching keys"
+    fi
+
+}
+
+main() {
+    if [ $# -eq 0 ]; then
+        show_help
+        exit 0
+    fi
+
+    PROJECT_NAME=
+    TEST_SUITE=
+    KEYS=
+    COUNT=0
+    MATCH="any"
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            --project)
+                PROJECT_NAME="$2"
+                shift 2
+                ;;
+            --suite)
+                TEST_SUITE="$2"
+                shift 2
+                ;;
+            --key)
+                KEYS="$KEYS $2"
+                shift 2
+                ;;
+            --count)
+                COUNT=1
+                shift 1
+                ;;
+            --match-all)
+                MATCH=all
+                shift 1
+                ;;
+            *)
+                echo "spread-docs.search: unknown parameter $1" >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    if [ -z "$PROJECT_NAME" ]; then
+        echo "spread-docs.search: project name is required"
+        exit 1
+    fi
+    if [ -z "$KEYS" ]; then
+        echo "spread-docs.search: at least 1 key is required"
+        exit 1
+    fi
+
+    if [ "$(echo "$KEYS" | wc -w)" = 1 ]; then
+        MATCH=any
+    fi
+
+    search "$PROJECT_NAME" "$TEST_SUITE" "$MATCH" "$COUNT" $KEYS
+}
+
+main "$@"
