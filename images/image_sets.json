@@ -163,6 +163,29 @@
                }
             }
          ]
+      },
+      {
+         "version":24,
+         "channel":"stable",
+         "snaps":[
+            {
+               "name":"core24",
+               "channel":"edge"
+            }
+         ],
+         "platforms":[
+            "pi3",
+            "pi4",
+            "pc-amd64"
+         ],
+         "triggers":[
+            {
+               "snap":{
+                  "name":"core24",
+                  "channel":"edge"
+               }
+            }
+         ]
       }
    ]
 }
