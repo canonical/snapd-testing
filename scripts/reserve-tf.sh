@@ -43,8 +43,8 @@ elif [ "$DEVICE" = stlouis ]; then
 elif [ "$DEVICE" = dragonboard ]; then
 	DEVICE_QUEUE=dragonboard
 else
-	echo "Device $DEVICE not supported. Supported devices are: [$SUPPORTED_DEVICES]"
-	exit 1
+	echo "Device $DEVICE not in supported list, usign it as a device queue"
+	DEVICE_QUEUE=$DEVICE
 fi
 
 if ! [[ "$SUPPORTED_CHANNELS" =~ "$CHANNEL" ]]; then
