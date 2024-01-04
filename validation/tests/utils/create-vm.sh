@@ -139,20 +139,15 @@ if [ "$CURR_SYSTEM" = focal ] || [ "$CURR_SYSTEM" = jammy ]; then
     create_cloud_init_config_uc20
     rm -f /var/snap/test-snapd-swtpm/current/tpm2-00.permall
 
-    if [ "$CURR_SYSTEM" = jammy ]; then
-        wget https://storage.googleapis.com/snapd-spread-tests/dependencies/OVMF_CODE.secboot.fd
-        mv OVMF_CODE.secboot.fd /usr/share/OVMF/OVMF_CODE.secboot.fd
-        wget https://storage.googleapis.com/snapd-spread-tests/dependencies/OVMF_VARS.ms.fd
-        mv OVMF_VARS.ms.fd "$WORK_DIR"/OVMF_VARS.ms.fd
-    else
-        cp /usr/share/OVMF/OVMF_VARS.ms.fd "$WORK_DIR"/OVMF_VARS.ms.fd
-    fi
+    OVMF_CODE=OVMF_CODE.secboot.fd
+    OVMF_VARS=OVMF_VARS.ms.fd
+    cp /usr/share/OVMF/"$OVMF_VARS" "$WORK_DIR"/"$OVMF_VARS"
 
     tests.systemd create-and-start-unit nested-vm "${QEMU} -m 4096 -nographic -snapshot \
         -machine ubuntu-q35,accel=kvm -global ICH9-LPC.disable_s3=1 \
         -netdev user,id=mynet0,hostfwd=tcp::$PORT-:22 -device virtio-net-pci,netdev=mynet0 \
-        -drive file=/usr/share/OVMF/OVMF_CODE.secboot.fd,if=pflash,format=raw,unit=0,readonly=on \
-        -drive file=$WORK_DIR/OVMF_VARS.ms.fd,if=pflash,format=raw,unit=1 \
+        -drive file=/usr/share/OVMF/$OVMF_CODE,if=pflash,format=raw,unit=0,readonly=on \
+        -drive file=$WORK_DIR/$OVMF_VARS,if=pflash,format=raw,unit=1 \
         -chardev socket,id=chrtpm,path=/var/snap/test-snapd-swtpm/current/swtpm-sock \
         -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \
         -drive file=$WORK_DIR/ubuntu-core.img,cache=none,format=raw,id=disk1,if=none \
