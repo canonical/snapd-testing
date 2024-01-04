@@ -15,7 +15,7 @@ check_url() {
 
 SUPPORTED_DEVICES="amd64 i386 pi2 pi3 pi4 cm3 nuc dragonboard caracalla-media caracalla-transport stlouis"
 SUPPORTED_CHANNELS="edge beta candidate stable"
-SUPPORTED_VERSIONS="16 18 20 22"
+SUPPORTED_VERSIONS="16 18 20 22 24"
 SUPPORTED_PROJECTS="cconf snapd"
 SUPPORTED_BRANCHES="edge beta candidate stable master <COMMIT>"
 CONFIG_FILE=/tmp/config_test.sh
