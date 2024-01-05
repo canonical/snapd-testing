@@ -636,8 +636,8 @@ class ImagesManager:
             processor = ImageProcessor(image)
             try:
                 image_new = processor.process_image(proxy_host=PROXY_HOST, proxy_port=PROXY_PORT)
-            except Exception:
-                logging.error('Image {} could not be processed correctly'.format(image))
+            except Exception as err:
+                logging.error('Image {} could not be processed correctly: {}'.format(image, err))
                 continue
 
             if image_new:
