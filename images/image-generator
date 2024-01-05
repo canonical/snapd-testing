@@ -488,10 +488,17 @@ class ImageProcessor:
         # Create the image using ubuntu-image tool
         image_option = self.get_image_options()
         snaps_option = self.get_snap_options()
-        
-        line = "ubuntu-image snap --validation=enforce {} {} -c {} -O {} ./models/{}-{}.model".format(
+
+        # Use channel just when the image has a default one
+        channel_param = ""
+        if self.image.channel:
+            channel_param = "-c {}".format(self.image.channel)
+
+        output_param = "-O {}".format(self.image.output_dir)
+
+        line = "ubuntu-image snap --validation=enforce {} {} {} {} {} ./models/{}-{}.model".format(
             image_option, snaps_option, 
-            self.image.channel, self.image.output_dir, 
+            channel_param, output_param, 
             self.image.platform, self.image.version)
 
         logging.info('Running command line: {}'.format(line))
