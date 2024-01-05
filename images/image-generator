@@ -362,7 +362,7 @@ class Image:
         if not image_channel:
             image_channel="nochannel"
 
-        name = '{}-{}-{}'.format(self.platform, self.version, self.channel.replace('/', '~'))
+        name = '{}-{}-{}'.format(self.platform, self.version, image_channel.replace('/', '~'))
         for snap in self.snaps:
             name = '{}-{}_{}'.format(name, snap.name, snap.channel.replace('/', '~'))
         return name
