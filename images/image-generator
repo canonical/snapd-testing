@@ -17,7 +17,7 @@ import urllib.request
 S3_BUCKET_NAME = 'gs://snapd-spread-tests/images'
 S3_PUBLIC_URL = 'https://storage.googleapis.com/snapd-spread-tests/images'
 SUPPORTED_PLATFORMS = ['dragonboard','pc-amd64','pc-i386','pi4','pi3','pi2']
-SUPPORTED_CHANNELS = ['edge', 'beta', 'candidate', 'stable']
+SUPPORTED_CHANNELS = ['edge', 'beta', 'candidate', 'stable', 'default']
 SUPPORTED_VERSIONS = [16, 18, 20, 22, 24]
 
 IMAGE_EXT = '.img'
@@ -301,11 +301,11 @@ class Image:
 
     def __init__(self, definition, default_platform=None):
         self.version = definition.get('version')
-        self.channel = definition.get('channel')
+        self.channel = definition.get('channel', 'default')
         self.manifest = ImageManifest(definition=definition.get('manifest'))
         self.platform = definition.get('platform', default_platform)
 
-        if self.channel and not self.channel in SUPPORTED_CHANNELS:
+        if not self.channel in SUPPORTED_CHANNELS:
             raise ValueError('channel: {} not supported. Supported channels: {}'.format(self.channel, SUPPORTED_CHANNELS))
 
         if not self.version in SUPPORTED_VERSIONS:
