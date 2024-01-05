@@ -305,7 +305,7 @@ class Image:
         self.manifest = ImageManifest(definition=definition.get('manifest'))
         self.platform = definition.get('platform', default_platform)
 
-        if not self.channel in SUPPORTED_CHANNELS:
+        if self.channel and not self.channel in SUPPORTED_CHANNELS:
             raise ValueError('channel: {} not supported. Supported channels: {}'.format(self.channel, SUPPORTED_CHANNELS))
 
         if not self.version in SUPPORTED_VERSIONS:
