@@ -301,9 +301,12 @@ class Image:
 
     def __init__(self, definition, default_platform=None):
         self.version = definition.get('version')
-        self.channel = definition.get('channel', 'default')
+        self.channel = definition.get('channel')
         self.manifest = ImageManifest(definition=definition.get('manifest'))
         self.platform = definition.get('platform', default_platform)
+
+        if not self.channel:
+            self.channel = 'default'
 
         if not self.channel in SUPPORTED_CHANNELS:
             raise ValueError('channel: {} not supported. Supported channels: {}'.format(self.channel, SUPPORTED_CHANNELS))
