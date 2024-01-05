@@ -17,7 +17,7 @@ import urllib.request
 S3_BUCKET_NAME = 'gs://snapd-spread-tests/images'
 S3_PUBLIC_URL = 'https://storage.googleapis.com/snapd-spread-tests/images'
 SUPPORTED_PLATFORMS = ['dragonboard','pc-amd64','pc-i386','pi4','pi3','pi2']
-SUPPORTED_CHANNELS = ['edge', 'beta', 'candidate', 'stable', 'default']
+SUPPORTED_CHANNELS = ['edge', 'beta', 'candidate', 'stable']
 SUPPORTED_VERSIONS = [16, 18, 20, 22, 24]
 
 IMAGE_EXT = '.img'
@@ -305,10 +305,7 @@ class Image:
         self.manifest = ImageManifest(definition=definition.get('manifest'))
         self.platform = definition.get('platform', default_platform)
 
-        if not self.channel:
-            self.channel = 'default'
-
-        if not self.channel in SUPPORTED_CHANNELS:
+        if self.channel and not self.channel in SUPPORTED_CHANNELS:
             raise ValueError('channel: {} not supported. Supported channels: {}'.format(self.channel, SUPPORTED_CHANNELS))
 
         if not self.version in SUPPORTED_VERSIONS:
@@ -361,6 +358,10 @@ class Image:
             set(self.snaps) == set(other.snaps)
 
     def get_image_name(self):
+        image_channel = self.channel
+        if not image_channel:
+            image_channel="nochannel"
+
         name = '{}-{}-{}'.format(self.platform, self.version, self.channel.replace('/', '~'))
         for snap in self.snaps:
             name = '{}-{}_{}'.format(name, snap.name, snap.channel.replace('/', '~'))
