@@ -500,7 +500,7 @@ class ImageProcessor:
 
         output_param = "-O {}".format(self.image.output_dir)
 
-        line = "ubuntu-image snap --validation=enforce {} {} {} {} {} ./models/{}-{}.model".format(
+        line = "ubuntu-image snap --validation=enforce {} {} {} {} ./models/{}-{}.model".format(
             image_option, snaps_option, 
             channel_param, output_param, 
             self.image.platform, self.image.version)
