@@ -13,7 +13,7 @@ check_url() {
     curl --head --silent --fail "$1" &> /dev/null
 }
 
-SUPPORTED_DEVICES="amd64 i386 pi2 pi3 pi4 cm3 nuc dragonboard caracalla-media caracalla-transport stlouis"
+SUPPORTED_DEVICES="amd64 i386 pi2 pi3 pi4 cm3 nuc dragonboard caracalla-media caracalla-transport stlouis dawson-i dawson-j tillamook"
 SUPPORTED_CHANNELS="edge beta candidate stable"
 SUPPORTED_VERSIONS="16 18 20 22 24"
 SUPPORTED_PROJECTS="cconf snapd"
@@ -440,10 +440,16 @@ echo "Loading tests config: $CONFIG_FILE and $CURR_DIR/config/tests/common.sh"
 . "$CURR_DIR"/config/tests/common.sh
 
 echo "Loading environment variables used for tests"
+SPREAD_ENV=""
 for env_var in $env; do
     echo "Using env $env_var"
-    export "$env_var"
+    if [ -z "$SPREAD_ENV" ]; then
+        SPREAD_ENV="${env_var}"
+    else
+        SPREAD_ENV="${SPREAD_ENV},${env_var}"
+    fi
 done
+export SPREAD_ENV="$SPREAD_ENV"
 
 echo "Executing $PROJECT_DIR/validation/tests/run-tests.sh $CONFIG_FILE"
 "$CURR_DIR"/tests/run-tests.sh "$CONFIG_FILE"

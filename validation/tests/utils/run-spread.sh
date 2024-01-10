@@ -30,7 +30,7 @@ fi
 if [ ! -z "$SPREAD_ENV" ]; then
     spread_env="$(echo $SPREAD_ENV | tr ',' ' ')"
     echo "Using spread env: $spread_env"
-    export "$spread_env"
+    export $spread_env
 fi
 export SPREAD_EXTERNAL_ADDRESS=$DEVICE_IP:$DEVICE_PORT
 
