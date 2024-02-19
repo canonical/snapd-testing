@@ -20,24 +20,19 @@ fi
 SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 case "$TESTS_BACKEND" in
-    google)
-        "$SCRIPTS_DIR/google/$PROJECT/run-google.sh"
-        ;;
     testflinger)
         case "$TESTS_DEVICE" in
             device)
-                "$SCRIPTS_DIR"/test_flinger/create-job-device.sh "$TF_JOB"
+                "$SCRIPTS_DIR"/test_flinger/run-tests-device.sh "$TF_JOB"
                 ;;
             vm)
-                "$SCRIPTS_DIR"/test_flinger/create-job-vm.sh "$TF_JOB"
+                "$SCRIPTS_DIR"/test_flinger/run-tests-vm.sh "$TF_JOB"
                 ;;
             *)
                 echo "$TESTS_DEVICE not supported for testflinger"
                 exit 1  
                 ;;
         esac
-        "$SCRIPTS_DIR"/test_flinger/run-job.sh "$TF_JOB"
-        rm -f "$TF_JOB"
         ;;
     *)
         echo "$TESTS_BACKEND not supported"

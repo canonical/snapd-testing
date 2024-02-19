@@ -3,7 +3,7 @@ set -x
 
 echo "Running spread"
 
-if [ "$#" -ne 7 ]; then
+if [ "$#" -ne 5 ]; then
     echo "Illegal number of parameters: $#"
     i=1
     for param in $*; do
@@ -13,13 +13,11 @@ if [ "$#" -ne 7 ]; then
     exit 1
 fi
 
-DEVICE_IP=$1
-DEVICE_PORT=$2
-PROJECT_PATH=$3
-SPREAD_TESTS=$4
-SPREAD_ENV=$5
-SKIP_TESTS=$6
-SPREAD_PARAMS=$7
+PROJECT_PATH=$1
+SPREAD_TESTS=$2
+SPREAD_ENV=$3
+SKIP_TESTS=$4
+SPREAD_PARAMS=$5
 
 if [ -z "$SPREAD_TESTS" ]; then
     echo "Spread tests not defined, skipping execution"
@@ -32,12 +30,11 @@ if [ ! -z "$SPREAD_ENV" ]; then
     echo "Using spread env: $spread_env"
     export $spread_env
 fi
-export SPREAD_EXTERNAL_ADDRESS=$DEVICE_IP:$DEVICE_PORT
 
 # Determine the spread location
-SPREAD="$(which spread)"
+SPREAD="$(which spread-testflinger)"
 if [ -z "$SPREAD" ]; then
-    SPREAD="$(pwd)/spread"
+    SPREAD="$(pwd)/spread-testflinger"
     if [ ! -x "$SPREAD" ]; then
         echo "Spread not found"
         exit 1
