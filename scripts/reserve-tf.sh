@@ -21,7 +21,7 @@ TEST_DATA=""
 
 TF_JOB=job.yaml
 TF_CLIENT=/snap/bin/testflinger-cli
-SUPPORTED_DEVICES='pi2 pi3 pi4 dragonboard caracalla caracalla-media caracalla-transport stlouis'
+SUPPORTED_DEVICES='pi2 pi3 pi4 dragonboard caracalla caracalla-media caracalla-transport stlouis murcia-3200 havana-dome'
 SUPPORTED_CHANNELS='edge beta candidate stable'
 SUPPORTED_VERSIONS='16 18 20 22'
 
@@ -62,6 +62,11 @@ if [ -z "$URL" ]; then
 		URL=http://10.102.196.9/plano/caracalla-current.img.xz
 	elif [ "$DEVICE_QUEUE" = stlouis ]; then
 		URL=http://10.102.196.9/plano/stlouis-current.img.xz
+	elif [[ "$DEVICE_QUEUE" =~ murcia-* ]]; then
+		DISTRO=core20-latest-stable
+	elif [[ "$DEVICE_QUEUE" =~ havana-dome* ]]; then
+		DISTRO=
+		URL=
 	else
 		# Define the url to get
 		if [ "$VERSION" != 16 ] && [[ "$DEVICE" =~ pi* ]]; then
@@ -82,12 +87,21 @@ if ! snap list testflinger-cli; then
     sudo snap install testflinger-cli    
 fi
 
+PROVISION_DATA="provision_data:"
+if [ -n "$DISTRO" ]; then
+	PROVISION="distro: $DISTRO"
+elif [ -n "$URL" ]; then
+  PROVISION="url: $URL"
+else
+	PROVISION_DATA=""
+	PROVISION=""
+fi
 
 cat > "$TF_JOB" <<EOF
 job_queue: $DEVICE_QUEUE
 global_timeout: 36000
-provision_data:
-  url: $URL
+$PROVISION_DATA
+  $PROVISION
 reserve_data:
   ssh_keys:
     - lp:$LP_ID
