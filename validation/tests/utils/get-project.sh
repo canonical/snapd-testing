@@ -6,7 +6,6 @@ PROJECT_NAME=$2
 BRANCH=${3:-master}
 VERSION=${4:-uc16}
 ARCH=${5:-}
-COMMIT=${6:-}
 
 if [ -z "$PROJECT_NAME" ]; then
     echo "Project name cannot be empty, exiting..."
@@ -62,10 +61,6 @@ else
     else
         git clone --branch "$BRANCH" "$PROJECT_URL" "$PROJECT_NAME"
     fi
-fi
-
-if [ -n "$COMMIT" ]; then
-    ( cd "$PROJECT_NAME" && git checkout "$COMMIT" )
 fi
 
 echo "Project downloaded and configured."

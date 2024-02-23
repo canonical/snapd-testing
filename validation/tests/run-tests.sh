@@ -17,25 +17,8 @@ if [ -z "$PROJECT" ]; then
     exit 1  
 fi
 
-SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+VALIDATION_DIR="$(dirname "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )")"
 
-case "$TESTS_BACKEND" in
-    testflinger)
-        case "$TESTS_DEVICE" in
-            device)
-                "$SCRIPTS_DIR"/test_flinger/run-tests-device.sh "$TF_JOB"
-                ;;
-            vm)
-                "$SCRIPTS_DIR"/test_flinger/run-tests-vm.sh "$TF_JOB"
-                ;;
-            *)
-                echo "$TESTS_DEVICE not supported for testflinger"
-                exit 1  
-                ;;
-        esac
-        ;;
-    *)
-        echo "$TESTS_BACKEND not supported"
-        exit 1
-        ;;
-esac
+"$VALIDATION_DIR"/tests/utils/get-project.sh "$cat SPREAD_ENV" "$PROJECT" "$BRANCH" "$VERSION" "$ARCH" "$COMMIT"
+sed "/^backends:/r "$VALIDATION_DIR"/config/spread/tf_${CHANNEL}_spread.yaml" -i "$PROJECT"/spread.yaml
+"$VALIDATION_DIR"/tests/utils/run-spread.sh "$PROJECT" "$SPREAD_TESTS" "$SPREAD_ENV" "$SKIP_TESTS" "$SPREAD_PARAMS"
