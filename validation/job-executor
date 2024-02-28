@@ -27,14 +27,13 @@ fi
 
 echo "Loading tests config: $CURR_DIR/config/tests/$TESTS_CONFIG.sh"
 . "$CURR_DIR"/config/tests/"$TESTS_CONFIG".sh
-. "$CURR_DIR"/config/tests/common.sh
 
 echo "Loading job config: $CURR_DIR/config/jobs/$JOB_CONFIG.sh"
 . "$CURR_DIR"/config/jobs/"${JOB_CONFIG}".sh
 . "$CURR_DIR"/config/jobs/common.sh
 
 echo "Running tests"
-"$CURR_DIR"/tests/run-tests.sh | tee "$SPREAD_LOG"
+"$CURR_DIR"/tests/run-tests.sh "$SPREAD_LOG" "$SPREAD_TESTS" "$SPREAD_ENV" "$SKIP_TESTS" "$SPREAD_PARAMS"
 
 echo "Analyzing results and exis status"
 # Determining the exit status for the run

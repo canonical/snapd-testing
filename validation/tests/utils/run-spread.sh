@@ -16,7 +16,7 @@ fi
 PROJECT_PATH=$1
 SPREAD_TESTS=$2
 SPREAD_ENV=$3
-SKIP_TESTS=$4
+SPREAD_SKIP=$4
 SPREAD_PARAMS=$5
 
 if [ -z "$SPREAD_TESTS" ]; then
@@ -49,9 +49,9 @@ if [ ! -d "$PROJECT_PATH" ]; then
     exit 1
 fi
 
-echo "Moving to manual all the tests to skip: $SKIP_TESTS"
-tests_skip="$(echo $SKIP_TESTS | tr ',' ' ')"
-for test in $tests_skip; do
+echo "Moving to manual all the tests to skip: $SPREAD_SKIP"
+spread_skip="$(echo $SPREAD_SKIP | tr ',' ' ')"
+for test in $spread_skip; do
     if [ -f "$PROJECT_PATH/$test/task.yaml" ]; then
         cp "$PROJECT_PATH/$test/task.yaml" "$PROJECT_PATH/$test/task.yaml.back"
         echo "manual: true" >> "$PROJECT_PATH/$test/task.yaml"
@@ -65,7 +65,7 @@ echo "Running command: spread $spread_params $spread_tests"
 ( cd "$PROJECT_PATH" && "$SPREAD" $spread_params $spread_tests )
 
 echo "Restoring skipped tests"
-for test in $tests_skip; do
+for test in $spread_skip; do
     if [ -f "$PROJECT_PATH/$test/task.yaml.back" ]; then
         mv "$PROJECT_PATH/$test/task.yaml.back" "$PROJECT_PATH/$test/task.yaml"
     fi

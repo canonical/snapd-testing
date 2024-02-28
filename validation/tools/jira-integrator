@@ -38,7 +38,7 @@ fi
 "${CURR_DIR}"/log-analyzer "$SPREAD_LOG" -pd error-debug -pr all > "$ERRORS_LOG"
 
 # Create card in jira
-"${CURR_DIR}"/jira-board-updater create -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --channel "$TARGET_CHANNEL" --config "${VALIDATION_DIR}/config/jira/${CONFIG}"
+"${CURR_DIR}"/jira-board-updater create -s "$SNAP_UT" -v "$VERSION_UT" -r "$REVISION_UT" --channel "$CHANNEL" --config "${VALIDATION_DIR}/config/jira/${CONFIG}"
 
 # Calculate the results to upload to jira
 # If "Successful tasks:" is found it means the spread execution was done

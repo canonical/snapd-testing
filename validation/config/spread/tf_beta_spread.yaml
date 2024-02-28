@@ -71,22 +71,3 @@
                   workers: 1
                   username: ubuntu
                   password: ubuntu
-            - ubuntu-core-18-64:
-                  queue: maas-x86-node
-                  distro: bionic
-                  workers: 1
-                  username: ubuntu
-                  password: ubuntu
-            - ubuntu-core-20-64:
-                  queue: maas-x86-node
-                  distro: focal
-                  workers: 1
-                  username: ubuntu
-                  password: ubuntu
-            - ubuntu-core-22-64:
-                  queue: maas-x86-node
-                  distro: jammy
-                  workers: 1
-                  username: ubuntu
-                  password: ubuntu
-

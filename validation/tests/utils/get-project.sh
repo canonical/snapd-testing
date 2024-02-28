@@ -18,7 +18,7 @@ if [ "$BRANCH" = beta ] || [ "$BRANCH" = edge ]; then
     . "$CURR_DIR/snap_info.sh"
 
     SNAP=core
-    if [ "$VERSION" != 'uc16' ]; then
+    if [ "$VERSION" != '16' ]; then
         SNAP=snapd
     fi
 
