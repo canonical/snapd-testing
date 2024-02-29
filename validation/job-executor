@@ -26,11 +26,11 @@ if ! "$CURR_DIR"/tools/check-env; then
 fi
 
 echo "Loading job config: $CURR_DIR/config/jobs/$JOB_CONFIG.sh"
-. "$CURR_DIR"/config/jobs/"${JOB_CONFIG}".sh
-. "$CURR_DIR"/config/jobs/common.sh
+"$CURR_DIR"/config/jobs/"${JOB_CONFIG}".sh
+"$CURR_DIR"/config/jobs/common.sh
 
 echo "Running tests"
-"$CURR_DIR"/tests/run-tests.sh "$SPREAD_LOG" "$SPREAD_TESTS" "$SPREAD_ENV" "$SKIP_TESTS" "$SPREAD_PARAMS"
+"$CURR_DIR"/tests/run-tests.sh
 
 echo "Analyzing results and exis status"
 # Determining the exit status for the run
