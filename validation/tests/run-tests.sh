@@ -2,45 +2,32 @@
 
 echo "Running tests"
 
-if [ -z "$TESTS_BACKEND" ]; then
-    echo "Backend not defined in environment config"
-    exit 1  
-fi
+VALIDATION_DIR="$(dirname "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )")"
 
-if [ -z "$TESTS_DEVICE" ]; then
-    echo "Test device not defined in environment config"
-    exit 1  
+env
+
+if [ -z "$SPREAD_LOG" ]; then
+    echo "Spread log not defined in environment config"
+    exit 1
 fi
 
 if [ -z "$PROJECT" ]; then
     echo "Project not defined in environment config"
-    exit 1  
+    exit 1
 fi
 
-SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+if [ -z "$ARCH_UT" ]; then
+    echo "Architecture not defined in environment config"
+    exit 1
+fi
 
-case "$TESTS_BACKEND" in
-    google)
-        "$SCRIPTS_DIR/google/$PROJECT/run-google.sh"
-        ;;
-    testflinger)
-        case "$TESTS_DEVICE" in
-            device)
-                "$SCRIPTS_DIR"/test_flinger/create-job-device.sh "$TF_JOB"
-                ;;
-            vm)
-                "$SCRIPTS_DIR"/test_flinger/create-job-vm.sh "$TF_JOB"
-                ;;
-            *)
-                echo "$TESTS_DEVICE not supported for testflinger"
-                exit 1  
-                ;;
-        esac
-        "$SCRIPTS_DIR"/test_flinger/run-job.sh "$TF_JOB"
-        rm -f "$TF_JOB"
-        ;;
-    *)
-        echo "$TESTS_BACKEND not supported"
-        exit 1
-        ;;
-esac
+if [ "$ARCH_UT" = "amd64" ]; then
+    "$VALIDATION_DIR"/tests/utils/get-project.sh "$PROJECT_URL" "$PROJECT" "$BRANCH" "$VERSION_UT" "$ARCH_UT"
+    "$VALIDATION_DIR"/tests/utils/run-spread.sh "$PROJECT" "$SPREAD_TESTS" "$SPREAD_ENV" "$SKIP_TESTS" "$SPREAD_PARAMS"
+    LOG=$(find .artifacts -name spread.log)
+    cp "$LOG" "$SPREAD_LOG"
+else
+    "$VALIDATION_DIR"/tests/utils/get-project.sh "$PROJECT_URL" "$PROJECT" "$BRANCH" "$VERSION_UT" "$ARCH_UT"
+    sed "/^backends:/r "$VALIDATION_DIR"/config/spread/tf_${CHANNEL}_spread.yaml" -i "$PROJECT"/spread.yaml
+    "$VALIDATION_DIR"/tests/utils/run-spread.sh "$PROJECT" "$SPREAD_TESTS" "$SPREAD_ENV" "$SKIP_TESTS" "$SPREAD_PARAMS" | tee "$SPREAD_LOG"
+fi

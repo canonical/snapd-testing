@@ -437,7 +437,7 @@ fi
 
 echo "Loading tests config: $CONFIG_FILE and $CURR_DIR/config/tests/common.sh"
 . "$CONFIG_FILE"
-. "$CURR_DIR"/config/tests/common.sh
+. "$CURR_DIR"/config/jobs/common.sh
 
 echo "Loading environment variables used for tests"
 SPREAD_ENV=""

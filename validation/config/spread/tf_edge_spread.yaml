@@ -1,0 +1,37 @@
+    #this backend is used for edge validation
+    testflinger:        
+        halt-timeout: 2h
+        wait-timeout: 30m
+        warn-timeout: 5m
+        kill-timeout: 3h
+        systems:
+            - ubuntu-core-18-rpi3:
+                  queue: rpi3b
+                  image: https://storage.googleapis.com/snapd-spread-tests/images/pi3-18-stable-core18_edge/pi.img.xz
+                  workers: 1
+                  username: ubuntu
+                  password: ubuntu
+            - ubuntu-core-20-rpi3:
+                  queue: rpi3b
+                  image: https://storage.googleapis.com/snapd-spread-tests/images/pi3-20-stable-core20_edge/pi.img.xz
+                  workers: 1
+                  username: ubuntu
+                  password: ubuntu
+            - ubuntu-core-22-rpi3:
+                  queue: rpi3b
+                  image: https://storage.googleapis.com/snapd-spread-tests/images/pi3-22-stable-core22_edge/pi.img.xz
+                  workers: 1
+                  username: ubuntu
+                  password: ubuntu
+            - ubuntu-core-20-rpi4:
+                  queue: rpi4b8g
+                  image: https://storage.googleapis.com/snapd-spread-tests/images/pi4-20-stable-core20_edge/pi.img.xz
+                  workers: 1
+                  username: ubuntu
+                  password: ubuntu
+            - ubuntu-core-22-rpi4:
+                  queue: rpi4b8g
+                  image: https://storage.googleapis.com/snapd-spread-tests/images/pi4-22-stable-core22_edge/pi.img.xz
+                  workers: 1
+                  username: ubuntu
+                  password: ubuntu
