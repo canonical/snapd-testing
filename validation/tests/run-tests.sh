@@ -22,7 +22,7 @@ fi
 if [ "$ARCH_UT" = "amd64" ]; then
     "$VALIDATION_DIR"/tests/utils/get-project.sh "$PROJECT_URL" "$PROJECT" "$BRANCH" "$VERSION_UT" "$ARCH_UT"
     "$VALIDATION_DIR"/tests/utils/run-spread.sh "$PROJECT" "$SPREAD_TESTS" "$SPREAD_ENV" "$SKIP_TESTS" "$SPREAD_PARAMS"
-    LOG=$(find .artifacts -name spread.log)
+    LOG=$(find "$PROJECT"/artifacts -name spread.log)
     cp "$LOG" "$SPREAD_LOG"
 else
     "$VALIDATION_DIR"/tests/utils/get-project.sh "$PROJECT_URL" "$PROJECT" "$BRANCH" "$VERSION_UT" "$ARCH_UT"
