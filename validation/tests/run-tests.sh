@@ -4,8 +4,6 @@ echo "Running tests"
 
 VALIDATION_DIR="$(dirname "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )")"
 
-env
-
 if [ -z "$SPREAD_LOG" ]; then
     echo "Spread log not defined in environment config"
     exit 1
