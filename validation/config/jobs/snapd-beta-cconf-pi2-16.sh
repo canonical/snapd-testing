@@ -6,7 +6,7 @@ export BOARD_UT=pi2-cconf
 export VERSION_UT=16
 export PROJECT=console-conf-tests
 export PROJECT_URL=https://github.com/sergiocazzolato/console-conf-tests.git
-export BRANCH=beta
+export BRANCH=master
 export CHANNEL=beta
 
 export SPREAD_TESTS="testflinger:ubuntu-core-16-pi2:"
