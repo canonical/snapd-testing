@@ -3,9 +3,10 @@ set -x
 
 PROJECT_URL=$1
 PROJECT_NAME=$2
-BRANCH=${3:-master}
-VERSION=${4:-uc16}
-ARCH=${5:-}
+TARGET_DIR=$3
+BRANCH=${4:-master}
+VERSION=${5:-uc16}
+ARCH=${6:-}
 
 if [ -z "$PROJECT_NAME" ]; then
     echo "Project name cannot be empty, exiting..."
@@ -40,8 +41,8 @@ CCONF_ZIP="https://github.com/sergiocazzolato/console-conf-tests/archive/$BRANCH
 JOBS_NAME=snapd-testing
 JOBS_ZIP="https://github.com/snapcore/snapd-testing/archive/$BRANCH.zip"
 
-if [ -d "$PROJECT_NAME" ]; then
-    ( cd "$PROJECT_NAME" && git reset --hard origin && git fetch origin && git checkout "$BRANCH" && git pull )
+if [ -d "$TARGET_DIR/$PROJECT_NAME" ]; then
+    ( cd "$TARGET_DIR/$PROJECT_NAME" && git reset --hard origin && git fetch origin && git checkout "$BRANCH" && git pull )
 else
     if [ -z "$PROJECT_URL" ] || [ "$PROJECT_URL" = 'default' ]; then 
         if [ "$PROJECT_NAME" == "$SNAPD_NAME" ]; then
@@ -56,10 +57,10 @@ else
         fi
         rm -rf "$PROJECT_NAME"-"$BRANCH"
         unzip -q "$BRANCH.zip"
-        mv "$PROJECT_NAME"-"$BRANCH" "$PROJECT_NAME"
+        mv "$PROJECT_NAME"-"$BRANCH" "$TARGET_DIR/$PROJECT_NAME"
         rm -f "$BRANCH.zip"
     else
-        git clone --branch "$BRANCH" "$PROJECT_URL" "$PROJECT_NAME"
+        git clone --branch "$BRANCH" "$PROJECT_URL" "$TARGET_DIR/$PROJECT_NAME"
     fi
 fi
 
