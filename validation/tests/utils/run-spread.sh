@@ -32,9 +32,9 @@ if [ ! -z "$SPREAD_ENV" ]; then
 fi
 
 # Determine the spread location
-SPREAD="$(which spread-testflinger)"
+SPREAD="$(which spread)"
 if [ -z "$SPREAD" ]; then
-    SPREAD="$(pwd)/spread-testflinger"
+    SPREAD="$(pwd)/spread"
     if [ ! -x "$SPREAD" ]; then
         echo "Spread not found"
         exit 1
