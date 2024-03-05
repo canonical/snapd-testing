@@ -1,5 +1,7 @@
     #this backend is used for edge validation
-    testflinger:        
+    testflinger:
+        environment:
+            TRUST_TEST_KEYS: "false"
         halt-timeout: 15h
         wait-timeout: 2h
         warn-timeout: 5m
