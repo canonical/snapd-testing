@@ -166,7 +166,7 @@
       },
       {
          "version":24,
-         "channel":"",
+         "channel":"edge",
          "snaps":[
             {
                "name":"core24",
