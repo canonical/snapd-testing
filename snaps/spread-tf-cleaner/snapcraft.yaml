@@ -1,0 +1,22 @@
+name: spread-tf-cleaner
+version: 1.1.1
+summary: Basic snap used to clean jobs on testflinger through spread -gc
+description: Basic snap used to clean jobs on gce through spread -gc
+confinement: strict
+grade: stable
+base: core22
+
+apps:
+    runner:
+        command: cleaner
+        daemon: simple
+        plugs: [home, network, network-bind]
+        passthrough:
+            # Run every 15 minutes
+            timer: 0:00-24:00/96
+
+parts:
+    copy:
+        plugin: dump
+        source: .
+        stage-packages: [curl]

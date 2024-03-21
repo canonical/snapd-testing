@@ -1,0 +1,24 @@
+#!/bin/bash
+
+cd "$SNAP_DATA"
+
+if [ ! -f "spread.yaml" ]; then
+    echo "File $SNAP_DATA/spread.yaml does not exist, using the default one"
+    cp -f "$SNAP/spread.yaml" "spread.yaml"
+    cp -rf "$SNAP/fakesuite" "fakesuite"
+fi
+echo "Using spread.yaml: $SNAP_DATA/spread.yaml"
+
+if [ ! -f "spread" ]; then
+    echo "Getting spread"
+    curl -s -O https://storage.googleapis.com/snapd-spread-tests/spread/spread-testflinger-amd64.tar.gz && tar xzvf spread-testflinger-amd64.tar.gz && rm -f spread-testflinger-amd64.tar.gz
+    mv spread-testflinger spread
+fi
+
+echo "Cleaning jobs for testflinger backend included in the spread.yaml"
+HTTPS_PROXY= https_proxy= ./spread -gc
+
+echo "Clean up finished"
+
+
+
