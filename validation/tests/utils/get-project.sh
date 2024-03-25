@@ -35,7 +35,7 @@ echo "Using branch $BRANCH for project $PROJECT_NAME"
 
 echo "Getting project from the defined url"
 SNAPD_NAME=snapd
-SNAPD_ZIP="https://github.com/snapcore/snapd/archive/$BRANCH.zip"
+SNAPD_ZIP="https://github.com/sergiocazzolato/snapd/archive/tests-fix-run-spread-test.zip"
 CCONF_NAME=console-conf-tests
 CCONF_ZIP="https://github.com/sergiocazzolato/console-conf-tests/archive/$BRANCH.zip"
 JOBS_NAME=snapd-testing
