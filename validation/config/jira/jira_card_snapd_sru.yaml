@@ -6,13 +6,13 @@ checklists:
         - name: Rejected
           default: false
     Autopkgtest tests:
-        - name: Bionic - http://people.canonical.com/~ubuntu-archive/proposed-migration/bionic/update_excuses.html#snapd
-          default: false
         - name: Focal - http://people.canonical.com/~ubuntu-archive/proposed-migration/focal/update_excuses.html#snapd
           default: false
         - name: Jammy - https://people.canonical.com/~ubuntu-archive/proposed-migration/jammy/update_excuses.html#snapd
           default: false
-        - name: Kinetic - https://people.canonical.com/~ubuntu-archive/proposed-migration/kinetic/update_excuses.html#snapd
+        - name: Mantic - https://people.canonical.com/~ubuntu-archive/proposed-migration/mantic/update_excuses.html#snapd
+          default: false
+        - name: Noble - https://people.canonical.com/~ubuntu-archive/proposed-migration/noble/update_excuses.html#snapd
           default: false
     Manual checks:
         - name: Review changelog
@@ -22,20 +22,20 @@ checklists:
         - name: Run tests described on lp
           default: false
     Automated tests:
-        - name: Bionic
-          default: false
         - name: Focal
           default: false
         - name: Jammy
           default: false
-        - name: Kinetic
+        - name: Manitc
+          default: false
+        - name: Noble
           default: false
     Manual tests:
-        - name: Bionic
-          default: false
         - name: Focal
           default: false
         - name: Jammy
           default: false
-        - name: Kinetic
+        - name: Mantic
+          default: false
+        - name: Noble
           default: false
