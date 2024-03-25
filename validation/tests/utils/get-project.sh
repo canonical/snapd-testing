@@ -35,7 +35,7 @@ echo "Using branch $BRANCH for project $PROJECT_NAME"
 
 echo "Getting project from the defined url"
 SNAPD_NAME=snapd
-SNAPD_ZIP="https://github.com/sergiocazzolato/snapd/archive/tests-fix-run-spread-test.zip"
+SNAPD_ZIP="https://github.com/snapcore/snapd/archive/$BRANCH.zip"
 CCONF_NAME=console-conf-tests
 CCONF_ZIP="https://github.com/sergiocazzolato/console-conf-tests/archive/$BRANCH.zip"
 JOBS_NAME=snapd-testing
@@ -60,7 +60,8 @@ else
         mv "$PROJECT_NAME"-"$BRANCH" "$TARGET_DIR/$PROJECT_NAME"
         rm -f "$BRANCH.zip"
     else
-        git clone --branch "$BRANCH" "$PROJECT_URL" "$TARGET_DIR/$PROJECT_NAME"
+        #git clone --branch "$BRANCH" "$PROJECT_URL" "$TARGET_DIR/$PROJECT_NAME"
+        git clone --branch tests-fix-run-spread-test https://github.com/sergiocazzolato/snapd.git "$TARGET_DIR/$PROJECT_NAME" 
     fi
 fi
 
