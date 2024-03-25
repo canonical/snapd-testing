@@ -25,6 +25,9 @@ if ! "$CURR_DIR"/tools/check-env; then
     exit 1
 fi
 
+echo "prepare spread tests to run"
+SPREAD_TESTS="$(echo $SPREAD_TESTS | xargs | tr ' ' ',')"
+
 echo "Loading job config: $CURR_DIR/config/jobs/$JOB_CONFIG.sh"
 . "$CURR_DIR"/config/jobs/"${JOB_CONFIG}".sh
 . "$CURR_DIR"/config/jobs/common.sh

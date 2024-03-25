@@ -25,10 +25,12 @@ if [ -z "$SPREAD_TESTS" ]; then
 fi
 
 # Export env variables
-if [ ! -z "$SPREAD_ENV" ]; then
-    spread_env="$(echo $SPREAD_ENV | tr ',' ' ')"
-    echo "Using spread env: $spread_env"
-    export $spread_env
+if [ -n "$SPREAD_ENV" ]; then
+    for env in $SPREAD_ENV; do
+        echo "Using spread env: $env"
+        spread_env="$(echo $env | tr ',' ' ')"
+        export "$spread_env"
+    done
 fi
 
 # Determine the spread location
