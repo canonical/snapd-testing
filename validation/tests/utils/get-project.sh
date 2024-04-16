@@ -60,8 +60,7 @@ else
         mv "$PROJECT_NAME"-"$BRANCH" "$TARGET_DIR/$PROJECT_NAME"
         rm -f "$BRANCH.zip"
     else
-        #git clone --branch "$BRANCH" "$PROJECT_URL" "$TARGET_DIR/$PROJECT_NAME"
-        git clone --branch tests-fix-run-spread-test https://github.com/sergiocazzolato/snapd.git "$TARGET_DIR/$PROJECT_NAME" 
+        git clone --branch "$BRANCH" "$PROJECT_URL" "$TARGET_DIR/$PROJECT_NAME"
     fi
 fi
 

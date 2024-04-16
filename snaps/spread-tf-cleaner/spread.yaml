@@ -1,7 +1,8 @@
 project: spread-cleaner
 
 backends:
-    testflinger:        
+    testflinger:
+        halt-timeout: 6h
         systems:
             - ubuntu-core-18-rpi3:
 

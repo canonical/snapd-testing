@@ -16,7 +16,7 @@ if [ ! -f "spread" ]; then
 fi
 
 echo "Cleaning jobs for testflinger backend included in the spread.yaml"
-HTTPS_PROXY= https_proxy= ./spread -gc
+no_proxy=testflinger.canonical.com ./spread -gc
 
 echo "Clean up finished"
 
