@@ -34,7 +34,7 @@ if [ -n "$SPREAD_ENV" ]; then
 fi
 
 # Determine the spread location
-SPREAD="$(which spread)"
+SPREAD="$(which spread-testflinger)"
 if [ -z "$SPREAD" ]; then
     SPREAD="$(pwd)/spread"
     if [ ! -x "$SPREAD" ]; then
