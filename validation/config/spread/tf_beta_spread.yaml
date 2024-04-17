@@ -3,7 +3,7 @@
         environment:
             TRUST_TEST_KEYS: "false"
         halt-timeout: 15h
-        wait-timeout: 2h
+        wait-timeout: 3h
         warn-timeout: 5m
         kill-timeout: 14h
         systems:

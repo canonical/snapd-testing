@@ -2,8 +2,8 @@
     testflinger:        
         environment:
             TRUST_TEST_KEYS: "false"
-        halt-timeout: 2h
-        wait-timeout: 30m
+        halt-timeout: 3h
+        wait-timeout: 1h30m
         warn-timeout: 5m
         kill-timeout: 3h
         systems:
