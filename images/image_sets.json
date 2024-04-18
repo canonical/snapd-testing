@@ -188,7 +188,7 @@
       },
       {
          "version":24,
-         "channel":"stable",
+         "channel":"beta",
          "snaps":[
             {
                "name":"snapd",
