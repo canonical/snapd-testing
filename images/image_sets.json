@@ -185,6 +185,28 @@
                }
             }
          ]
+      },
+      {
+         "version":24,
+         "channel":"stable",
+         "snaps":[
+            {
+               "name":"snapd",
+               "channel":"beta"
+            }
+         ],
+         "platforms":[
+            "pi4",
+            "pc-amd64"
+         ],
+         "triggers":[
+            {
+               "snap":{
+                  "name":"snapd",
+                  "channel":"beta"
+               }
+            }
+         ]
       }
    ]
 }
