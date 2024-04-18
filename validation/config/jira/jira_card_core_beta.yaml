@@ -30,10 +30,6 @@ checklists:
           default: false
         - name: pc-amd64-cconf
           default: false
-        - name: pc-i386
-          default: false
-        - name: pc-i386-cconf
-          default: false
     Executions:
         - name: pi2
           default: false
@@ -50,10 +46,6 @@ checklists:
         - name: pc-amd64
           default: false
         - name: pc-amd64-cconf
-          default: false
-        - name: pc-i386
-          default: false
-        - name: pc-i386-cconf
           default: false
 complete:
     sign:

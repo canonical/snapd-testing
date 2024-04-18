@@ -73,3 +73,9 @@
                   workers: 1
                   username: ubuntu
                   password: ubuntu
+            - ubuntu-core-24-rpi4:
+                  queue: rpi4b8g
+                  image: https://storage.googleapis.com/snapd-spread-tests/images/pi4-24-beta-snapd_beta/pi.img.xz
+                  workers: 1
+                  username: ubuntu
+                  password: ubuntu
