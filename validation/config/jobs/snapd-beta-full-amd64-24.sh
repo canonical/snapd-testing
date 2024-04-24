@@ -5,8 +5,11 @@ export ARCH_UT=amd64
 export BOARD_UT=pc-amd64-24
 export VERSION_UT=24
 export PROJECT=snapd
-export BRANCH=master
+export BRANCH=beta
 export CHANNEL=beta
+#TODO remove these exports
+export BRANCH=tests-improve-uc24-nested-tests
+export PROJECT_URL=https://github.com/sergiocazzolato/snapd.git
 
 export NESTED_SPREAD_TESTS="${SPREAD_TESTS:-"external:ubuntu-core-24-64:"}"
 export SPREAD_TESTS="google-nested-dev:ubuntu-24.04-64:tests/nested/manual/run-spread:custom"
