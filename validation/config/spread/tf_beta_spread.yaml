@@ -74,7 +74,7 @@
                   username: ubuntu
                   password: ubuntu
             - ubuntu-core-24-rpi4:
-                  queue: rpi4b8g
+                  queue: rpi4b4g
                   image: https://cdimage.ubuntu.com/ubuntu-core/24/beta/pending/ubuntu-core-24-arm64+raspi.img.xz
                   workers: 1
                   username: ubuntu
