@@ -5,7 +5,7 @@ export ARCH_UT=amd64
 export BOARD_UT=pc-amd64-24
 export VERSION_UT=24
 export PROJECT=snapd
-export BRANCH=beta
+export BRANCH=master
 export CHANNEL=beta
 
 export NESTED_SPREAD_TESTS="${SPREAD_TESTS:-"external:ubuntu-core-24-64:"}"
