@@ -8,7 +8,7 @@ export PROJECT=snapd
 export BRANCH=beta
 export CHANNEL=beta
 
-export SPREAD_TESTS="${SPREAD_TESTS:-"testflinger:ubuntu-core-18-arm64-dragonboard:"}"
+export SPREAD_TESTS="${SPREAD_TESTS:-"testflinger:ubuntu-core-18-arm-64-dragonboard:"}"
 export SPREAD_ENV=
 export SPREAD_PARAMS=
 export SPREAD_SKIP=

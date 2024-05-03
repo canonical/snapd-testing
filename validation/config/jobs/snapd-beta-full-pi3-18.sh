@@ -8,7 +8,7 @@ export PROJECT=snapd
 export BRANCH=beta
 export CHANNEL=beta
 
-export SPREAD_TESTS="${SPREAD_TESTS:-"testflinger:ubuntu-core-18-arm-rpi3:"}"
+export SPREAD_TESTS="${SPREAD_TESTS:-"testflinger:ubuntu-core-18-arm-32-rpi3:"}"
 export SPREAD_ENV=
 export SPREAD_PARAMS=
 export SPREAD_SKIP="tests/main/interfaces-many-snap-provided,tests/main/interfaces-many-core-provided,tests/core/remodel,tests/core/remodel-base,tests/core/remodel-kernel,tests/core/remodel-gadget,tests/core/failover,tests/main/interfaces-network-manager,tests/main/store-state"

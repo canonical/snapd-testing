@@ -8,7 +8,7 @@ export PROJECT=snapd
 export BRANCH=master
 export CHANNEL=edge
 
-export SPREAD_TESTS="testflinger:ubuntu-core-22-arm-rpi3:tests/smoke/"
+export SPREAD_TESTS="testflinger:ubuntu-core-22-arm-32-rpi3:tests/smoke/"
 export SPREAD_ENV=
 export SPREAD_PARAMS=
 export SPREAD_SKIP=
