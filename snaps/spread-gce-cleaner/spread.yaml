@@ -45,6 +45,35 @@ backends:
             - ubuntu-20.04-64:
             - ubuntu-22.04-64:
 
+    google-europe-west1-b:
+        type: google
+        key: '$(HOST: echo "$SPREAD_GOOGLE_KEY")'
+        location: snapd-spread/europe-west1-b
+        halt-timeout: 2h
+        systems:
+            - ubuntu-20.04-64:
+    google-europe-west2-b:
+        type: google
+        key: '$(HOST: echo "$SPREAD_GOOGLE_KEY")'
+        location: snapd-spread/europe-west2-b
+        halt-timeout: 2h
+        systems:
+            - ubuntu-20.04-64:
+    google-europe-west3-b:
+        type: google
+        key: '$(HOST: echo "$SPREAD_GOOGLE_KEY")'
+        location: snapd-spread/europe-west3-b
+        halt-timeout: 2h
+        systems:
+            - ubuntu-20.04-64:
+    google-europe-west4-b:
+        type: google
+        key: '$(HOST: echo "$SPREAD_GOOGLE_KEY")'
+        location: snapd-spread/europe-west4-b
+        halt-timeout: 2h
+        systems:
+            - ubuntu-20.04-64:
+
 suites:
     fakesuite/:
         summary: This is a fake test suite
