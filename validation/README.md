@@ -174,3 +174,5 @@ It is also possible to run the tests on a specific branch, even if it hasn't bee
 ##### SRU validation setup on external desktop machine
     sudo apt install -y snapd && sudo cp /etc/apt/sources.list sources.list.back && sudo echo "deb http://archive.ubuntu.com/ubuntu/ $(lsb_release -c -s)-proposed restricted main multiverse universe" | sudo tee /etc/apt/sources.list -a && sudo apt update && sudo apt install -y --only-upgrade snapd && sudo mv sources.list.back /etc/apt/sources.list && sudo apt update
 
+##### SRU validation setup on external desktop machine with ubuntu 23.10+
+    sudo apt install -y snapd && sudo cp /etc/apt/sources.list sources.list.back && sudo echo "deb http://archive.ubuntu.com/ubuntu/ $(lsb_release -c -s)-proposed restricted main multiverse universe" | sudo tee /etc/apt/sources.list -a && sudo apt update && sudo apt install -y --only-upgrade  -t "$(lsb_release -c -s)-proposed" snapd && sudo mv sources.list.back /etc/apt/sources.list && sudo apt update

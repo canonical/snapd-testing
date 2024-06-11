@@ -34,7 +34,7 @@ if [ -n "$SPREAD_ENV" ]; then
 fi
 
 # Determine the spread location
-SPREAD="$(which spread-testflinger)"
+SPREAD="$(which spread)"
 if [ -z "$SPREAD" ]; then
     SPREAD="$(pwd)/spread"
     if [ ! -x "$SPREAD" ]; then
@@ -64,7 +64,7 @@ spread_params="$(echo $SPREAD_PARAMS | tr ',' ' ')"
 spread_tests="$(echo $SPREAD_TESTS | tr ',' ' ')"
 
 echo "Running command: spread $spread_params $spread_tests"
-( cd "$PROJECT_PATH" && "$SPREAD" $spread_params $spread_tests )
+( cd "$PROJECT_PATH" && "$SPREAD" -no-debug-output -logs . $spread_params $spread_tests )
 
 echo "Restoring skipped tests"
 for test in $spread_skip; do
