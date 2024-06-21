@@ -1,7 +1,7 @@
-name: spread-gce-cleaner
+name: spread-os-cleaner
 version: 1.1.0
-summary: Basic snap used to clean machines on gce through spread -gc
-description: Basic snap used to clean machines on gce through spread -gc
+summary: Basic snap used to clean machines on openstack through spread -gc
+description: Basic snap used to clean machines on openstack through spread -gc
 confinement: strict
 grade: stable
 base: core22

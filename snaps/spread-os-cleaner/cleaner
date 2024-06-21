@@ -1,0 +1,33 @@
+#!/bin/bash
+
+cd "$SNAP_DATA"
+
+if [ ! -f "spread.yaml" ]; then
+    echo "File $SNAP_DATA/spread.yaml does not exist, using the default one"
+    cp -f "$SNAP/spread.yaml" "spread.yaml"
+    cp -rf "$SNAP/fakesuite" "fakesuite"
+fi
+echo "Using spread.yaml: $SNAP_DATA/spread.yaml"
+
+if [ -f "os.env" ]; then
+    SPREAD_OPENSTACK_ENV="$SNAP_DATA/sa.json"
+else
+    echo "Environment file not found, exiting..."
+    exit
+fi
+echo "Using service account: $SPREAD_OPENSTACK_ENV"
+
+if [ ! -f "spread" ]; then
+    curl -s -O https://storage.googleapis.com/snapd-spread-tests/spread/spread-plus-amd64.tar.gz && tar xzvf spread-plus-amd64.tar.gz && rm -f spread-plus-amd64.tar.gz
+    mv spread-plus spread
+fi
+
+export SPREAD_OPENSTACK_ENV
+
+echo "Cleaning virtual machines in all the backends included in the spread.yaml"
+./spread -gc
+
+echo "Clean up finished"
+
+
+
