@@ -166,7 +166,7 @@
       },
       {
          "version":24,
-         "channel":"edge",
+         "channel":"stable",
          "snaps":[
             {
                "name":"core24",
@@ -188,7 +188,7 @@
       },
       {
          "version":24,
-         "channel":"beta",
+         "channel":"stable",
          "snaps":[
             {
                "name":"snapd",
