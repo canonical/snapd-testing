@@ -10,7 +10,7 @@ fi
 echo "Using spread.yaml: $SNAP_DATA/spread.yaml"
 
 if [ -f "os.env" ]; then
-    SPREAD_OPENSTACK_ENV="$SNAP_DATA/sa.json"
+    SPREAD_OPENSTACK_ENV="$SNAP_DATA/os.env"
 else
     echo "Environment file not found, exiting..."
     exit
