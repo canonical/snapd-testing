@@ -1,11 +1,9 @@
 #!/bin/bash
 
 deb_deps="python3-pip python3-setuptools jq"
-py_deps="jsonpath-ng pyOpenSSL urllib3 pytz"
+py_deps="pyOpenSSL urllib3 pytz"
 
 sudo apt update
 sudo apt install -y $deb_deps
-
 sudo pip3 install $py_deps
 
-sudo snap install --devmode testflinger-cli
