@@ -30,6 +30,8 @@ checklists:
           default: false
         - name: pi4-24
           default: false
+        - name: pi5-24
+          default: false
         - name: pc-amd64-18
           default: false
         - name: pc-amd64-20
@@ -56,6 +58,8 @@ checklists:
         - name: pi4-22
           default: false
         - name: pi4-24
+          default: false
+        - name: pi5-24
           default: false
         - name: pc-amd64-18
           default: false

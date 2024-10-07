@@ -16,10 +16,14 @@ checklists:
     Results:
         - name: pi4
           default: false
+        - name: pi5
+          default: false
         - name: pc-amd64
           default: false
     Executions:
         - name: pi4
+          default: false
+        - name: pi5
           default: false
         - name: pc-amd64
           default: false
