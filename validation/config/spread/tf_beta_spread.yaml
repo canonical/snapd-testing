@@ -19,18 +19,6 @@
                   workers: 1
                   username: ubuntu
                   password: ubuntu
-            - ubuntu-core-16-arm-64-dragonboard:
-                  queue: dragonboard
-                  image: https://storage.googleapis.com/snapd-spread-tests/images/dragonboard-16-stable-core_beta/dragonboard.img.xz
-                  workers: 1
-                  username: ubuntu
-                  password: ubuntu            
-            - ubuntu-core-18-arm-64-dragonboard:
-                  queue: dragonboard
-                  image: https://storage.googleapis.com/snapd-spread-tests/images/dragonboard-18-stable-snapd_beta/dragonboard.img.xz
-                  workers: 1
-                  username: ubuntu
-                  password: ubuntu
             - ubuntu-core-18-64-nuc:
                   queue: dawson-i-uc20-fde
                   image: https://storage.googleapis.com/snapd-spread-tests/images/pc-amd64-20-stable-snapd_beta/pc.img.xz
@@ -62,19 +50,19 @@
                   username: ubuntu
                   password: ubuntu
             - ubuntu-core-20-arm-64-rpi4:
-                  queue: rpi4b8g
+                  queue: rpi4b
                   image: https://storage.googleapis.com/snapd-spread-tests/images/pi4-20-stable-snapd_beta/pi.img.xz
                   workers: 1
                   username: ubuntu
                   password: ubuntu
             - ubuntu-core-22-arm-64-rpi4:
-                  queue: rpi4b8g
+                  queue: rpi4b
                   image: https://storage.googleapis.com/snapd-spread-tests/images/pi4-22-stable-snapd_beta/pi.img.xz
                   workers: 1
                   username: ubuntu
                   password: ubuntu
             - ubuntu-core-24-arm-64-rpi4:
-                  queue: rpi4b8g
+                  queue: rpi4b
                   image: https://storage.googleapis.com/snapd-spread-tests/images/pi4-24-stable-snapd_beta/pi.img.xz
                   workers: 1
                   username: ubuntu
