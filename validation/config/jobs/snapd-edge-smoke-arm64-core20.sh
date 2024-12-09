@@ -2,7 +2,6 @@
 
 export SNAP_UT=core20
 export ARCH_UT=arm64
-export BOARD_UT=pi4
 export VERSION_UT=20
 export PROJECT=snapd
 export BRANCH=master

@@ -2,7 +2,6 @@
 
 export SNAP_UT=core18
 export ARCH_UT=amd64
-export BOARD_UT=pc-amd64
 export VERSION_UT=18
 export PROJECT=snapd
 export BRANCH=master
