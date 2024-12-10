@@ -2,7 +2,8 @@
 Description=Trigger checks to update ubuntu core images
  
 [Timer]
-OnCalendar=*:0/30
+# Timer triggers every 1 hour
+OnCalendar=*-*-* *:00:00
 Unit=image-generator.service
 Persistent=false
 
