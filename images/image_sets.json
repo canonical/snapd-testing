@@ -12,7 +12,6 @@
          "platforms":[
             "pi2",
             "pi3",
-            "dragonboard",
             "pc-amd64",
             "pc-i386"
          ],
@@ -59,7 +58,6 @@
          "platforms":[
             "pi2",
             "pi3",
-            "dragonboard",
             "pc-amd64",
             "pc-i386"
          ],
