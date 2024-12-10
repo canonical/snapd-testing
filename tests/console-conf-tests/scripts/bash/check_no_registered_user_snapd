@@ -1,6 +1,0 @@
-#!/bin/bash
-
-USERS=$(cat /var/lib/snapd/state.json| jq '.data.auth.users')
-if [ "$USERS" != "[]" ]; then
-    exit 1
-fi

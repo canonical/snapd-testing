@@ -1,2 +1,0 @@
-#!/bin/bash
-/sbin/ip route | grep $1 | awk '/default/ { print $3 }'

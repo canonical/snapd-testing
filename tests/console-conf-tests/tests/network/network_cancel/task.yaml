@@ -1,4 +1,0 @@
-summary: Ensure it is possible to cancel the network registration and welcome is shown again
-
-execute: |
-    expect -f task.exp

@@ -1,3 +1,0 @@
-source $env(CCONF)/spawn
-source $env(WELCOME)/type_chars
-source $env(WELCOME)/check_no_chars

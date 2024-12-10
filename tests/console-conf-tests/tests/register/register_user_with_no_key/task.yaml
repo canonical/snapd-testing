@@ -1,5 +1,0 @@
-summary: Ensure console shows error when the user has not key registered
-
-execute: |
-    expect -f task.exp
-    $HELPERS/check_no_registered_user_snapd

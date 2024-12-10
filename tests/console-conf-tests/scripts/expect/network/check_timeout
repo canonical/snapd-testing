@@ -1,8 +1,0 @@
-set timeout 120
-expect {
-    "Network configuration timed out" {
-        exit 0
-    } default {
-        exit 1
-    }
-}

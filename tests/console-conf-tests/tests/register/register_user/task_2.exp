@@ -1,3 +1,0 @@
-source $env(SNAPD)/spawn
-source $env(SNAPD)/check_list
-source $env(SNAPD)/check_find
