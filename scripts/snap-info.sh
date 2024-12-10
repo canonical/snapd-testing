@@ -18,10 +18,12 @@ for iter in $(seq 0 $iters); do
     curr_channel=$(jq -r ".\"channel-map\"[$iter].channel.name" snap.json)
     curr_arch=$(jq -r ".\"channel-map\"[$iter].channel.architecture" snap.json)
   	curr_rev=$(jq -r ".\"channel-map\"[$iter].revision" snap.json)
+    curr_ver=$(jq -r ".\"channel-map\"[$iter].version" snap.json)
     if [ -z "$channel" ] || [ "$channel" = "$curr_channel" ]; then
         echo "Channel: $curr_channel"
         echo "Arch: $curr_arch"
-        echo "Rev: $curr_rev"
+        echo "Ver: $curr_ver"
+        echo "Rev: $curr_rev"        
         echo "-----------"
     fi
 done
