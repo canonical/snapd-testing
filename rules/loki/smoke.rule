@@ -1,0 +1,10 @@
+alert: SmokeTest
+expr: count_over_time({project="snapd"} [1d]) > bool 0
+for: 0m
+labels:
+  severity: critical
+  origin: github
+  gitbranch: master
+annotations:
+  summary: "Smoke test"
+  description: "Checks that over the past day, at least one log entry exists."
