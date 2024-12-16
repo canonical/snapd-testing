@@ -1,0 +1,10 @@
+alert: SnapdTestRule
+expr: count_over_time({project="snapd-testing"} [1d]) > bool 0
+for: 1m
+labels:
+  severity: critical
+  origin: github
+  gitbranch: master
+annotations:
+  summary: "Smoke test for snapd-testing project"
+  description: "This is a rule that we have to test alert manager is triggering alerts properly"
