@@ -1,5 +1,5 @@
 alert: SnapdTestRule
-expr: count_over_time({project="snapd-testing"} [1d]) > bool 0
+expr: absent_over_time({project="snapd-testing"} [1d]) > bool 0
 for: 1m
 labels:
   severity: critical
