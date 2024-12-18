@@ -1,0 +1,10 @@
+alert: openstackAllocationError
+expr: count_over_time({project="snapd"} |~ `Cannot allocate openstack` [6h]) > bool 1
+for: 0m
+labels:
+  severity: critical
+  origin: github
+  gitbranch: master
+annotations:
+  summary: "Openstack allocation errors checker"
+  description: "If at least two systems had at least one openstack allocation error, then this rule fires."
