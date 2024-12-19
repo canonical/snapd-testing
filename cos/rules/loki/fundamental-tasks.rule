@@ -1,0 +1,10 @@
+alert: fundamentalTaskFailure
+expr: (sum by (test) (count_over_time({project="snapd"} |= `GRAFANA FAILED:` |~ `(debian-11-64|fedora-40-64|ubuntu-20.04-64|ubuntu-24.04-64|ubuntu-24.10-64|ubuntu-core-18-64|ubuntu-core-20-64|ubuntu-core-24-64)` !~ `-nested` | pattern `<_> <_>: <stage> <test> <url>`| test =~ `.*:.*:.*[^/]$` [6h])) > 10) > bool 0
+for: 0m
+labels:
+  severity: critical
+  origin: github
+  gitbranch: master
+annotations:
+  summary: "When a single fundamental task fails more than 10 times in 6-hour period"
+  description: "When any task run in one of the fundamental systems fails more than 10 times in a 6-hour period, this alert fires."
