@@ -4,7 +4,7 @@ set -x
 CHANNEL=${1:-edge}
 VERSION=${2:-"16"}
 SNAPS=${3:-""}
-PLATFORMS=${4:-"dragonboard pc-amd64 pc-i386 pi3 pi2"}
+PLATFORMS=${4:-"pc-amd64 pi5 pi4 pi3 pi2"}
 
 for platform in $PLATFORMS; do
     image_option=""
