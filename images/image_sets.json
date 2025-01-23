@@ -1,30 +1,6 @@
 {
    "images":[
       {
-         "version":16,
-         "channel":"stable",
-         "snaps":[
-            {
-               "name":"core",
-               "channel":"beta"
-            }
-         ],
-         "platforms":[
-            "pi2",
-            "pi3",
-            "pc-amd64",
-            "pc-i386"
-         ],
-         "triggers":[
-            {
-               "snap":{
-                  "name":"core",
-                  "channel":"beta"
-               }
-            }
-         ]
-      },
-      {
          "version":18,
          "channel":"stable",
          "snaps":[
