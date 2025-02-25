@@ -7,12 +7,6 @@
         warn-timeout: 5m
         kill-timeout: 14h
         systems:
-            - ubuntu-core-16-arm-32-rpi2:
-                  queue: cert-rpi2
-                  image: https://storage.googleapis.com/snapd-spread-tests/images/pi2-16-stable-core_beta/pi2.img.xz
-                  workers: 1
-                  username: ubuntu
-                  password: ubuntu            
             - ubuntu-core-18-arm-32-rpi2:
                   queue: cert-rpi2
                   image: https://storage.googleapis.com/snapd-spread-tests/images/pi2-18-stable-snapd_beta/pi.img.xz
@@ -25,12 +19,6 @@
                   workers: 1
                   username: ubuntu
                   password: ubuntu
-            - ubuntu-core-16-arm-32-rpi3:
-                  queue: rpi3b
-                  image: https://storage.googleapis.com/snapd-spread-tests/images/pi3-16-stable-core_beta/pi3.img.xz
-                  workers: 1
-                  username: ubuntu
-                  password: ubuntu            
             - ubuntu-core-18-arm-32-rpi3:
                   queue: rpi3b
                   image: https://storage.googleapis.com/snapd-spread-tests/images/pi3-18-stable-snapd_beta/pi.img.xz
