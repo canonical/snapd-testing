@@ -1,0 +1,10 @@
+#!/bin/bash
+
+IP=$1
+if [ -z "$IP" ]; then
+    echo "Ip is required"
+    exit 1
+fi
+
+ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ProxyCommand="openssl s_client -quiet -connect ingress-haproxy.ps7.canonical.com:2222 -servername $IP" root@"$IP"
+

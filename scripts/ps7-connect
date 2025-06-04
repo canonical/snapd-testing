@@ -1,0 +1,22 @@
+#!/bin/bash
+
+machine=$1
+ip=$2
+
+if [ -z "$machine" ]; then
+	echo "usage: ps7-connect <MACHINE> <IP>"
+	exit 1
+fi
+
+if [ -z "$ip" ]; then
+	echo "usage: ps7-connect <MACHINE> <IP>"
+	exit 1
+fi
+
+machine_pass=$(grep -B4 "$machine" .spread-reuse.*.yaml | grep password: | awk '{print $NF}')
+if [ -z "$machine_pass" ]; then
+        echo "failed to find the machine password"
+        exit 1
+fi
+
+sshpass -p "$machine_pass" ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ProxyCommand="openssl s_client -verify_quiet -quiet -connect ingress-haproxy.ps7.canonical.com:2222 -servername $ip" root@"$ip"
