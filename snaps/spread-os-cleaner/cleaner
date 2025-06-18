@@ -19,7 +19,6 @@ echo "Using service account: $SPREAD_OPENSTACK_ENV"
 
 if [ ! -f "spread" ]; then
     curl -s -O https://storage.googleapis.com/snapd-spread-tests/spread/spread-plus-amd64.tar.gz && tar xzvf spread-plus-amd64.tar.gz && rm -f spread-plus-amd64.tar.gz
-    mv spread-plus spread
 fi
 
 export SPREAD_OPENSTACK_ENV

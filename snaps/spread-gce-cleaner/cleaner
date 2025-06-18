@@ -21,7 +21,7 @@ echo "Using service account: $SPREAD_GOOGLE_KEY"
 
 if [ ! -f "spread" ]; then
     echo "Getting spread"
-    curl -s -O https://storage.googleapis.com/snapd-spread-tests/spread/spread-amd64.tar.gz && tar xzvf spread-amd64.tar.gz && rm -f spread-amd64.tar.gz
+    curl -s -O https://storage.googleapis.com/snapd-spread-tests/spread/spread-plus-amd64.tar.gz && tar xzvf spread-plus-amd64.tar.gz && rm -f spread-plus-amd64.tar.gz
 fi
 
 export SPREAD_GOOGLE_KEY

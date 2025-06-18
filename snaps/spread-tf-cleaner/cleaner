@@ -11,8 +11,7 @@ echo "Using spread.yaml: $SNAP_DATA/spread.yaml"
 
 if [ ! -f "spread" ]; then
     echo "Getting spread"
-    curl -s -O https://storage.googleapis.com/snapd-spread-tests/spread/spread-testflinger-amd64.tar.gz && tar xzvf spread-testflinger-amd64.tar.gz && rm -f spread-testflinger-amd64.tar.gz
-    mv spread-testflinger spread
+    curl -s -O https://storage.googleapis.com/snapd-spread-tests/spread/spread-plus-amd64.tar.gz && tar xzvf spread-plus-amd64.tar.gz && rm -f spread-plus-amd64.tar.gz
 fi
 
 echo "Cleaning jobs for testflinger backend included in the spread.yaml"
