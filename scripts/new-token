@@ -1,0 +1,9 @@
+PROJECT=$1
+ORG=${2:-canonical}
+
+if [ -z "$PROJECT" ]; then
+  echo "Usage: $0 <project>"
+  exit 1
+fi
+
+gh api --method POST -H "Accept: application/vnd.github+json" /repos/"$ORG"/"$PROJECT"/actions/runners/registration-token | jq -r '.token'
