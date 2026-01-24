@@ -50,7 +50,7 @@ jobs:
           # Inject local snapd path into go.mod
           printf "\nreplace github.com/snapcore/snapd => %s\n" "$SNAPD_PATH" >> go.mod
           go mod tidy
-          
+
           # Build static binary
           CGO_ENABLED=0 GOARCH=${{ matrix.arch }} \
             go install -tags 'withtestkeys' github.com/canonical/ubuntu-image/cmd/ubuntu-image
@@ -62,5 +62,10 @@ jobs:
           fi
 
           # Package and upload
-          tar -czf ./"$UBUNTU_IMAGE_FILE".tar.gz --directory="$HOME/go/bin" ubuntu-image
+          BIN_DIR="$GOPATH"/bin
+          if [ -d "$GOPATH/bin/linux_${{ matrix.arch }}" ]; then
+            BIN_DIR="$GOPATH/bin/linux_${{ matrix.arch }}"
+          fi
+
+          tar -czf "$UBUNTU_IMAGE_FILE".tar.gz -C "$BIN_DIR" ubuntu-image
           gsutil cp "$UBUNTU_IMAGE_FILE".tar.gz gs://snapd-spread-tests/ubuntu-image/"$UBUNTU_IMAGE_FILE".tar.gz
