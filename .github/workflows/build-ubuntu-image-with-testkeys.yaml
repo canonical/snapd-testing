@@ -1,0 +1,66 @@
+name: Build ubuntu image with testkeys
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs once a day at 00:00 UTC
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # List the branches and architectures you need to target
+        arch: [amd64, arm64]
+
+    env:
+      GOPATH: ${{ github.workspace }}/go
+      SNAPD_PATH: ${{ github.workspace }}/go/src/github.com/snapcore/snapd
+      SNAPD_URL: https://github.com/canonical/snapd.git
+      UBUNTU_IMAGE_FILE: ubuntu-image-withtestkeys-${{ matrix.arch }}
+
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.IMAGE_BAKER_SA }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Prepare snapd source
+        run: |
+          mkdir -p "$SNAPD_PATH"
+          git clone "$SNAPD_URL" "$SNAPD_PATH"
+
+      - name: Build and Upload Image
+        run: |
+          git clone https://github.com/canonical/ubuntu-image
+          cd ubuntu-image
+          
+          # Inject local snapd path into go.mod
+          printf "\nreplace github.com/snapcore/snapd => %s\n" "$SNAPD_PATH" >> go.mod
+          go mod tidy
+          
+          # Build static binary
+          CGO_ENABLED=0 GOARCH=${{ matrix.arch }} \
+            go install -tags 'withtestkeys' github.com/canonical/ubuntu-image/cmd/ubuntu-image
+
+          # Backup existing image if it exists
+          if gsutil ls gs://snapd-spread-tests/ubuntu-image/"$UBUNTU_IMAGE_FILE".tar.gz; then
+            gsutil cp gs://snapd-spread-tests/ubuntu-image/"$UBUNTU_IMAGE_FILE".tar.gz \
+                      gs://snapd-spread-tests/ubuntu-image/"$UBUNTU_IMAGE_FILE"-old.tar.gz
+          fi
+
+          # Package and upload
+          tar -czf ./"$UBUNTU_IMAGE_FILE".tar.gz --directory="$HOME/go/bin" ubuntu-image
+          gsutil cp "$UBUNTU_IMAGE_FILE".tar.gz gs://snapd-spread-tests/ubuntu-image/"$UBUNTU_IMAGE_FILE".tar.gz
