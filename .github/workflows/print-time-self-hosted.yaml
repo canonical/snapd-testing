@@ -1,0 +1,13 @@
+name: Print time every 5 minutes (self-hosted)
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  print-time:
+    runs-on: [self-hosted, spread-enabled]
+    steps:
+      - name: Print current time
+        run: date
