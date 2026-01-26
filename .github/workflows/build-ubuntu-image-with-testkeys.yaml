@@ -1,9 +1,9 @@
 name: Build ubuntu image with testkeys
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: '30 0 * * *'  # Runs once a day at 00:30 UTC
-  workflow_dispatch:
 
 jobs:
   build:
