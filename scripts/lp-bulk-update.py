@@ -6,9 +6,14 @@ This script:
 - Accepts a Launchpad URL (project or source package)
 - Filters bugs older than a cutoff date
 - Skips specified priorities
+- Skips specified statuses
 - Optionally filters by current status (--from-status)
 - Adds a predefined comment
 - Updates bug task status (--to-status)
+
+IMPORTANT:
+    Dry-run is ENABLED by default.
+    Use --apply to actually modify bugs.
 
 Supported URLs:
     https://launchpad.net/<project>
@@ -16,13 +21,61 @@ Supported URLs:
 
 Dependencies:
     sudo apt install launchpadlib python3-keyring
+
+Example usage:
+
+    # Absolute cutoff date (ISO format)
+    ./lp-bulk-update.py https://launchpad.net/snapd 2018-01-01
+
+    # Absolute cutoff date (compact format)
+    ./lp-bulk-update.py https://launchpad.net/snapd 20180101
+
+    # Relative cutoff
+    ./lp-bulk-update.py https://launchpad.net/snapd 2y
+    ./lp-bulk-update.py https://launchpad.net/snapd 2y6m
+    ./lp-bulk-update.py https://launchpad.net/snapd 18m
+    ./lp-bulk-update.py https://launchpad.net/snapd 90d
+
+    # Source package example (dry-run by default)
+    ./lp-bulk-update.py \
+        https://launchpad.net/ubuntu/+source/snapd \
+        2y6m \
+        --from-status New,Confirmed
+
+    # Default behavior:
+    #   - skips statuses: Incomplete, Fix Committed, Fix Released, Expired, Invalid
+    #   - skips priority: Critical
+    ./lp-bulk-update.py https://launchpad.net/snapd 2y
+
+    # Do NOT skip any statuses
+    ./lp-bulk-update.py https://launchpad.net/snapd 2y \
+        --skip-statuses ""
+
+    # Do NOT skip any priorities
+    ./lp-bulk-update.py https://launchpad.net/snapd 2y \
+        --skip-priorities ""
+
+    # Custom skipped statuses and priorities
+    ./lp-bulk-update.py https://launchpad.net/snapd 18m \
+        --skip-statuses Incomplete,Invalid \
+        --skip-priorities High,Critical
+
+    # Apply changes (explicit)
+    ./lp-bulk-update.py \
+        https://launchpad.net/ubuntu/+source/snapd \
+        2y6m \
+        --from-status New,Triaged \
+        --to-status Incomplete \
+        --apply
 """
 
 import argparse
-import sys
 import os
+import re
+import sys
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
-from datetime import datetime, timezone
+
 from launchpadlib.launchpad import Launchpad
 
 
@@ -40,16 +93,70 @@ DEFAULT_MESSAGE = (
     "The SnapD and Ubuntu Core team"
 )
 
+# Launchpad enums (stable, global)
+VALID_STATUSES = {
+    "New",
+    "Incomplete",
+    "Opinion",
+    "Invalid",
+    "Won't Fix",
+    "Expired",
+    "Confirmed",
+    "Triaged",
+    "In Progress",
+    "Fix Committed",
+    "Fix Released",
+}
 
-def parse_date(date_str):
-    """Parse YYYY-MM-DD into UTC datetime."""
-    try:
-        return datetime.strptime(date_str, "%Y-%m-%d").replace(
-            tzinfo=timezone.utc
-        )
-    except ValueError:
-        print("Date must be in YYYY-MM-DD format")
-        sys.exit(1)
+VALID_PRIORITIES = {
+    "Critical",
+    "High",
+    "Medium",
+    "Low",
+    "Wishlist",
+}
+
+DEFAULT_SKIP_STATUSES = {
+    "Incomplete",
+    "Fix Committed",
+    "Fix Released",
+    "Expired",
+    "Invalid",
+}
+
+DURATION_RE = re.compile(
+    r"^(?:(?P<years>\d+)y)?(?:(?P<months>\d+)m)?(?:(?P<days>\d+)d)?$"
+)
+
+
+def parse_cutoff(value):
+    """Parse cutoff date or duration."""
+    now = datetime.now(timezone.utc)
+
+    for fmt in ("%Y-%m-%d", "%Y%m%d"):
+        try:
+            return datetime.strptime(value, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+
+    match = DURATION_RE.match(value)
+    if match:
+        years = int(match.group("years") or 0)
+        months = int(match.group("months") or 0)
+        days = int(match.group("days") or 0)
+
+        delta_days = years * 365 + months * 30 + days
+        if delta_days <= 0:
+            print("Duration must be greater than zero")
+            sys.exit(1)
+
+        return now - timedelta(days=delta_days)
+
+    print(
+        "Invalid cutoff format.\n"
+        "Use YYYY-MM-DD, YYYYMMDD, or duration like 2y6m, 18m, 90d"
+    )
+    sys.exit(1)
 
 
 def login(consumer_name, credentials_dir):
@@ -58,7 +165,6 @@ def login(consumer_name, credentials_dir):
         credentials_dir = os.path.expanduser(credentials_dir)
 
     print("Connecting to Launchpad...")
-
     return Launchpad.login_with(
         consumer_name,
         "production",
@@ -70,102 +176,118 @@ def login(consumer_name, credentials_dir):
 def parse_launchpad_url(launchpad, url, status_filter=None):
     """Return bug tasks from a Launchpad project or source package."""
     parsed = urlparse(url)
-    path_parts = parsed.path.strip("/").split("/")
+    parts = parsed.path.strip("/").split("/")
 
-    if len(path_parts) == 1:
-        project_name = path_parts[0]
-        print(f"Detected project: {project_name}")
-        project = launchpad.projects[project_name]
+    if len(parts) == 1:
+        print(f"Detected project: {parts[0]}")
+        project = launchpad.projects[parts[0]]
         return (
             project.searchTasks(status=status_filter)
-            if status_filter else project.searchTasks()
+            if status_filter
+            else project.searchTasks()
         )
 
-    if len(path_parts) == 3 and path_parts[1] == "+source":
-        distro_name = path_parts[0]
-        source_name = path_parts[2]
-
-        print(f"Detected source package: {distro_name}/+source/{source_name}")
-
-        distro = launchpad.distributions[distro_name]
-        source_package = distro.getSourcePackage(name=source_name)
-
+    if len(parts) == 3 and parts[1] == "+source":
+        distro, source = parts[0], parts[2]
+        print(f"Detected source package: {distro}/+source/{source}")
+        sp = launchpad.distributions[distro].getSourcePackage(name=source)
         return (
-            source_package.searchTasks(status=status_filter)
-            if status_filter else source_package.searchTasks()
+            sp.searchTasks(status=status_filter)
+            if status_filter
+            else sp.searchTasks()
         )
 
     print("Unsupported Launchpad URL format.")
     sys.exit(1)
 
 
+def validate_values(values, valid_set, what):
+    """Validate CLI values."""
+    invalid = sorted(set(values) - valid_set)
+    if invalid:
+        print(
+            f"Invalid {what}: {', '.join(invalid)}\n"
+            f"Valid values are: {', '.join(sorted(valid_set))}"
+        )
+        sys.exit(1)
+
+
 def main():
-    """Main entry point."""
     parser = argparse.ArgumentParser(
         description="Bulk update Launchpad bugs older than cutoff date"
     )
 
     parser.add_argument("url", help="Launchpad URL")
-    parser.add_argument("cutoff_date", help="Cutoff date (YYYY-MM-DD)")
-
     parser.add_argument(
-        "--from-status",
-        help="Comma-separated list of current statuses required",
+        "cutoff_date",
+        help="YYYY-MM-DD, YYYYMMDD, or duration like 2y6m",
     )
-
+    parser.add_argument("--from-status", help="Comma-separated statuses")
+    parser.add_argument(
+        "--skip-statuses",
+        default=",".join(sorted(DEFAULT_SKIP_STATUSES)),
+        help=(
+            "Comma-separated statuses to skip "
+            f'(default: "{",".join(sorted(DEFAULT_SKIP_STATUSES))}"; '
+            'use "" to skip none)'
+        ),
+    )
     parser.add_argument(
         "--to-status",
         default="Incomplete",
-        help="Status to set (default: Incomplete)",
+        help="Target status (default: Incomplete)",
     )
-
     parser.add_argument(
         "--skip-priorities",
         default="Critical",
-        help="Comma-separated priorities to skip (default: Critical)",
+        help='Comma-separated priorities to skip (use "" to skip none)',
     )
-
+    parser.add_argument("--message", help="Comment message")
     parser.add_argument(
-        "--message",
-        help="Comment message (if omitted, auto-generated)",
-    )
-
-    parser.add_argument(
-        "--dry-run",
+        "--apply",
         action="store_true",
-        help="Do not apply changes",
+        help="Apply changes (default is dry-run)",
     )
-
-    parser.add_argument(
-        "--credentials-dir",
-        help="Directory containing Launchpad credentials",
-    )
-
+    parser.add_argument("--credentials-dir")
     parser.add_argument(
         "--consumer-name",
         default="bulk-bug-update-script",
-        help="Launchpad OAuth consumer name",
     )
 
     args = parser.parse_args()
 
-    cutoff_date = parse_date(args.cutoff_date)
+    dry_run = not args.apply
+    cutoff_date = parse_cutoff(args.cutoff_date)
 
-    skip_priorities = [
-        p.strip() for p in args.skip_priorities.split(",")
+    skip_statuses = [
+        s.strip().title()
+        for s in args.skip_statuses.split(",")
+        if s.strip()
     ]
 
-    allowed_from_statuses = None
-    if args.from_status:
-        allowed_from_statuses = [
-            s.strip() for s in args.from_status.split(",")
-        ]
+    skip_priorities = [
+        p.strip().title()
+        for p in args.skip_priorities.split(",")
+        if p.strip()
+    ]
+
+    allowed_from_statuses = (
+        [s.strip().title() for s in args.from_status.split(",") if s.strip()]
+        if args.from_status
+        else None
+    )
+
+    to_status = args.to_status.title()
+
+    validate_values(skip_priorities, VALID_PRIORITIES, "priorities")
+    validate_values(skip_statuses, VALID_STATUSES, "statuses (--skip-statuses)")
+
+    if allowed_from_statuses:
+        validate_values(allowed_from_statuses, VALID_STATUSES, "statuses (--from-status)")
+
+    validate_values([to_status], VALID_STATUSES, "status (--to-status)")
 
     launchpad = login(args.consumer_name, args.credentials_dir)
-
-    message = DEFAULT_MESSAGE
-    if args.message:
-        message = args.message
 
     tasks = parse_launchpad_url(
         launchpad,
@@ -173,52 +295,51 @@ def main():
         status_filter=allowed_from_statuses,
     )
 
+    message = args.message or DEFAULT_MESSAGE
+
     print("-" * 60)
     print(f"Cutoff date: {cutoff_date}")
     print(f"From status: {allowed_from_statuses}")
-    print(f"To status: {args.to_status}")
+    print(f"To status: {to_status}")
+    print(f"Skip statuses: {skip_statuses}")
     print(f"Skip priorities: {skip_priorities}")
-    print(f"Dry run: {args.dry_run}")
-    print(f"Message: \n{message}")
+    print(f"Dry run: {dry_run}")
     print("-" * 60)
 
-    updated = 0
-    examined = 0
+    updated = examined = 0
 
     print(f"Checking {len(tasks)} bugs...")
     for task in tasks:
         examined += 1
-
         bug = task.bug
         last_activity = bug.date_last_updated
-        priority = task.importance
-        current_status = task.status
 
-        if last_activity is None:
+        if not last_activity:
             continue
 
-        # Ensure timezone-safe comparison
         if last_activity.tzinfo is None:
             last_activity = last_activity.replace(tzinfo=timezone.utc)
 
-        if priority in skip_priorities:
+        if task.importance in skip_priorities:
             continue
 
-        if allowed_from_statuses and current_status not in allowed_from_statuses:
+        if task.status in skip_statuses:
             continue
 
-        # Only bugs OLDER than cutoff date
+        if allowed_from_statuses and task.status not in allowed_from_statuses:
+            continue
+
         if last_activity < cutoff_date:
             print(
                 f"Bug #{bug.id} | "
-                f"Priority: {priority} | "
+                f"Priority: {task.importance} | "
                 f"Last activity: {last_activity} | "
-                f"{current_status} → {args.to_status}"
+                f"{task.status} → {to_status}"
             )
 
-            if not args.dry_run:
+            if not dry_run:
                 bug.newMessage(content=message)
-                task.status = args.to_status
+                task.status = to_status
                 task.lp_save()
 
             updated += 1
@@ -227,7 +348,7 @@ def main():
     print(f"Examined: {examined}")
     print(
         f"{updated} bugs "
-        f"{'would be updated' if args.dry_run else 'updated'}."
+        f"{'would be updated' if dry_run else 'updated'}."
     )
 
 
