@@ -26,13 +26,19 @@ from datetime import datetime, timezone
 from launchpadlib.launchpad import Launchpad
 
 
-def build_default_message(cutoff_date_str):
-    """Build default message including cutoff date."""
-    return (
-        "This bug is being updated automatically.\n\n"
-        f"The bug has not had activity since before {cutoff_date_str} "
-        "and is being updated accordingly."
-    )
+DEFAULT_MESSAGE = (
+    "Thank you for raising this issue and we'd like to apologize for not "
+    "responding before now.\n\n"
+    "In an attempt to stop such delays, we're resetting our backlog. "
+    "This will enable us to better focus on issues we know are critical "
+    "and active, but it means we need to mark older issues like these "
+    "as incomplete.\n\n"
+    "If this issue is still relevant and reproducible, we'd like to "
+    "strongly encourage you to re-open the issue. We will then be able "
+    "to prioritize a review and respond more promptly.\n\n"
+    "Thank you for your patience and for supporting our project.\n\n"
+    "The SnapD and Ubuntu Core team"
+)
 
 
 def parse_date(date_str):
@@ -155,14 +161,11 @@ def main():
             s.strip() for s in args.from_status.split(",")
         ]
 
-    # Build dynamic default message
-    message = (
-        args.message
-        if args.message
-        else build_default_message(args.cutoff_date)
-    )
-
     launchpad = login(args.consumer_name, args.credentials_dir)
+
+    message = DEFAULT_MESSAGE
+    if args.message:
+        message = args.message
 
     tasks = parse_launchpad_url(
         launchpad,
@@ -170,16 +173,19 @@ def main():
         status_filter=allowed_from_statuses,
     )
 
+    print("-" * 60)
     print(f"Cutoff date: {cutoff_date}")
     print(f"From status: {allowed_from_statuses}")
     print(f"To status: {args.to_status}")
     print(f"Skip priorities: {skip_priorities}")
     print(f"Dry run: {args.dry_run}")
+    print(f"Message: \n{message}")
     print("-" * 60)
 
     updated = 0
     examined = 0
 
+    print(f"Checking {len(tasks)} bugs...")
     for task in tasks:
         examined += 1
 
