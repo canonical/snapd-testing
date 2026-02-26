@@ -1,0 +1,1335 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_JUJU_PROD-SNAPD-KCOS_6F8A0E0F-3C6F-4E07-8212-25BAECF6014D_PROMETHEUS_0",
+      "label": "juju_prod-snapd-kcos_6f8a0e0f-3c6f-4e07-8212-25baecf6014d_prometheus_0",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__elements": {},
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "12.0.2"
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 15,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "snap"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bin"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ffffff",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 16,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 43,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_JUJU_PROD-SNAPD-KCOS_6F8A0E0F-3C6F-4E07-8212-25BAECF6014D_PROMETHEUS_0}"
+          },
+          "editorMode": "code",
+          "expr": "snapd_times_avg_preparing_task",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Avg prepare task (ms)",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "keepLabels": [
+              "system"
+            ],
+            "valueLabel": "system"
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 15,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "snap"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bin"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ffffff",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 16,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 44,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_JUJU_PROD-SNAPD-KCOS_6F8A0E0F-3C6F-4E07-8212-25BAECF6014D_PROMETHEUS_0}"
+          },
+          "editorMode": "code",
+          "expr": "snapd_times_avg_restoring_task",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Avg restore task (ms)",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "keepLabels": [
+              "system"
+            ],
+            "valueLabel": "system"
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 15,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "snap"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bin"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ffffff",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 16,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 39,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_JUJU_PROD-SNAPD-KCOS_6F8A0E0F-3C6F-4E07-8212-25BAECF6014D_PROMETHEUS_0}"
+          },
+          "editorMode": "code",
+          "expr": "snapd_times_preparing_task",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Preparing task by system (ms)",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "valueLabel": "system"
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 15,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "snap"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bin"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ffffff",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 16,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 41,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_JUJU_PROD-SNAPD-KCOS_6F8A0E0F-3C6F-4E07-8212-25BAECF6014D_PROMETHEUS_0}"
+          },
+          "editorMode": "code",
+          "expr": "snapd_times_restoring_task",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Restoring task by system (ms)",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "valueLabel": "system"
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 15,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "snap"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bin"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ffffff",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 16,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "id": 40,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "9.5.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_JUJU_PROD-SNAPD-KCOS_6F8A0E0F-3C6F-4E07-8212-25BAECF6014D_PROMETHEUS_0}"
+          },
+          "editorMode": "code",
+          "expr": "snapd_times_preparing_suite",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Preparing suite by system (ms)",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "valueLabel": "system"
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 15,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "snap"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bin"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ffffff",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 16,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "id": 42,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "9.5.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_JUJU_PROD-SNAPD-KCOS_6F8A0E0F-3C6F-4E07-8212-25BAECF6014D_PROMETHEUS_0}"
+          },
+          "editorMode": "code",
+          "expr": "snapd_times_restoring_suite",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Restoring suite by system (ms)",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "valueLabel": "system"
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 15,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "snap"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bin"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ffffff",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 16,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "id": 45,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "9.5.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_JUJU_PROD-SNAPD-KCOS_6F8A0E0F-3C6F-4E07-8212-25BAECF6014D_PROMETHEUS_0}"
+          },
+          "editorMode": "code",
+          "expr": "snapd_times_spread_list",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Spread list time (ms)",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "valueLabel": "__name__"
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 41,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "overall_geometric_mean",
+          "value": "overall_geometric_mean"
+        },
+        "includeAll": false,
+        "name": "metric",
+        "options": [
+          {
+            "selected": true,
+            "text": "overall_geometric_mean",
+            "value": "overall_geometric_mean"
+          },
+          {
+            "selected": false,
+            "text": "3d_cube_SP",
+            "value": "3d_cube_SP"
+          },
+          {
+            "selected": false,
+            "text": "3d_raytrace_SP",
+            "value": "3d_raytrace_SP"
+          },
+          {
+            "selected": false,
+            "text": "acorn_wtb",
+            "value": "acorn_wtb"
+          },
+          {
+            "selected": false,
+            "text": "ai_astar",
+            "value": "ai_astar"
+          },
+          {
+            "selected": false,
+            "text": "Air",
+            "value": "Air"
+          },
+          {
+            "selected": false,
+            "text": "async_fs",
+            "value": "async_fs"
+          },
+          {
+            "selected": false,
+            "text": "Babylon",
+            "value": "Babylon"
+          },
+          {
+            "selected": false,
+            "text": "babylon_wtb",
+            "value": "babylon_wtb"
+          },
+          {
+            "selected": false,
+            "text": "base64_SP",
+            "value": "base64_SP"
+          },
+          {
+            "selected": false,
+            "text": "Basic",
+            "value": "Basic"
+          },
+          {
+            "selected": false,
+            "text": "bomb_workers",
+            "value": "bomb_workers"
+          },
+          {
+            "selected": false,
+            "text": "Box2D",
+            "value": "Box2D"
+          },
+          {
+            "selected": false,
+            "text": "cdjs",
+            "value": "cdjs"
+          },
+          {
+            "selected": false,
+            "text": "chai_wtb",
+            "value": "chai_wtb"
+          },
+          {
+            "selected": false,
+            "text": "coffeescript_wtb",
+            "value": "coffeescript_wtb"
+          },
+          {
+            "selected": false,
+            "text": "crypto",
+            "value": "crypto"
+          },
+          {
+            "selected": false,
+            "text": "crypto_aes_SP",
+            "value": "crypto_aes_SP"
+          },
+          {
+            "selected": false,
+            "text": "crypto_md5_SP",
+            "value": "crypto_md5_SP"
+          },
+          {
+            "selected": false,
+            "text": "crypto_sha1_SP",
+            "value": "crypto_sha1_SP"
+          },
+          {
+            "selected": false,
+            "text": "date_format_tofte_SP",
+            "value": "date_format_tofte_SP"
+          },
+          {
+            "selected": false,
+            "text": "date_format_xparb_SP",
+            "value": "date_format_xparb_SP"
+          },
+          {
+            "selected": false,
+            "text": "delta_blue",
+            "value": "delta_blue"
+          },
+          {
+            "selected": false,
+            "text": "earley_boyer",
+            "value": "earley_boyer"
+          },
+          {
+            "selected": false,
+            "text": "espree_wtb",
+            "value": "espree_wtb"
+          },
+          {
+            "selected": false,
+            "text": "first_inspector_code_load",
+            "value": "first_inspector_code_load"
+          },
+          {
+            "selected": false,
+            "text": "FlightPlanner",
+            "value": "FlightPlanner"
+          },
+          {
+            "selected": false,
+            "text": "float_mm_c",
+            "value": "float_mm_c"
+          },
+          {
+            "selected": false,
+            "text": "gaussian_blur",
+            "value": "gaussian_blur"
+          },
+          {
+            "selected": false,
+            "text": "gbemu",
+            "value": "gbemu"
+          },
+          {
+            "selected": false,
+            "text": "gcc_loops_wasm",
+            "value": "gcc_loops_wasm"
+          },
+          {
+            "selected": false,
+            "text": "hash_map",
+            "value": "hash_map"
+          },
+          {
+            "selected": false,
+            "text": "HashSet_wasm",
+            "value": "HashSet_wasm"
+          },
+          {
+            "selected": false,
+            "text": "jshint_wtb",
+            "value": "jshint_wtb"
+          },
+          {
+            "selected": false,
+            "text": "json_parse_inspector",
+            "value": "json_parse_inspector"
+          },
+          {
+            "selected": false,
+            "text": "json_stringify_inspector",
+            "value": "json_stringify_inspector"
+          },
+          {
+            "selected": false,
+            "text": "lebab_wtb",
+            "value": "lebab_wtb"
+          },
+          {
+            "selected": false,
+            "text": "mandreel",
+            "value": "mandreel"
+          },
+          {
+            "selected": false,
+            "text": "ML",
+            "value": "ML"
+          },
+          {
+            "selected": false,
+            "text": "multi_inspector_code_load",
+            "value": "multi_inspector_code_load"
+          },
+          {
+            "selected": false,
+            "text": "n_body_SP",
+            "value": "n_body_SP"
+          },
+          {
+            "selected": false,
+            "text": "navier_stokes",
+            "value": "navier_stokes"
+          },
+          {
+            "selected": false,
+            "text": "octane_code_load",
+            "value": "octane_code_load"
+          },
+          {
+            "selected": false,
+            "text": "octane_zlib",
+            "value": "octane_zlib"
+          },
+          {
+            "selected": false,
+            "text": "OfflineAssembler",
+            "value": "OfflineAssembler"
+          },
+          {
+            "selected": false,
+            "text": "pdfjs",
+            "value": "pdfjs"
+          },
+          {
+            "selected": false,
+            "text": "prepack_wtb",
+            "value": "prepack_wtb"
+          },
+          {
+            "selected": false,
+            "text": "quicksort_wasm",
+            "value": "quicksort_wasm"
+          },
+          {
+            "selected": false,
+            "text": "raytrace",
+            "value": "raytrace"
+          },
+          {
+            "selected": false,
+            "text": "regex_dna_SP",
+            "value": "regex_dna_SP"
+          },
+          {
+            "selected": false,
+            "text": "regexp",
+            "value": "regexp"
+          },
+          {
+            "selected": false,
+            "text": "richards",
+            "value": "richards"
+          },
+          {
+            "selected": false,
+            "text": "richards_wasm",
+            "value": "richards_wasm"
+          },
+          {
+            "selected": false,
+            "text": "segmentation",
+            "value": "segmentation"
+          },
+          {
+            "selected": false,
+            "text": "splay",
+            "value": "splay"
+          },
+          {
+            "selected": false,
+            "text": "stanford_crypto_aes",
+            "value": "stanford_crypto_aes"
+          },
+          {
+            "selected": false,
+            "text": "stanford_crypto_pbkdf2",
+            "value": "stanford_crypto_pbkdf2"
+          },
+          {
+            "selected": false,
+            "text": "stanford_crypto_sha256",
+            "value": "stanford_crypto_sha256"
+          },
+          {
+            "selected": false,
+            "text": "string_unpack_code_SP",
+            "value": "string_unpack_code_SP"
+          },
+          {
+            "selected": false,
+            "text": "tagcloud_SP",
+            "value": "tagcloud_SP"
+          },
+          {
+            "selected": false,
+            "text": "tsf_wasm",
+            "value": "tsf_wasm"
+          },
+          {
+            "selected": false,
+            "text": "typescript",
+            "value": "typescript"
+          },
+          {
+            "selected": false,
+            "text": "uglify_js_wtb",
+            "value": "uglify_js_wtb"
+          },
+          {
+            "selected": false,
+            "text": "UniPoker",
+            "value": "UniPoker"
+          },
+          {
+            "selected": false,
+            "text": "WSL",
+            "value": "WSL"
+          }
+        ],
+        "query": "overall_geometric_mean,3d_cube_SP,3d_raytrace_SP,acorn_wtb,ai_astar,Air,async_fs,Babylon,babylon_wtb,base64_SP,Basic,bomb_workers,Box2D,cdjs,chai_wtb,coffeescript_wtb,crypto,crypto_aes_SP,crypto_md5_SP,crypto_sha1_SP,date_format_tofte_SP,date_format_xparb_SP,delta_blue,earley_boyer,espree_wtb,first_inspector_code_load,FlightPlanner,float_mm_c,gaussian_blur,gbemu,gcc_loops_wasm,hash_map,HashSet_wasm,jshint_wtb,json_parse_inspector,json_stringify_inspector,lebab_wtb,mandreel,ML,multi_inspector_code_load,n_body_SP,navier_stokes,octane_code_load,octane_zlib,OfflineAssembler,pdfjs,prepack_wtb,quicksort_wasm,raytrace,regex_dna_SP,regexp,richards,richards_wasm,segmentation,splay,stanford_crypto_aes,stanford_crypto_pbkdf2,stanford_crypto_sha256,string_unpack_code_SP,tagcloud_SP,tsf_wasm,typescript,uglify_js_wtb,UniPoker,WSL",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-20d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Spread tests performance metrics",
+  "uid": "f3f5cb33-4985-4474-8167-e1f7e06d8109",
+  "version": 1,
+  "weekStart": ""
+}
