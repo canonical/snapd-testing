@@ -60,6 +60,12 @@ Example usage:
         --skip-statuses Incomplete,Invalid \
         --skip-priorities High,Critical
 
+    # Dry-run, stop after 10 bugs (safe preview)
+    ./lp-bulk-update.py \
+        https://launchpad.net/snapd \
+        2y \
+        --limit 10
+
     # Apply changes (explicit)
     ./lp-bulk-update.py \
         https://launchpad.net/ubuntu/+source/snapd \
@@ -244,6 +250,11 @@ def main():
     )
     parser.add_argument("--message", help="Comment message")
     parser.add_argument(
+        "--limit",
+        type=int,
+        help="Maximum number of bugs to affect (applies to dry-run too)",
+    )
+    parser.add_argument(
         "--apply",
         action="store_true",
         help="Apply changes (default is dry-run)",
@@ -255,6 +266,10 @@ def main():
     )
 
     args = parser.parse_args()
+
+    if args.limit is not None and args.limit <= 0:
+        print("--limit must be a positive integer")
+        sys.exit(1)
 
     dry_run = not args.apply
     cutoff_date = parse_cutoff(args.cutoff_date)
@@ -303,13 +318,17 @@ def main():
     print(f"To status: {to_status}")
     print(f"Skip statuses: {skip_statuses}")
     print(f"Skip priorities: {skip_priorities}")
+    print(f"Limit: {args.limit}")
     print(f"Dry run: {dry_run}")
     print("-" * 60)
 
     updated = examined = 0
 
-    print(f"Checking {len(tasks)} bugs...")
     for task in tasks:
+        if args.limit is not None and updated >= args.limit:
+            print(f"Limit reached ({args.limit}). Stopping.")
+            break
+
         examined += 1
         bug = task.bug
         last_activity = bug.date_last_updated
