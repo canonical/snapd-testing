@@ -20,7 +20,7 @@ Supported URLs:
     https://launchpad.net/<distribution>/+source/<package>
 
 Dependencies:
-    sudo apt install launchpadlib python3-keyring
+    sudo apt install python3-launchpadlib python3-keyring
 
 Example usage:
 
