@@ -18,6 +18,10 @@ fi
 
 PROJECT_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 
+echo "--- Creating Path Compatibility Link ---"
+# This creates the link: /home/ubuntu/test-predictor -> /home/ubuntu/snapd-testing/ai/test-predictor
+sudo ln -sf "$PROJECT_ROOT" "$TARGET_HOME/test-predictor"
+
 echo "--- Deploying for User: $TARGET_USER ($TARGET_HOME) ---"
 
 # 1. Inject User and Home into the templates
