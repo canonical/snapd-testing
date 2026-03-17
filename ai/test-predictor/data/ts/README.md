@@ -1,0 +1,1 @@
+This directory is used to store the processed Time-Series data ready for the LSTM.

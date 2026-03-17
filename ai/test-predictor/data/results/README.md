@@ -1,0 +1,1 @@
+This directory is used to store the Raw JSONs newly received by the Ingestion API.
