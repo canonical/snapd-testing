@@ -1,0 +1,22 @@
+[Unit]
+Description=Test-Predictor Background Training Job
+After=network.target
+
+[Service]
+User={{USER}}
+Group=www-data
+WorkingDirectory={{HOME}}/test-predictor
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONPATH={{HOME}}/test-predictor/src/common:{{HOME}}/test-predictor/src"
+Environment="PATH={{HOME}}/test-predictor/.venv/bin"
+
+# We use the --loop flag so the script manages its own sleep interval
+ExecStart={{HOME}}/test-predictor/.venv/bin/python3 \
+    src/services/jobs/process.py --loop --interval 180
+
+# Since training can be heavy, we give it a generous stop timeout
+TimeoutStopSec=120
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

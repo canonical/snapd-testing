@@ -1,0 +1,22 @@
+[Unit]
+Description=Test-Predictor Ingestion API
+After=network.target
+
+[Service]
+User={{USER}}
+Group=www-data
+WorkingDirectory={{HOME}}/test-predictor
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONPATH={{HOME}}/test-predictor/src/common:{{HOME}}/test-predictor/src"
+Environment="PATH={{HOME}}/test-predictor/.venv/bin"
+
+ExecStart={{HOME}}/test-predictor/.venv/bin/gunicorn \
+    --no-control-socket \
+    --workers 3 \
+    --bind 0.0.0.0:5000 \
+    src.services.api.ingestion:app
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
