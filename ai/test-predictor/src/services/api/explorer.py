@@ -10,13 +10,11 @@ from common.predictor import predict_success
 
 logger = setup_logging("tp-explorer-api")
 
-# Silence TF noise
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 app = Flask(__name__)
 
-# --- Global Model Loading (Reusing your logic) ---
 model_path = os.path.join(config.MODEL_DIR, config.MODEL_NAME)
 metadata_path = os.path.join(config.MODEL_DIR, config.METADATA_NAME)
 
@@ -29,55 +27,76 @@ VERBS = list(ENCODERS['verb'].classes_)
 LEVELS = list(ENCODERS['level'].classes_)
 SYSTEMS = list(ENCODERS['system'].classes_)
 
-# --- Helper for standard params ---
 def get_params():
+    try:
+        attempt = int(request.args.get('attempt', 1))
+    except ValueError:
+        attempt = 1
     return {
         "n": request.args.get('name'),
         "v": request.args.get('verb'),
         "l": request.args.get('level'),
         "s": request.args.get('system'),
-        "attempt": int(request.args.get('attempt', 1))
+        "attempt": attempt
     }
+
+def validate_labels(params, keys_to_check):
+    """Helper to check if provided params exist in ENCODERS"""
+    unknowns = []
+    mapping = {'n': 'name', 'v': 'verb', 'l': 'level', 's': 'system'}
+    for k in keys_to_check:
+        val = params.get(k)
+        if val not in ENCODERS[mapping[k]].classes_:
+            unknowns.append(f"{mapping[k]}: {val}")
+    return unknowns
 
 @app.route('/predict', methods=['GET'])
 def predict_scenario():
-    """Choice 1: Predict Specific Scenario"""
     p = get_params()
-    # Basic validation
     if not all([p['n'], p['v'], p['l'], p['s']]):
-        logger.warning("Missing params: name, verb, level, and system are required")
         return jsonify({"error": "Missing params: name, verb, level, and system are required"}), 400
     
-    prob = predict_success(MODEL, ENCODERS, p['n'], p['v'], p['l'], p['s'], attempt=p['attempt'])
+    unknowns = validate_labels(p, ['n', 'v', 'l', 's'])
+    if unknowns:
+        return jsonify({"error": "Unknown labels", "unknown_params": unknowns}), 404
 
-    logger.info(f"Predicted success probability for {p}: {prob}")
+    prob = predict_success(MODEL, ENCODERS, p['n'], p['v'], p['l'], p['s'], attempt=p['attempt'])
+    if prob is None:
+        return jsonify({"error": "Prediction failed"}), 500
+
     return jsonify({"success_probability": float(prob), "params": p})
 
 @app.route('/rank-risk', methods=['GET'])
 def rank_risk():
-    """Choice 2 & 4: Rank Tests (High Risk / Worst by Attempt)"""
     p = get_params()
-    # Choice 4 specifically uses 'attempt', Choice 2 uses default (1)
-    target_attempt = p['attempt'] 
+    # rank-risk requires verb, level, and system to iterate through all names
+    if not all([p['v'], p['l'], p['s']]):
+        return jsonify({"error": "Missing params: verb, level, and system are required"}), 400
+
+    unknowns = validate_labels(p, ['v', 'l', 's'])
+    if unknowns:
+        return jsonify({"error": "Unknown labels", "unknown_params": unknowns}), 404
     
     results = []
     for n in NAMES:
-        prob = predict_success(MODEL, ENCODERS, n, p['v'], p['l'], p['s'], attempt=target_attempt)
+        prob = predict_success(MODEL, ENCODERS, n, p['v'], p['l'], p['s'], attempt=p['attempt'])
         if prob is not None:
             results.append({"name": n, "prob": float(prob)})
     
     results.sort(key=lambda x: x['prob'])
-
-    logger.info(f"Ranked {len(results)} tests for attempt {target_attempt}")
-    return jsonify({
-        "attempt_analyzed": target_attempt,
-        "top_high_risk": results[:10]
-    })
+    return jsonify({"attempt_analyzed": p['attempt'], "top_high_risk": results[:10]})
 
 @app.route('/worst-systems', methods=['GET'])
 def worst_systems():
-    """Choice 3: Worst System for Test"""
     p = get_params()
+    # worst-systems requires name, verb, and level to iterate through all systems
+    if not all([p['n'], p['v'], p['l']]):
+        return jsonify({"error": "Missing params: name, verb, and level are required"}), 400
+
+    unknowns = validate_labels(p, ['n', 'v', 'l'])
+    if unknowns:
+        return jsonify({"error": "Unknown labels", "unknown_params": unknowns}), 404
+
     results = []
     for s in SYSTEMS:
         prob = predict_success(MODEL, ENCODERS, p['n'], p['v'], p['l'], s, attempt=p['attempt'])
@@ -85,6 +104,4 @@ def worst_systems():
             results.append({"system": s, "prob": float(prob)})
     
     results.sort(key=lambda x: x['prob'])
-
-    logger.info(f"Ranked {len(results)} systems for test {p['n']}")
     return jsonify(results)

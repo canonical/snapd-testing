@@ -15,8 +15,8 @@ ExecStart={{HOME}}/test-predictor/.venv/bin/gunicorn \
     --workers 2 \
     --timeout 120 \
     --preload \
-    --bind 0.0.0.0:5001 \
-    src.services.api.explorer_api:app
+    --bind 0.0.0.0:4999 \
+    src.services.api.explorer:app
 
 Restart=always
 

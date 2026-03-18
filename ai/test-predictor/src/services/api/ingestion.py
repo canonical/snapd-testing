@@ -29,6 +29,10 @@ def ingest_data():
         logger.warning("Missing mandatory parameters: job_id and run_id are required")
         return jsonify({"error": "Missing mandatory parameters: job_id and run_id are required"}), 400
 
+    if not job_id.isdigit() or not run_id.isdigit():
+        logger.warning(f"invalid job_id ({job_id}) or run_id ({run_id}): must be positive numbers")
+        return jsonify({"error": "job_id and run_id must be positive integers"}), 400
+
     # Check for the file
     if 'file' not in request.files:
         logger.warning("No file part in the request")
