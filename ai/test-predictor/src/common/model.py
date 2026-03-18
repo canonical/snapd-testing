@@ -101,46 +101,51 @@ class ModelManager:
                 logger.error(f"Reload failed: {e}")
                 return False
 
-    def train(self, ts_batch_paths, processed_dir):
+    def train(self, ts_files, processed_dir):
         """
         Expects a list of paths to .ts (CSV) files. 
         Loads -> Preprocesses -> Trains -> Saves -> Reloads In-Memory.
         """
-        if not ts_batch_paths or self.training_lock.locked():
+        if not ts_files:
+            logger.error("No TS files provided for training.")
+            return False
+
+        if self.training_lock.locked():
+            logger.error("Attempted to train while another training is active.")
             return False
 
         with self.training_lock:
             try:
                 # Load the TS files into DataFrames
-                logger.info(f"Training model with {len(ts_batch_paths)} new TS files...")
-                df_list = [pd.read_csv(p) for p in ts_batch_paths]
+                logger.info(f"Training model with {len(ts_files)} new TS files...")
+                df_list = [pd.read_csv(p) for p in ts_files]
                 combined = pd.concat(df_list, ignore_index=True)
-                
+
                 # Get existing Metadata & Preprocess
                 # This ensures we use the same encoders/scaler stored on disk
                 enc, scal = self._get_metadata()
                 proc_df = self._preprocess_dataframe(combined, enc, scal)
-                
+
                 # Save metadata immediately after updating encoders with potential new labels
                 self._save_metadata(enc, scal)
-                
+
                 # Prepare sequences and Train
                 X, y = self._prepare_sequences(proc_df)
-                
+
                 # _build_or_load handles building fresh or incremental loading
                 model = self._build_or_load_model((X.shape[1], X.shape[2]))
-                
+
                 logger.info(f"Starting fit on {len(X)} sequences...")
                 model.fit(X, y, epochs=5, batch_size=8, verbose=0)
                 model.save(self.model_path)
 
                 # Cleanup: Archive the TS files
-                for t_p in ts_batch_paths:
-                    if os.path.exists(t_p):
-                        shutil.move(t_p, os.path.join(processed_dir, os.path.basename(t_p)))
+                for ts_file in ts_files:
+                    if os.path.exists(ts_file):
+                        shutil.move(ts_file, os.path.join(processed_dir, os.path.basename(ts_file)))
 
                 logger.info("Training complete on disk. Triggering in-memory reload...")
-                
+
                 # Atomic Refresh: Sync the API's global MODEL/ENCODERS
                 self.load_from_disk()
                 return True

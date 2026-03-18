@@ -44,7 +44,7 @@ def perform_training_cycle(app):
                     return False
 
                 logger.info(f"Found {len(files)} files. Training...")
-                success = manager.train(files, config.TS_DIR)
+                success = manager.train(files, config.PROCESSED_DIR)
                 
                 if success:
                     logger.info(f"Training and reload successful. Systems now known: {len(manager.encoders['system'].classes_)}")
