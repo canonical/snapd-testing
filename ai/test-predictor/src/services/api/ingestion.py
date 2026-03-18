@@ -3,14 +3,13 @@
 import os
 import json
 
-from flask import Flask, request, jsonify
+from flask import Blueprint, request, jsonify
 
 from common import config
 from common.config import setup_logging
 
 logger = setup_logging("tp-ingestion-api")
-
-app = Flask(__name__)
+ingestion_bp = Blueprint('ingestion', __name__)
 
 # Ensure the directory exists on startup
 if not os.path.exists(config.RESULTS_DIR):
@@ -19,7 +18,7 @@ if not os.path.exists(config.RESULTS_DIR):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() == 'json'
 
-@app.route('/ingest', methods=['POST'])
+@ingestion_bp.route('/ingest', methods=['POST'])
 def ingest_data():
     # Validate mandatory IDs
     job_id = request.form.get('job_id')
@@ -80,5 +79,3 @@ def ingest_data():
         logger.error(f"Error saving file: {e}")
         return jsonify({"error": str(e)}), 500
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)

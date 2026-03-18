@@ -1,12 +1,11 @@
 import logging
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask
+
 from src.services.api.ingestion import app as ingestion_app
 from src.services.api.explorer import app as explorer_app
-from src.services.api.trainer import app as trainer_app
-
-from apscheduler.schedulers.background import BackgroundScheduler
-from src.services.api.trainer import perform_training_cycle
+from src.services.api.trainer import app as trainer_app, perform_training_cycle
 
 from common import config
 from common.config import setup_logging

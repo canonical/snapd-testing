@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-import os
-import pickle
-import threading
 from flask import Blueprint, current_app, request, jsonify
-from tensorflow.keras import backend as K
-from tensorflow.keras.models import load_model
 
 from common import config
 from common.config import setup_logging

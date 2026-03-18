@@ -1,7 +1,7 @@
 import os
 import threading
-import time
 import glob
+
 from flask import Blueprint, current_app, jsonify
 
 from common import config
