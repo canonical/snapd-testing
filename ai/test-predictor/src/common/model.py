@@ -27,8 +27,6 @@ class ModelManager:
         self._lock = threading.Lock()
         self.training_lock = threading.Lock()
 
-
-
     def _get_metadata(self):
         if os.path.exists(self.metadata_path):
             with open(self.metadata_path, 'rb') as f:
@@ -188,5 +186,11 @@ class ModelManager:
                 return False
 
     def get_state(self):
+        # If not loaded yet, try a one-time load
+        if self.model is None:
+            logger.info("First request detected. Triggering lazy load...")
+            self._load_from_disk()
+
         with self._lock:
             return self.model, self.encoders, self.last_updated
+

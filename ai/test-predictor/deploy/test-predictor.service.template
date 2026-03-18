@@ -12,7 +12,8 @@ Environment="PATH={{HOME}}/test-predictor/.venv/bin"
 
 # --preload is critical here so workers share the LSTM model in memory
 ExecStart={{HOME}}/test-predictor/.venv/bin/gunicorn \
-    --workers 3 \
+    --workers 1 \
+    --threads 4 \
     --timeout 120 \
     --preload \
     --bind 0.0.0.0:5000 \
