@@ -143,47 +143,64 @@ class ModelManager:
         if not ts_files:
             return False
 
+        # Pre-validation and Loading
+        valid_data = []
+        for ts_file in ts_files:
+            if not ts_file.endswith(".ts"):
+                continue
+            try:
+                df = pd.read_csv(ts_file)
+                if df.empty:
+                    logger.warning(f"Removing empty file: {ts_file}")
+                    os.remove(ts_file)
+                    continue
+                valid_data.append((df, ts_file))
+            except Exception as e:
+                logger.error(f"Error reading {ts_file}: {e}")
+
+        if not valid_data:
+            return False
+
         with self.training_lock:
             try:
-                # 1. Get Metadata once for the whole loop
+                # Setup Metadata and Model
                 enc, scal = self._get_metadata()
                 
-                # 2. Get/Build the model once
-                # We peek at the first file just to get the shape if building fresh
-                sample_df = pd.read_csv(ts_files[0])
-                sample_proc = self._preprocess_dataframe(sample_df.copy(), enc, scal)
+                # Peek at first valid dataframe to determine shape
+                first_df, _ = valid_data[0]
+                sample_proc = self._preprocess_dataframe(first_df.copy(), enc, scal)
                 X_sample, _ = self._prepare_sequences(sample_proc)
                 
-                # Use a lock-free internal call to avoid deadlocking on self._lock
                 model = self._get_or_build_internal((X_sample.shape[1], X_sample.shape[2]))
 
-                logger.info(f"Starting training on {len(ts_files)} files...")
+                logger.info(f"Starting training on {len(valid_data)} validated files...")
 
-                for i, ts_file in enumerate(ts_files):
-                    logger.info(f"[{i+1}/{len(ts_files)}] Training on: {os.path.basename(ts_file)}")
+                # 3. Training Loop using pre-loaded DataFrames
+                for i, (df, ts_path) in enumerate(valid_data):
+                    logger.info(f"[{i+1}/{len(valid_data)}] Training on: {os.path.basename(ts_path)}")
                     
-                    df = pd.read_csv(ts_file)
+                    # Process the dataframe already in memory
                     proc_df = self._preprocess_dataframe(df, enc, scal)
                     X, y = self._prepare_sequences(proc_df)
 
-                    # Train on this single file
-                    # We use verbose=1 so you can see it moving in the logs
-                    model.fit(X, y, epochs=2, batch_size=4, verbose=1)
+                    if len(X) > 0:
+                        model.fit(X, y, epochs=2, batch_size=4, verbose=1)
 
-                    # Move file to processed immediately so we don't re-train if we crash
-                    shutil.move(ts_file, os.path.join(processed_dir, os.path.basename(ts_file)))
+                    # 4. Cleanup: Move the file now that training for it is done
+                    shutil.move(ts_path, os.path.join(processed_dir, os.path.basename(ts_path)))
 
-                # Save everything once at the end
+                # 5. Final Persist and Sync
                 model.save(self.model_path)
                 self._save_metadata(enc, scal)
                 
-                logger.info("All files processed. Syncing in-memory model...")
+                logger.info("Syncing in-memory model...")
                 self._load_from_disk()
                 return True
 
             except Exception as e:
-                logger.error(f"1-by-1 training failed: {e}", exc_info=True)
+                logger.error(f"Training failed: {e}", exc_info=True)
                 return False
+
 
     def get_state(self):
         # If not loaded yet, try a one-time load

@@ -31,7 +31,7 @@ def perform_training_cycle(app):
             if not files:
                 logger.info("No new results json files found. Processing skipped.")
             else:
-                logger.info(f"Found {len(files)} files. Processing...")
+                logger.info(f"Found {len(files)} results json files. Processing...")
                 process_results(files, config.TS_DIR)
 
             # Find ts files and train
@@ -42,7 +42,7 @@ def perform_training_cycle(app):
                 logger.info("No new ts files found. Training skipped.")
                 return False
 
-            logger.info(f"Found {len(files)} files. Training...")
+            logger.info(f"Found {len(files)} ts files. Training...")
             success = manager.train(files, config.PROCESSED_DIR)
             
             if success:
