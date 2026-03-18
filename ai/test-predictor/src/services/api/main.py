@@ -14,7 +14,7 @@ from common.model import ModelManager
 
 logger = setup_logging("tp-main-api")
 
-# Initialize at startup
+# Initialize the model at startup
 model_full_path = os.path.join(config.MODEL_DIR, config.MODEL_NAME)
 metadata_full_path = os.path.join(config.MODEL_DIR, config.METADATA_NAME)
 manager = ModelManager(model_full_path, metadata_full_path)
@@ -36,7 +36,7 @@ def scheduled_training_job():
     with app.app_context():
         logger.info("Scheduled Job: Checking for new data...")
         # Reuses the same logic as the /train endpoint
-        perform_training_cycle()
+        perform_training_cycle(app)
 
 # Initialize Scheduler
 scheduler = BackgroundScheduler(daemon=True)
