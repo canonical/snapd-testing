@@ -13,7 +13,9 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras import backend as K
 
-logger = logging.getLogger("tp-model-manager")
+from common.config import setup_logging
+
+logger = setup_logging("tp-model-manager")
 
 class ModelManager:
     def __init__(self, model_path, metadata_path):
@@ -108,10 +110,6 @@ class ModelManager:
         """
         if not ts_files:
             logger.error("No TS files provided for training.")
-            return False
-
-        if self.training_lock.locked():
-            logger.error("Attempted to train while another training is active.")
             return False
 
         with self.training_lock:
