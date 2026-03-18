@@ -93,52 +93,51 @@ class ModelManager:
         2. If on disk, load it (ignores input_shape).
         3. If neither, build fresh using input_shape.
         """
-        with self._lock:
-            try:
-                # Case A: Already in memory
-                if self.model is not None:
-                    logger.info("Using in-memory model instance.")
+        try:
+            # Case A: Already in memory
+            if self.model is not None:
+                logger.info("Using in-memory model instance.")
+                model = self.model
+            
+            # Case B: Not in memory, but exists on disk
+            elif os.path.exists(self.model_path):                    
+                logger.info(f"Loading model from disk: {self.model_path}")
+                if self._load_from_disk():
                     model = self.model
-                
-                # Case B: Not in memory, but exists on disk
-                elif os.path.exists(self.model_path):                    
-                    logger.info(f"Loading model from disk: {self.model_path}")
-                    if self._load_from_disk():
-                        model = self.model
-                    else:
-                        logger.error("Failed to load model from disk. No fallback available.")
-                        return None
-
-                # Case C: Brand new (Requires input_shape)
                 else:
-                    if input_shape is None:
-                        logger.error("No model found and no input_shape provided to build one.")
-                        return None
-                    
-                    logger.info(f"Building fresh model with input shape {input_shape}")
-                    model = Sequential([
-                        Input(shape=input_shape),
-                        LSTM(64),
-                        Dropout(0.2),
-                        Dense(32, activation='relu'),
-                        Dense(1, activation='sigmoid')
-                    ])
-
-                # Step 2: Ensure we actually found or built a model
-                if model is None:
-                    logger.error("No model found on disk and no input_shape provided to build one.")
+                    logger.error("Failed to load model from disk. No fallback available.")
                     return None
 
-                # Re-compile so it's ready for .fit() or .predict()
-                model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+            # Case C: Brand new (Requires input_shape)
+            else:
+                if input_shape is None:
+                    logger.error("No model found and no input_shape provided to build one.")
+                    return None
                 
-                self.model = model
-                self.last_updated = time.time()
-                return self.model
+                logger.info(f"Building fresh model with input shape {input_shape}")
+                model = Sequential([
+                    Input(shape=input_shape),
+                    LSTM(64),
+                    Dropout(0.2),
+                    Dense(32, activation='relu'),
+                    Dense(1, activation='sigmoid')
+                ])
 
-            except Exception as e:
-                logger.error(f"load_or_build_model failed: {e}")
+            # Step 2: Ensure we actually found or built a model
+            if model is None:
+                logger.error("No model found on disk and no input_shape provided to build one.")
                 return None
+
+            # Re-compile so it's ready for .fit() or .predict()
+            model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+            
+            self.model = model
+            self.last_updated = time.time()
+            return self.model
+
+        except Exception as e:
+            logger.error(f"load_or_build_model failed: {e}")
+            return None
 
     def train(self, ts_files, processed_dir):
         """
