@@ -140,56 +140,49 @@ class ModelManager:
             return None
 
     def train(self, ts_files, processed_dir):
-        """
-        Expects a list of paths to .ts (CSV) files. 
-        Loads -> Preprocesses -> Trains -> Saves -> Reloads In-Memory.
-        """
         if not ts_files:
-            logger.error("No TS files provided for training.")
-            return False
-
-        if self.training_lock.locked():
-            logger.error("Attempted to train while another training is active.")
             return False
 
         with self.training_lock:
             try:
-                # Load the TS files into DataFrames
-                logger.info(f"Training model with {len(ts_files)} new TS files...")
-                df_list = [pd.read_csv(p) for p in ts_files]
-                combined = pd.concat(df_list, ignore_index=True)
-
-                # Get existing Metadata & Preprocess
-                # This ensures we use the same encoders/scaler stored on disk
+                # 1. Get Metadata once for the whole loop
                 enc, scal = self._get_metadata()
-                proc_df = self._preprocess_dataframe(combined, enc, scal)
+                
+                # 2. Get/Build the model once
+                # We peek at the first file just to get the shape if building fresh
+                sample_df = pd.read_csv(ts_files[0])
+                sample_proc = self._preprocess_dataframe(sample_df.copy(), enc, scal)
+                X_sample, _ = self._prepare_sequences(sample_proc)
+                
+                # Use a lock-free internal call to avoid deadlocking on self._lock
+                model = self._get_or_build_internal((X_sample.shape[1], X_sample.shape[2]))
 
-                # Save metadata immediately after updating encoders with potential new labels
-                self._save_metadata(enc, scal)
+                logger.info(f"Starting training on {len(ts_files)} files...")
 
-                # Prepare sequences and Train
-                X, y = self._prepare_sequences(proc_df)
+                for i, ts_file in enumerate(ts_files):
+                    logger.info(f"[{i+1}/{len(ts_files)}] Training on: {os.path.basename(ts_file)}")
+                    
+                    df = pd.read_csv(ts_file)
+                    proc_df = self._preprocess_dataframe(df, enc, scal)
+                    X, y = self._prepare_sequences(proc_df)
 
-                # _build_or_load handles building fresh or incremental loading
-                model = self.load_or_build_model((X.shape[1], X.shape[2]))
+                    # Train on this single file
+                    # We use verbose=1 so you can see it moving in the logs
+                    model.fit(X, y, epochs=2, batch_size=4, verbose=1)
 
-                logger.info(f"Starting fit on {len(X)} sequences...")
-                model.fit(X, y, epochs=5, batch_size=8, verbose=0)
+                    # Move file to processed immediately so we don't re-train if we crash
+                    shutil.move(ts_file, os.path.join(processed_dir, os.path.basename(ts_file)))
+
+                # Save everything once at the end
                 model.save(self.model_path)
-
-                # Cleanup: Archive the TS files
-                for ts_file in ts_files:
-                    if os.path.exists(ts_file):
-                        shutil.move(ts_file, os.path.join(processed_dir, os.path.basename(ts_file)))
-
-                logger.info("Training complete on disk. Triggering in-memory reload...")
-
-                # Atomic Refresh: Sync the API's global MODEL/ENCODERS
+                self._save_metadata(enc, scal)
+                
+                logger.info("All files processed. Syncing in-memory model...")
                 self._load_from_disk()
                 return True
 
             except Exception as e:
-                logger.error(f"Batch training failed: {e}", exc_info=True)
+                logger.error(f"1-by-1 training failed: {e}", exc_info=True)
                 return False
 
     def get_state(self):
