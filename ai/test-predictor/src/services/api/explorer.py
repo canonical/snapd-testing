@@ -136,12 +136,12 @@ def reload_model():
     try:
         logger.info("Starting reload...")
         
-        # 1. Clear old model from memory to prevent memory leaks/deadlocks
+        logger.info("Clearing Session...")
         K.clear_session()
         del MODEL
         gc.collect() 
 
-        # 2. Reload metadata first (it's fast)
+        logger.info("Loading Metadata...")
         with open(metadata_path, 'rb') as f:
             ENCODERS, SCALER = pickle.load(f)
 
@@ -150,7 +150,7 @@ def reload_model():
         LEVELS = list(ENCODERS['level'].classes_)
         SYSTEMS = list(ENCODERS['system'].classes_)
 
-        # 3. Reload the Model (This is the heavy part)
+        logger.info("Loading Keras Model...")
         MODEL = load_model(model_path)
 
         metadata_summary = {
