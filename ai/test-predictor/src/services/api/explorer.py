@@ -151,7 +151,8 @@ def reload_model():
         SYSTEMS = list(ENCODERS['system'].classes_)
 
         logger.info("Loading Keras Model...")
-        MODEL = load_model(model_path)
+        # We done need training capabilities for inference, so we can load without compiling to save time and resources
+        MODEL = load_model(model_path, compile=False)
 
         metadata_summary = {
             "names_count": len(NAMES),
