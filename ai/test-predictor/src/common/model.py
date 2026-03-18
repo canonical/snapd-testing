@@ -8,10 +8,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-import tensorflow as tf
-tf.config.threading.set_intra_op_parallelism_threads(1)
-tf.config.threading.set_inter_op_parallelism_threads(1)
-
 from tensorflow.keras.models import load_model, Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -188,7 +184,7 @@ class ModelManager:
                     X, y = self._prepare_sequences(proc_df)
 
                     if len(X) > 0:
-                        model.fit(X, y, epochs=2, batch_size=4, verbose=2)
+                        model.fit(X, y, epochs=2, batch_size=4, verbose=0)
 
                     # 4. Cleanup: Move the file now that training for it is done
                     shutil.move(ts_path, os.path.join(processed_dir, os.path.basename(ts_path)))
