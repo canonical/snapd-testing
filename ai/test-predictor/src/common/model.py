@@ -72,20 +72,19 @@ class ModelManager:
         return os.path.exists(self.model_path) and os.path.exists(self.metadata_path)
 
     def _load_from_disk(self):
-        with self._lock:
-            try:
-                if not self.exists(): return False
-                with open(self.metadata_path, 'rb') as f:
-                    self.encoders, _ = pickle.load(f)
-                
-                K.clear_session()
-                self.model = load_model(self.model_path, compile=False)
-                self.last_updated = time.time()
-                gc.collect()
-                return True
-            except Exception as e:
-                logger.error(f"Reload failed: {e}")
-                return False
+        try:
+            if not self.exists(): return False
+            with open(self.metadata_path, 'rb') as f:
+                self.encoders, _ = pickle.load(f)
+            
+            K.clear_session()
+            self.model = load_model(self.model_path, compile=False)
+            self.last_updated = time.time()
+            gc.collect()
+            return True
+        except Exception as e:
+            logger.error(f"Reload failed: {e}")
+            return False
 
     def load_or_build_model(self, input_shape=None):
         """
