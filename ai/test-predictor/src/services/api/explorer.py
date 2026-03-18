@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+import gc
 import os
 import pickle
 from flask import Flask, request, jsonify
+from tensorflow.keras import backend as K
 from tensorflow.keras.models import load_model
 
 from common import config
@@ -130,21 +132,27 @@ def list_metadata(category):
 
 @app.route('/reload', methods=['POST'])
 def reload_model():
-    """Reload the model and encoders from disk after ingestion"""
     global MODEL, ENCODERS, NAMES, VERBS, LEVELS, SYSTEMS
     try:
-        # Reload files from disk
-        MODEL = load_model(model_path)
+        logger.info("Starting reload...")
+        
+        # 1. Clear old model from memory to prevent memory leaks/deadlocks
+        K.clear_session()
+        del MODEL
+        gc.collect() 
+
+        # 2. Reload metadata first (it's fast)
         with open(metadata_path, 'rb') as f:
             ENCODERS, SCALER = pickle.load(f)
 
-        # Update the global list variables
         NAMES = list(ENCODERS['name'].classes_)
         VERBS = list(ENCODERS['verb'].classes_)
         LEVELS = list(ENCODERS['level'].classes_)
         SYSTEMS = list(ENCODERS['system'].classes_)
 
-        # Create a summary of the new state
+        # 3. Reload the Model (This is the heavy part)
+        MODEL = load_model(model_path)
+
         metadata_summary = {
             "names_count": len(NAMES),
             "systems_count": len(SYSTEMS),
@@ -152,18 +160,11 @@ def reload_model():
             "verbs_count": len(VERBS)
         }
 
-        logger.info(f"Model and Encoders reloaded successfully: {metadata_summary}")
-        
-        return jsonify({
-            "status": "success",
-            "message": "Model and encoders refreshed from disk",
-            "metadata_summary": metadata_summary
-        })
+        logger.info(f"Reload successful: {metadata_summary}")
+        return jsonify({"status": "success", "metadata": metadata_summary})
 
     except Exception as e:
-        logger.error(f"Failed to reload: {e}")
-        return jsonify({
-            "status": "error",
-            "error": str(e)
-        }), 500
+        logger.error(f"Reload failed: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 
