@@ -171,7 +171,7 @@ class ModelManager:
                 sample_proc = self._preprocess_dataframe(first_df.copy(), enc, scal)
                 X_sample, _ = self._prepare_sequences(sample_proc)
                 
-                model = self._get_or_build_internal((X_sample.shape[1], X_sample.shape[2]))
+                model = self.load_or_build_model((X_sample.shape[1], X_sample.shape[2]))
 
                 logger.info(f"Starting training on {len(valid_data)} validated files...")
 
