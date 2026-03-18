@@ -184,7 +184,7 @@ class ModelManager:
                     X, y = self._prepare_sequences(proc_df)
 
                     if len(X) > 0:
-                        model.fit(X, y, epochs=2, batch_size=4, verbose=1)
+                        model.fit(X, y, epochs=2, batch_size=4, verbose=2)
 
                     # 4. Cleanup: Move the file now that training for it is done
                     shutil.move(ts_path, os.path.join(processed_dir, os.path.basename(ts_path)))
