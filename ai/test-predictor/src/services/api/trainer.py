@@ -25,20 +25,25 @@ def perform_training_cycle(app):
             try:
                 logger.info("Starting training cycle: Scanning for new result files...")
                 
-                # 1. Match the batch job behavior: find files and process
+                # Find json files and process
                 pattern = os.path.join(config.RESULTS_DIR, "*.json")
                 files = glob.glob(pattern)
                 
                 if not files:
-                    logger.info("No new files found. Training cycle skipped.")
+                    logger.info("No new results json files found. Processing skipped.")
+                else:
+                    logger.info(f"Found {len(files)} files. Processing...")
+                    process_results(files, config.TS_DIR)
+    
+                # Find ts files and train
+                pattern = os.path.join(config.TS_DIR, "*.ts")
+                files = glob.glob(pattern)
+
+                if not files:
+                    logger.info("No new ts files found. Training skipped.")
                     return False
 
-                logger.info(f"Found {len(files)} files. Processing...")
-                process_results(files, config.TS_DIR)
-    
-                # 2. Run the heavy processing (This updates files on disk)
-                # Assuming this function still handles the disk writes
-                logger.info("Processing complete. Starting training...")
+                logger.info(f"Found {len(files)} files. Training...")
                 success = manager.train(files, config.TS_DIR)
                 
                 if success:
