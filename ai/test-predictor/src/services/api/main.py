@@ -4,6 +4,11 @@ import os
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask
 
+import tensorflow as tf
+# Force single-threading to prevent Gunicorn deadlocks
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_inter_op_parallelism_threads(1)
+
 from src.services.api.ingestion import ingestion_bp
 from src.services.api.explorer import explorer_bp
 from src.services.api.trainer import trainer_bp, perform_training_cycle
