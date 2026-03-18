@@ -14,7 +14,9 @@ from common.model import ModelManager
 logger = setup_logging("tp-main-api")
 
 # Initialize at startup
-manager = ModelManager(config.MODEL_PATH, config.METADATA_PATH)
+model_full_path = os.path.join(config.MODEL_DIR, config.MODEL_NAME)
+metadata_full_path = os.path.join(config.MODEL_DIR, config.METADATA_NAME)
+manager = ModelManager(model_full_path, metadata_full_path)
 manager.load_from_disk()
 
 # Create one master app
