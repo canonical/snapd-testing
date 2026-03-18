@@ -6,7 +6,6 @@ from flask import Blueprint, current_app, jsonify
 
 from common import config
 from common.config import setup_logging
-from common.model import train
 from common.processor import process_results
 
 logger = setup_logging("tp-trainer-api")
@@ -40,11 +39,7 @@ def perform_training_cycle(app):
                 # 2. Run the heavy processing (This updates files on disk)
                 # Assuming this function still handles the disk writes
                 logger.info("Processing complete. Starting training...")
-                train(files, config.TS_DIR, config.MODEL_DIR)
-                
-                # 3. Trigger the ModelManager to reload the new files into memory
-                logger.info("Batch processing complete. Reloading model into memory...")
-                success = manager.load_from_disk()
+                success = manager.train(files, config.TS_DIR)
                 
                 if success:
                     logger.info(f"Training and reload successful. Systems now known: {len(manager.encoders['system'].classes_)}")
