@@ -6,7 +6,8 @@ from flask import Blueprint, current_app, jsonify
 
 from common import config
 from common.config import setup_logging
-from common.processor import process_and_train_batch
+from common.model import train
+from common.processor import process_results
 
 logger = setup_logging("tp-trainer-api")
 trainer_bp = Blueprint('trainer', __name__)
@@ -33,11 +34,13 @@ def perform_training_cycle(app):
                     logger.info("No new files found. Training cycle skipped.")
                     return False
 
-                logger.info(f"Found {len(files)} files. Processing batch...")
-                
+                logger.info(f"Found {len(files)} files. Processing...")
+                process_results(files, config.TS_DIR)
+    
                 # 2. Run the heavy processing (This updates files on disk)
                 # Assuming this function still handles the disk writes
-                process_and_train_batch(files, config.TS_DIR, config.MODEL_DIR)
+                logger.info("Processing complete. Starting training...")
+                train(files, config.TS_DIR, config.MODEL_DIR)
                 
                 # 3. Trigger the ModelManager to reload the new files into memory
                 logger.info("Batch processing complete. Reloading model into memory...")

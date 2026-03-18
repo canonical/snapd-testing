@@ -1,20 +1,66 @@
-import os, json, re, glob, shutil
+import os, json, re, secrets, shutil
 import pandas as pd
 from common import config
 from common.config import setup_logging
-from common.transformer import clean_and_transform_data
-from common.trainer import (
-    get_metadata, save_metadata, preprocess_dataframe, 
-    prepare_sequences, build_or_load_model
-)
 
 logger = setup_logging("tp-processor")
 
-def extract_attempt(filename):
+def _extract_attempt(filename):
     match = re.search(r"attempt_(\d+)", filename)
     return int(match.group(1)) if match else 1
 
-def process_and_train_batch(json_files, ts_dir, model_dir):
+def _clean_and_transform_data(raw_data, attempt):
+    """
+    Core logic to transform raw JSON items into the specific TS format.
+    """
+    run_id = secrets.token_hex(4)
+
+    if 'items' not in raw_data:
+        logger.error("Invalid data format: 'items' key missing")
+        raise ValueError("Invalid data format: 'items' key missing")
+
+    df = pd.DataFrame(raw_data['items'])
+
+    # CLEANING
+    df = df.replace(r'^\s*$', pd.NA, regex=True)
+    df = df.dropna(subset=['instance', 'start', 'end', 'verb', 'name'])
+    df = df[df['verb'] != 'checking'].copy()
+    
+    # METADATA
+    df['runid'] = run_id
+    df['attempt'] = attempt
+
+    # FILTER
+    if 'aborted' in df.columns:
+        df = df[df['aborted'] == False].copy()
+        logger.info(f"Filtered out aborted items. Remaining items: {len(df)}")
+
+    # TIME PROCESSING
+    start_dt = pd.to_datetime(df['start'])
+    end_dt = pd.to_datetime(df['end'])
+    df['duration_ms'] = ((end_dt - start_dt).dt.total_seconds() * 1000).round(0).astype(int)
+
+    # DATA TYPES
+    if 'success' in df.columns:
+        df['success'] = df['success'].astype(int)
+
+    # SORTING
+    df['start_dt'] = start_dt 
+    df = df.sort_values(by=['instance', 'start_dt'])
+
+    # FINAL COLUMN ORDER
+    requested_order = [
+        'runid', 'instance', 'start', 'duration_ms', 'attempt', 
+        'verb', 'level', 'backend', 'system', 'name', 'success'
+    ]
+    
+    final_cols = [c for c in requested_order if c in df.columns]
+
+    logger.info(f"Transformed data for run_id={run_id} with {len(df)} items and columns: {final_cols}")
+    return df[final_cols], run_id
+
+
+def process_results(json_files, ts_dir):
     """The heavy lifting: Convert -> Train -> Archive"""
     logger.info(f"Processing batch of {len(json_files)} files...")
     
@@ -25,41 +71,10 @@ def process_and_train_batch(json_files, ts_dir, model_dir):
         ts_path = os.path.join(ts_dir, filename.replace(".json", ".ts"))
         
         try:
-            attempt = extract_attempt(filename)
+            attempt = _extract_attempt(filename)
             with open(json_path, 'r') as f:
-                df, _ = clean_and_transform_data(json.load(f), attempt)
+                df, _ = _clean_and_transform_data(json.load(f), attempt)
             df.to_csv(ts_path, index=False)
             ts_batch_paths.append((json_path, ts_path))
         except Exception as e:
             logger.warning(f"Skip {filename}: {e}")
-
-    if not ts_batch_paths: return
-
-    # Training
-    try:
-        logger.info(f"Training model with {len(ts_batch_paths)} new TS files...")
-
-        model_path = os.path.join(model_dir, config.MODEL_NAME)
-        meta_path = os.path.join(model_dir, config.METADATA_NAME)
-        
-        df_list = [pd.read_csv(p[1]) for p in ts_batch_paths]
-        combined = pd.concat(df_list, ignore_index=True)
-        
-        enc, scal = get_metadata(meta_path)
-        proc_df = preprocess_dataframe(combined, enc, scal)
-        save_metadata(meta_path, enc, scal)
-        
-        X, y = prepare_sequences(proc_df)
-        model = build_or_load_model(model_path, (X.shape[1], X.shape[2]))
-        model.fit(X, y, epochs=5, batch_size=8, verbose=0)
-        model.save(model_path)
-
-        # C. Archive Successes
-        for j_p, t_p in ts_batch_paths:
-            shutil.move(t_p, os.path.join(config.PROCESSED_DIR, os.path.basename(t_p)))
-            os.remove(j_p)
-
-        logger.info(f"Trained & Archived {len(ts_batch_paths)} files.")
-        
-    except Exception as e:
-        logger.error(f"Training failed: {e}")
