@@ -103,8 +103,12 @@ class ModelManager:
                 # Case B: Not in memory, but exists on disk
                 elif os.path.exists(self.model_path):                    
                     logger.info(f"Loading model from disk: {self.model_path}")
-                    self._load_from_disk()
-                
+                    if self._load_from_disk():
+                        model = self.model
+                    else:
+                        logger.error("Failed to load model from disk. No fallback available.")
+                        return None
+
                 # Case C: Brand new (Requires input_shape)
                 else:
                     if input_shape is None:
@@ -119,6 +123,11 @@ class ModelManager:
                         Dense(32, activation='relu'),
                         Dense(1, activation='sigmoid')
                     ])
+
+                # Step 2: Ensure we actually found or built a model
+                if model is None:
+                    logger.error("No model found on disk and no input_shape provided to build one.")
+                    return None
 
                 # Re-compile so it's ready for .fit() or .predict()
                 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
