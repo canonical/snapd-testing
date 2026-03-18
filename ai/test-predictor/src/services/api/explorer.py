@@ -31,6 +31,33 @@ VERBS = list(ENCODERS['verb'].classes_)
 LEVELS = list(ENCODERS['level'].classes_)
 SYSTEMS = list(ENCODERS['system'].classes_)
 
+def automated_reload():
+    """Background task to refresh model from disk if updated"""
+    global MODEL, ENCODERS, NAMES, VERBS, LEVELS, SYSTEMS
+    try:
+        logger.info("Background Check: Refreshing model and metadata...")
+
+        # Load new data into temp variables first to ensure success
+        with open(metadata_path, 'rb') as f:
+            NEW_ENCODERS, _ = pickle.load(f)
+
+        NEW_MODEL = load_model(model_path, compile=False)
+
+        # Swap globals
+        K.clear_session()
+        MODEL = NEW_MODEL
+        ENCODERS = NEW_ENCODERS
+
+        NAMES = list(ENCODERS['name'].classes_)
+        VERBS = list(ENCODERS['verb'].classes_)
+        LEVELS = list(ENCODERS['level'].classes_)
+        SYSTEMS = list(ENCODERS['system'].classes_)
+
+        logger.info(f"Background Reload Successful. Systems: {len(SYSTEMS)}")
+        gc.collect()
+    except Exception as e:
+        logger.error(f"Background Reload Failed: {e}")
+
 scheduler.add_job(id='refresh_job', func=automated_reload, trigger='interval', minutes=config.RELOAD_INTERVAL_MINUTES)
 scheduler.init_app(app)
 scheduler.start()
@@ -150,31 +177,4 @@ def reload_model():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-def automated_reload():
-    """Background task to refresh model from disk if updated"""
-    global MODEL, ENCODERS, NAMES, VERBS, LEVELS, SYSTEMS
-    try:
-        logger.info("Background Check: Refreshing model and metadata...")
-        
-        # Load new data into temp variables first to ensure success
-        with open(metadata_path, 'rb') as f:
-            NEW_ENCODERS, _ = pickle.load(f)
-        
-        NEW_MODEL = load_model(model_path, compile=False)
-
-        # Swap globals
-        K.clear_session()
-        MODEL = NEW_MODEL
-        ENCODERS = NEW_ENCODERS
-        
-        NAMES = list(ENCODERS['name'].classes_)
-        VERBS = list(ENCODERS['verb'].classes_)
-        LEVELS = list(ENCODERS['level'].classes_)
-        SYSTEMS = list(ENCODERS['system'].classes_)
-
-        logger.info(f"Background Reload Successful. Systems: {len(SYSTEMS)}")
-        gc.collect()
-    except Exception as e:
-        logger.error(f"Background Reload Failed: {e}")
 
