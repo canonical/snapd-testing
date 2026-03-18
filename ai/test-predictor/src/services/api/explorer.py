@@ -36,6 +36,14 @@ def predict_scenario():
     p = get_params()
     model, encoders, _ = current_app.model_manager.get_state()
     
+    # Ensure model and metadata are loaded
+    if model is None or encoders is None:
+        logger.warning(f"Worst-systems requested, but model or encoders are missing. Params: {p}")
+        return jsonify({
+            "error": "Model not loaded", 
+            "message": "The system is currently initializing or training."
+        }), 503
+
     if not all([p['n'], p['v'], p['l'], p['s']]):
         logger.warning(f"Missing params: name, verb, level, and system are required. Received: {p}")
         return jsonify({"error": "Missing params: name, verb, level, and system are required"}), 400
@@ -59,6 +67,14 @@ def rank_risk():
     p = get_params()
     model, encoders, _ = current_app.model_manager.get_state()
     
+    # Ensure model and metadata are loaded
+    if model is None or encoders is None:
+        logger.warning(f"Worst-systems requested, but model or encoders are missing. Params: {p}")
+        return jsonify({
+            "error": "Model not loaded", 
+            "message": "The system is currently initializing or training."
+        }), 503
+
     if not all([p['v'], p['l'], p['s']]):
         logger.warning(f"Missing params for rank-risk: {p}")
         return jsonify({"error": "Missing verb, level, and system"}), 400
@@ -84,6 +100,14 @@ def rank_risk():
 def worst_systems():
     p = get_params()
     model, encoders, _ = current_app.model_manager.get_state()
+
+    # Ensure model and metadata are loaded
+    if model is None or encoders is None:
+        logger.warning(f"Worst-systems requested, but model or encoders are missing. Params: {p}")
+        return jsonify({
+            "error": "Model not loaded", 
+            "message": "The system is currently initializing or training."
+        }), 503
     
     if not all([p['n'], p['v'], p['l']]):
         logger.warning(f"Missing params for worst-systems: {p}")
@@ -110,6 +134,14 @@ def worst_systems():
 def list_metadata(category):
     _, encoders, _ = current_app.model_manager.get_state()
     
+    # Ensure encoders exist before accessing them
+    if encoders is None:
+        logger.warning(f"Metadata requested for '{category}', but no encoders are loaded.")
+        return jsonify({
+            "error": "Model metadata not available.",
+            "status": "The model may still be training or files are missing on disk."
+        }), 503
+
     mapping = {
         'names': 'name',
         'verbs': 'verb',

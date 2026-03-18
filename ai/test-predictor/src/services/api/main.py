@@ -18,7 +18,7 @@ logger = setup_logging("tp-main-api")
 model_full_path = os.path.join(config.MODEL_DIR, config.MODEL_NAME)
 metadata_full_path = os.path.join(config.MODEL_DIR, config.METADATA_NAME)
 manager = ModelManager(model_full_path, metadata_full_path)
-manager.load_from_disk()
+manager.load_or_build_model()
 
 # Create one master app
 app = Flask(__name__)

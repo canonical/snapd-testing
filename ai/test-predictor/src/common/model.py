@@ -27,6 +27,8 @@ class ModelManager:
         self._lock = threading.Lock()
         self.training_lock = threading.Lock()
 
+
+
     def _get_metadata(self):
         if os.path.exists(self.metadata_path):
             with open(self.metadata_path, 'rb') as f:
@@ -68,26 +70,10 @@ class ModelManager:
         logger.info(f"Prepared {len(X)} sequences")
         return X, np.array(targets)
 
-    def _build_or_load_model(self, input_shape):
-        if os.path.exists(self.model_path):
-            logger.info("Loading existing model for incremental training...")
-            model = load_model(self.model_path, compile=False)
-        else:
-            logger.info(f"Building new model with input shape {input_shape}")
-            model = Sequential([
-                Input(shape=input_shape),
-                LSTM(64),
-                Dropout(0.2),
-                Dense(32, activation='relu'),
-                Dense(1, activation='sigmoid')
-            ])
-        model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-        return model
-
     def exists(self):
         return os.path.exists(self.model_path) and os.path.exists(self.metadata_path)
 
-    def load_from_disk(self):
+    def _load_from_disk(self):
         with self._lock:
             try:
                 if not self.exists(): return False
@@ -102,6 +88,51 @@ class ModelManager:
             except Exception as e:
                 logger.error(f"Reload failed: {e}")
                 return False
+
+    def load_or_build_model(self, input_shape=None):
+        """
+        Thread-safe: 
+        1. If already in memory, use it.
+        2. If on disk, load it (ignores input_shape).
+        3. If neither, build fresh using input_shape.
+        """
+        with self._lock:
+            try:
+                # Case A: Already in memory
+                if self.model is not None:
+                    logger.info("Using in-memory model instance.")
+                    model = self.model
+                
+                # Case B: Not in memory, but exists on disk
+                elif os.path.exists(self.model_path):                    
+                    logger.info(f"Loading model from disk: {self.model_path}")
+                    self._load_from_disk()
+                
+                # Case C: Brand new (Requires input_shape)
+                else:
+                    if input_shape is None:
+                        logger.error("No model found and no input_shape provided to build one.")
+                        return None
+                    
+                    logger.info(f"Building fresh model with input shape {input_shape}")
+                    model = Sequential([
+                        Input(shape=input_shape),
+                        LSTM(64),
+                        Dropout(0.2),
+                        Dense(32, activation='relu'),
+                        Dense(1, activation='sigmoid')
+                    ])
+
+                # Re-compile so it's ready for .fit() or .predict()
+                model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+                
+                self.model = model
+                self.last_updated = time.time()
+                return self.model
+
+            except Exception as e:
+                logger.error(f"load_or_build_model failed: {e}")
+                return None
 
     def train(self, ts_files, processed_dir):
         """
@@ -135,7 +166,7 @@ class ModelManager:
                 X, y = self._prepare_sequences(proc_df)
 
                 # _build_or_load handles building fresh or incremental loading
-                model = self._build_or_load_model((X.shape[1], X.shape[2]))
+                model = self.load_or_build_model((X.shape[1], X.shape[2]))
 
                 logger.info(f"Starting fit on {len(X)} sequences...")
                 model.fit(X, y, epochs=5, batch_size=8, verbose=0)
@@ -149,7 +180,7 @@ class ModelManager:
                 logger.info("Training complete on disk. Triggering in-memory reload...")
 
                 # Atomic Refresh: Sync the API's global MODEL/ENCODERS
-                self.load_from_disk()
+                self._load_from_disk()
                 return True
 
             except Exception as e:
