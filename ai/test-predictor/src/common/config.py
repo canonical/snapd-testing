@@ -12,7 +12,10 @@ MODEL_NAME = 'test_predictor_lstm.keras'
 METADATA_NAME = 'metadata.pkl'
 EPOCHS = 10
 BATCH_SIZE = 8
-RETENTION_DAYS = 30  
+RETENTION_DAYS = 30
+
+# EXPLORER Settings
+RELOAD_INTERVAL_MINUTES = 30
 
 
 def setup_logging(name):

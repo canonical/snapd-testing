@@ -25,7 +25,7 @@ pip install tensorflow pandas numpy matplotlib
 pip install torch torchvision torchaudio pandas numpy
 
 # More deps
-pip install scikit-learn flask gunicorn
+pip install scikit-learn flask Flask-APScheduler gunicorn
 
 ```
 
