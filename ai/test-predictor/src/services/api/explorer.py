@@ -105,3 +105,25 @@ def worst_systems():
     
     results.sort(key=lambda x: x['prob'])
     return jsonify(results)
+
+@app.route('/list/<category>', methods=['GET'])
+def list_metadata(category):
+    """List valid values for: name, verb, level, or system"""
+    mapping = {
+        'names': NAMES,
+        'verbs': VERBS,
+        'levels': LEVELS,
+        'systems': SYSTEMS
+    }
+
+    if category not in mapping:
+        return jsonify({
+            "error": f"Invalid category '{category}'",
+            "valid_categories": list(mapping.keys())
+        }), 400
+
+    return jsonify({
+        "category": category,
+        "count": len(mapping[category]),
+        "values": mapping[category]
+    })
