@@ -2,17 +2,19 @@
 
 import os
 import json
-import config as app_config
-from common.config import setup_logging
+
 from flask import Flask, request, jsonify
+
+from common import config
+from common.config import setup_logging
 
 logger = setup_logging("tp-ingestion-api")
 
 app = Flask(__name__)
 
 # Ensure the directory exists on startup
-if not os.path.exists(app_config.RESULTS_DIR):
-    os.makedirs(app_config.RESULTS_DIR)
+if not os.path.exists(config.RESULTS_DIR):
+    os.makedirs(config.RESULTS_DIR)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() == 'json'
@@ -58,7 +60,7 @@ def ingest_data():
 
     # Construct path and check for existing file    
     filename = f"results_job_{job_id}_run_{run_id}_attempt_{attempt}.json"
-    filepath = os.path.join(app_config.RESULTS_DIR, filename)
+    filepath = os.path.join(config.RESULTS_DIR, filename)
 
     if os.path.exists(filepath):
         logger.warning(f"File already exists: {filename}")

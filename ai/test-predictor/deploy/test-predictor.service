@@ -1,0 +1,25 @@
+[Unit]
+Description=Gunicorn instance for test-predictor API
+After=network.target
+
+[Service]
+User=sergio
+Group=www-data
+WorkingDirectory=/home/sergio/test-predictor
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONPATH=/home/sergio/test-predictor/src/common:/home/sergio/test-predictor/src"
+Environment="PATH=/home/sergio/test-predictor/.venv/bin"
+
+# --preload is critical here so workers share the LSTM model in memory
+ExecStart=/home/sergio/test-predictor/.venv/bin/gunicorn \
+    --workers 3 \
+    --timeout 120 \
+    --preload \
+    --bind 0.0.0.0:5000 \
+    src.services.api.main:app
+
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,5 @@
 [Unit]
-Description=Test-Predictor Ingestion API
+Description=Gunicorn instance for test-predictor API
 After=network.target
 
 [Service]
@@ -10,11 +10,14 @@ Environment="PYTHONUNBUFFERED=1"
 Environment="PYTHONPATH={{HOME}}/test-predictor/src/common:{{HOME}}/test-predictor/src"
 Environment="PATH={{HOME}}/test-predictor/.venv/bin"
 
+# --preload is critical here so workers share the LSTM model in memory
 ExecStart={{HOME}}/test-predictor/.venv/bin/gunicorn \
-    --no-control-socket \
     --workers 3 \
+    --timeout 120 \
+    --preload \
     --bind 0.0.0.0:5000 \
-    src.services.api.ingestion:app
+    src.services.api.main:app
+
 
 Restart=always
 

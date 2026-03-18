@@ -14,8 +14,8 @@ EPOCHS = 10
 BATCH_SIZE = 8
 RETENTION_DAYS = 30
 
-# EXPLORER Settings
-RELOAD_INTERVAL_MINUTES = 30
+# API Settings
+TRAIN_INTERVAL_MINUTES = 30
 
 
 def setup_logging(name):
