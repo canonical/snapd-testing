@@ -21,41 +21,40 @@ def perform_training_cycle(app):
             logger.warning("Training already in progress, skipping cycle.")
             return False
 
-        with manager.training_lock:
-            try:
-                logger.info("Starting training cycle: Scanning for new result files...")
-                
-                # Find json files and process
-                pattern = os.path.join(config.RESULTS_DIR, "*.json")
-                files = glob.glob(pattern)
-                
-                if not files:
-                    logger.info("No new results json files found. Processing skipped.")
-                else:
-                    logger.info(f"Found {len(files)} files. Processing...")
-                    process_results(files, config.TS_DIR)
-    
-                # Find ts files and train
-                pattern = os.path.join(config.TS_DIR, "*.ts")
-                files = glob.glob(pattern)
+        try:
+            logger.info("Starting training cycle: Scanning for new result files...")
+            
+            # Find json files and process
+            pattern = os.path.join(config.RESULTS_DIR, "*.json")
+            files = glob.glob(pattern)
+            
+            if not files:
+                logger.info("No new results json files found. Processing skipped.")
+            else:
+                logger.info(f"Found {len(files)} files. Processing...")
+                process_results(files, config.TS_DIR)
 
-                if not files:
-                    logger.info("No new ts files found. Training skipped.")
-                    return False
+            # Find ts files and train
+            pattern = os.path.join(config.TS_DIR, "*.ts")
+            files = glob.glob(pattern)
 
-                logger.info(f"Found {len(files)} files. Training...")
-                success = manager.train(files, config.PROCESSED_DIR)
-                
-                if success:
-                    logger.info(f"Training and reload successful. Systems now known: {len(manager.encoders['system'].classes_)}")
-                    return True
-                else:
-                    logger.error("Training finished but ModelManager failed to reload files.")
-                    return False
-                    
-            except Exception as e:
-                logger.error(f"Training cycle failed: {e}", exc_info=True)
+            if not files:
+                logger.info("No new ts files found. Training skipped.")
                 return False
+
+            logger.info(f"Found {len(files)} files. Training...")
+            success = manager.train(files, config.PROCESSED_DIR)
+            
+            if success:
+                logger.info(f"Training and reload successful. Systems now known: {len(manager.encoders['system'].classes_)}")
+                return True
+            else:
+                logger.error("Training finished but ModelManager failed to reload files.")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Training cycle failed: {e}", exc_info=True)
+            return False
 
 @trainer_bp.route('/train', methods=['POST'])
 def manual_train():

@@ -112,6 +112,10 @@ class ModelManager:
             logger.error("No TS files provided for training.")
             return False
 
+        if self.training_lock.locked():
+            logger.error("Attempted to train while another training is active.")
+            return False
+
         with self.training_lock:
             try:
                 # Load the TS files into DataFrames
