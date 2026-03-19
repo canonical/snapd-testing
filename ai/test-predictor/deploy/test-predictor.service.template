@@ -13,7 +13,6 @@ Environment="PATH={{HOME}}/test-predictor/.venv/bin"
 ExecStart={{HOME}}/test-predictor/.venv/bin/gunicorn \
     --worker-class gthread \
     --workers 1 \
-    --threads 4 \
     --timeout 300 \
     --preload \
     --bind 0.0.0.0:5000 \

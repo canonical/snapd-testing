@@ -15,6 +15,7 @@ from common.model import ModelManager
 os.environ['TF_NUM_INTRAOP_THREADS'] = '1'
 os.environ['TF_NUM_INTEROP_THREADS'] = '1'
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import tensorflow as tf
 tf.config.threading.set_intra_op_parallelism_threads(1)
