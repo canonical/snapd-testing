@@ -6,25 +6,16 @@ from flask import Flask, request, jsonify
 
 from common import config
 from common.config import setup_logging
+from common.model import ModelManager
 
 logger = setup_logging("tp-predictor")
-
-# Threading safety for VMs and to ensure isolation of TensorFlow operations
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-tf.config.threading.set_intra_op_parallelism_threads(1)
-tf.config.threading.set_inter_op_parallelism_threads(1)
-
 app = Flask(__name__)
 
-# Global model load (Happens once at script start)
+# Initialize the manager once
 model_full_path = os.path.join(config.MODEL_DIR, config.MODEL_NAME)
 metadata_full_path = os.path.join(config.MODEL_DIR, config.METADATA_NAME)
-
-logger.info("Loading model into memory...")
-model = tf.keras.models.load_model(model_full_path, compile=False)
-with open(metadata_full_path, 'rb') as f:
-    encoders, _ = pickle.load(f)
-logger.info("Predictor is READY.")
+app.model_manager = ModelManager(model_full_path, metadata_full_path)
+app.model_manager.load_or_build_model()
 
 @app.route('/internal/predict', methods=['POST'])
 def predict():

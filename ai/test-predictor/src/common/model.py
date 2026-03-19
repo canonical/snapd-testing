@@ -99,6 +99,7 @@ class ModelManager:
                 logger.info(f"Loading model from disk: {self.model_path}")
                 if self._load_from_disk():
                     model = self.model
+                    logger.info("Model loaded successfully from disk.")
                 else:
                     logger.error("Failed to load model from disk. No fallback available.")
                     return None

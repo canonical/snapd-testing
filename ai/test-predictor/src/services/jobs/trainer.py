@@ -1,15 +1,12 @@
 import glob
 import os
 from flask import Flask, jsonify
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from common import config
 from common.config import setup_logging
 from common.model import ModelManager
 from common.processor import process_results
-
-# Anti-hang settings for standalone TF
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 logger = setup_logging("tp-trainer-server")
 app = Flask(__name__)
@@ -55,7 +52,7 @@ def perform_training_cycle():
 
         if success:
             if app.model_manager.encoders:
-                count = len(manager.encoders['system'].classes_)
+                count = len(app.model_manager.encoders['system'].classes_)
                 logger.info(f"Training and reload successful. Systems now known: {count}")
     
             app.model_manager.unload_model()
@@ -84,6 +81,12 @@ def get_internal_status():
         "training_active": manager.training_lock.locked(),
         "last_train_timestamp": last_updated
     })
+
+
+scheduler = BackgroundScheduler(daemon=True)
+# Adjust 'minutes=60' or use config.TRAIN_INTERVAL_MINUTES
+scheduler.add_job(func=perform_training_cycle, trigger="interval", minutes=config.TRAIN_INTERVAL_MINUTES)
+scheduler.start()
 
 if __name__ == "__main__":
     # Run without Gunicorn
