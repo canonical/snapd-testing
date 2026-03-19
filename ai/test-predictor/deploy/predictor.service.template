@@ -11,7 +11,7 @@ Environment="PYTHONPATH={{HOME}}/src/common:{{HOME}}/src"
 Environment="PATH={{HOME}}/.venv/bin"
 
 # Run the script directly
-ExecStart={{HOME}}/.venv/bin/python3 src/services/predictor_server.py
+ExecStart={{HOME}}/.venv/bin/python3 src/services/jobs/predictor.py
 Restart=always
 
 [Install]
