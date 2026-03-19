@@ -51,11 +51,14 @@ def perform_training_cycle():
             return False
 
         logger.info(f"Found {len(files)} ts files. Training...")
-        success = app.model_manager.train(files, config.PROCESSED_DIR)
-        app.model_manager.unload_model()
+        success = app.model_manager.train(files, config.PROCESSED_DIR)        
 
         if success:
-            logger.info(f"Training and reload successful. Systems now known: {len(app.model_manager.encoders['system'].classes_)}")
+            if app.model_manager.encoders:
+                count = len(manager.encoders['system'].classes_)
+                logger.info(f"Training and reload successful. Systems now known: {count}")
+    
+            app.model_manager.unload_model()
             return True
         else:
             logger.error("Training finished but ModelManager failed to reload files.")

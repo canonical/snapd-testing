@@ -4,7 +4,7 @@ import os
 from flask import Flask
 
 from src.services.api.ingestion import ingestion_bp
-from src.services.api.explorer import explorer_bp
+from src.services.api.predictor import predictor_bp
 from src.services.api.trainer import trainer_bp
 
 from common import config
@@ -26,4 +26,4 @@ app.model_manager = manager
 # Register all routes from both files
 app.register_blueprint(ingestion_bp)
 app.register_blueprint(trainer_bp)
-app.register_blueprint(explorer_bp)
+app.register_blueprint(predictor_bp)

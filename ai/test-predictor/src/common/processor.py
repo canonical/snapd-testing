@@ -1,6 +1,5 @@
-import os, json, re, secrets, shutil
+import os, json, re, secrets
 import pandas as pd
-from common import config
 from common.config import setup_logging
 
 logger = setup_logging("tp-processor")
@@ -75,6 +74,10 @@ def process_results(json_files, ts_dir):
             with open(json_path, 'r') as f:
                 df, _ = _clean_and_transform_data(json.load(f), attempt)
             df.to_csv(ts_path, index=False)
+
+            os.remove(json_path)
+            logger.info(f"Successfully processed and removed: {filename}")
+      
             ts_batch_paths.append((json_path, ts_path))
         except Exception as e:
             logger.warning(f"Skip {filename}: {e}")

@@ -3,8 +3,8 @@ from flask import Blueprint, current_app, request, jsonify
 from common import config
 from common.config import setup_logging
 
-logger = setup_logging("tp-explorer-api")
-explorer_bp = Blueprint('explorer', __name__)
+logger = setup_logging("tp-predictor-api")
+predictor_bp = Blueprint('predictor', __name__)
 
 # Internal URL for the standalone predictor
 PREDICTOR_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/predict"
@@ -42,7 +42,7 @@ def call_internal_predictor(payload):
         logger.error(f"Predictor call failed: {e}")
         return None
 
-@explorer_bp.route('/predict', methods=['GET'])
+@predictor_bp.route('/predict', methods=['GET'])
 def predict_scenario():
     p = get_params()
     _, encoders, _ = current_app.model_manager.get_state()
@@ -63,7 +63,7 @@ def predict_scenario():
         
     return jsonify({"success_probability": prob, "params": p})
 
-@explorer_bp.route('/rank-risk', methods=['GET'])
+@predictor_bp.route('/rank-risk', methods=['GET'])
 def rank_risk():
     p = get_params()
     _, encoders, _ = current_app.model_manager.get_state()
@@ -85,7 +85,7 @@ def rank_risk():
     results.sort(key=lambda x: x['prob'])
     return jsonify({"attempt_analyzed": p['attempt'], "top_high_risk": results[:10]})
 
-@explorer_bp.route('/worst-systems', methods=['GET'])
+@predictor_bp.route('/worst-systems', methods=['GET'])
 def worst_systems():
     p = get_params()
     _, encoders, _ = current_app.model_manager.get_state()
@@ -107,7 +107,7 @@ def worst_systems():
     results.sort(key=lambda x: x['prob'])
     return jsonify(results)
 
-@explorer_bp.route('/list/<category>', methods=['GET'])
+@predictor_bp.route('/list/<category>', methods=['GET'])
 def list_metadata(category):
     _, encoders, _ = current_app.model_manager.get_state()
     if encoders is None:
