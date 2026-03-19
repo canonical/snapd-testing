@@ -5,6 +5,9 @@ from common import config
 from common.config import setup_logging
 from common.predictor import predict_success
 
+import subprocess
+from pathlib import Path
+
 logger = setup_logging("tp-explorer-api")
 explorer_bp = Blueprint('explorer', __name__)
 
@@ -34,33 +37,36 @@ def validate_labels(params, encoders, keys_to_check):
 @explorer_bp.route('/predict', methods=['GET'])
 def predict_scenario():
     p = get_params()
-    model, encoders, _ = current_app.model_manager.get_state()
     
-    # Ensure model and metadata are loaded
-    if model is None or encoders is None:
-        logger.warning(f"Worst-systems requested, but model or encoders are missing. Params: {p}")
+    # Dynamically find the project root (3 levels up from src/services/api/explorer.py)
+    # Adjust the .parent count based on your actual file depth
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
+    
+    script_path = project_root / "src" / "common" / "isolated_predictor.py"
+    model_path = project_root / "model" / "test_predictor_lstm.keras"
+    metadata_path = project_root / "model" / "metadata.pkl"
+    python_bin = project_root / ".venv" / "bin" / "python3"
+
+    cmd = [
+        str(python_bin), str(script_path),
+        str(model_path), str(metadata_path),
+        str(p['n']), str(p['v']), str(p['l']), str(p['s']), str(p['attempt']), "0.5"
+    ]
+
+    try:
+        # Isolated process avoids the Gunicorn/TensorFlow deadlock
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        
+        if result.returncode != 0:
+            logger.error(f"Predictor Error: {result.stderr}")
+            return jsonify({"error": "Engine failed", "detail": result.stderr}), 500
+        
         return jsonify({
-            "error": "Model not loaded", 
-            "message": "The system is currently initializing or training."
-        }), 503
-
-    if not all([p['n'], p['v'], p['l'], p['s']]):
-        logger.warning(f"Missing params: name, verb, level, and system are required. Received: {p}")
-        return jsonify({"error": "Missing params: name, verb, level, and system are required"}), 400
-    
-    unknowns = validate_labels(p, encoders, ['n', 'v', 'l', 's'])
-    if unknowns:
-        logger.error(f"Unknown labels provided: {unknowns}")
-        return jsonify({"error": "Unknown labels", "unknown_params": unknowns}), 404
-
-    prob = predict_success(model, encoders, p['n'], p['v'], p['l'], p['s'], attempt=p['attempt'])
-    
-    if prob is None:
-        logger.error(f"Prediction failed for {p}")
-        return jsonify({"error": "Internal prediction failure"}), 500
-
-    logger.info(f"Predicted success probability for {p}: {prob}")
-    return jsonify({"success_probability": float(prob), "params": p})
+            "success_probability": float(result.stdout.strip()),
+            "params": p
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "Prediction timed out"}), 504
 
 @explorer_bp.route('/rank-risk', methods=['GET'])
 def rank_risk():
