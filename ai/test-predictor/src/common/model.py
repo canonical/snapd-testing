@@ -3,20 +3,6 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
-# Force CPU only
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-# Disable Intel/AMD math optimizations that can hang in VMs
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-# Force the math engine to use exactly 1 thread
-os.environ['OMP_NUM_THREADS'] = '1'
-os.environ['MKL_NUM_THREADS'] = '1'
-os.environ['TF_NUM_INTRAOP_THREADS'] = '1'
-os.environ['TF_NUM_INTEROP_THREADS'] = '1'
-
-import tensorflow as tf
-tf.config.threading.set_intra_op_parallelism_threads(1)
-tf.config.threading.set_inter_op_parallelism_threads(1)
-
 from tensorflow.keras.models import load_model, Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
 from tensorflow.keras.preprocessing.sequence import pad_sequences

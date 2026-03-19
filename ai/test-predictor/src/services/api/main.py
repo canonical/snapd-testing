@@ -12,20 +12,6 @@ from common import config
 from common.config import setup_logging
 from common.model import ModelManager
 
-# Force CPU only
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-# Disable Intel/AMD math optimizations that can hang in VMs
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-# Force the math engine to use exactly 1 thread
-os.environ['OMP_NUM_THREADS'] = '1'
-os.environ['MKL_NUM_THREADS'] = '1'
-os.environ['TF_NUM_INTRAOP_THREADS'] = '1'
-os.environ['TF_NUM_INTEROP_THREADS'] = '1'
-
-import tensorflow as tf
-tf.config.threading.set_intra_op_parallelism_threads(1)
-tf.config.threading.set_inter_op_parallelism_threads(1)
-
 logger = setup_logging("tp-main-api")
 
 # Initialize the model at startup
