@@ -55,8 +55,10 @@ def predict_scenario():
 
     try:
         # Isolated process avoids the Gunicorn/TensorFlow deadlock
+        logger.info(f"Running command line: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        
+        logger.info(f"Predictor process completed with output: '{result.stdout.strip()}' and error: '{result.stderr.strip()}'")
+
         if result.returncode != 0:
             logger.error(f"Predictor Error: {result.stderr}")
             return jsonify({"error": "Engine failed", "detail": result.stderr}), 500
