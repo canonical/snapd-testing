@@ -5,15 +5,15 @@ After=network.target
 [Service]
 User={{USER}}
 Group=www-data
-WorkingDirectory={{HOME}}/test-predictor
+WorkingDirectory={{HOME}}
 Environment="PYTHONUNBUFFERED=1"
-Environment="PYTHONPATH={{HOME}}/test-predictor/src/common:{{HOME}}/test-predictor/src"
-Environment="PATH={{HOME}}/test-predictor/.venv/bin"
+Environment="PYTHONPATH={{HOME}}/src/common:{{HOME}}/src"
+Environment="PATH={{HOME}}/.venv/bin"
 
-ExecStart={{HOME}}/test-predictor/.venv/bin/gunicorn \
+ExecStart={{HOME}}/.venv/bin/gunicorn \
     --worker-class gthread \
     --workers 1 \
-    --threads 4 \
+        --threads 4 \
     --timeout 300 \
     --preload \
     --bind 0.0.0.0:5000 \
