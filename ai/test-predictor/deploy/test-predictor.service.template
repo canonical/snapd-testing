@@ -12,10 +12,9 @@ Environment="PATH={{HOME}}/.venv/bin"
 
 ExecStart={{HOME}}/.venv/bin/gunicorn \
     --worker-class gthread \
-    --workers 1 \
-    --threads 4 \
+    --workers 2 \
+    --threads 1 \
     --timeout 300 \
-    --preload \
     --bind 0.0.0.0:5000 \
     src.services.api.main:app
 
