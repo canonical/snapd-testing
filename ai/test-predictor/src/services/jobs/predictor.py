@@ -52,4 +52,4 @@ def predict():
 
 if __name__ == "__main__":
     # Run without Gunicorn
-    app.run(host='127.0.0.1', port=config.PREDICTOR_PORT, threaded=True)
+    app.run(host=config.SERVER_HOST, port=config.PREDICTOR_PORT, threaded=True)

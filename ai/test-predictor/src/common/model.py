@@ -206,3 +206,25 @@ class ModelManager:
         with self._lock:
             return self.model, self.encoders, self.last_updated
 
+    def unload_model(self):
+        """
+        Forcefully unloads the model from memory and clears the TensorFlow session.
+        """
+        with self._lock:
+            if self.model is not None:
+                logger.info("Unloading model and clearing TensorFlow session...")
+                
+                # Clear the Keras/TF backend session
+                # This destroys the underlying C++ graph and variables
+                K.clear_session()
+                
+                # Remove the Python reference
+                self.model = None
+                self.encoders = None
+                
+                # Explicitly trigger Python Garbage Collection
+                gc.collect()
+                
+                logger.info("Model unloaded successfully.")
+            else:
+                logger.info("No model was loaded in memory to unload.")

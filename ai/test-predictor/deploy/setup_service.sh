@@ -19,15 +19,19 @@ sed -e "s|{{USER}}|$TARGET_USER|g" -e "s|{{HOME}}|$PROJECT_ROOT|g" \
 sed -e "s|{{USER}}|$TARGET_USER|g" -e "s|{{HOME}}|$PROJECT_ROOT|g" \
     "$PROJECT_ROOT/deploy/predictor.service.template" > "$PROJECT_ROOT/deploy/test-predictor.service"
 
+sed -e "s|{{USER}}|$TARGET_USER|g" -e "s|{{HOME}}|$PROJECT_ROOT|g" \
+    "$PROJECT_ROOT/deploy/trainer.service.template" > "$PROJECT_ROOT/deploy/test-predictor-trainer.service"
+
 # Link and Reload
 sudo ln -sf "$PROJECT_ROOT/deploy/test-predictor-api.service" /etc/systemd/system/test-predictor-api.service
 sudo ln -sf "$PROJECT_ROOT/deploy/test-predictor.service" /etc/systemd/system/test-predictor.service
+sudo ln -sf "$PROJECT_ROOT/deploy/test-predictor-trainer.service" /etc/systemd/system/test-predictor-trainer.service
 
 sudo systemctl daemon-reload
 
 echo "Enabling and Restarting services to apply changes..."
-sudo systemctl enable --now test-predictor test-predictor-api
-sudo systemctl restart test-predictor test-predictor-api   
+sudo systemctl enable --now test-predictor test-predictor-api test-predictor-trainer
+sudo systemctl restart test-predictor test-predictor-api test-predictor-trainer
 
 echo "--- Deployment Complete ---"
-sudo systemctl status test-predictor test-predictor-api --no-pager -l
+sudo systemctl status test-predictor test-predictor-api test-predictor-trainer --no-pager -l

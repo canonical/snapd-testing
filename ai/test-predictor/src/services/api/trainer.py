@@ -1,92 +1,47 @@
-import os
-import threading
-import glob
-
-from flask import Blueprint, current_app, jsonify
-
+import requests
+from flask import Blueprint, jsonify
 from common import config
 from common.config import setup_logging
-from common.processor import process_results
 
-logger = setup_logging("tp-trainer-api")
+logger = setup_logging("tp-trainer-gateway")
 trainer_bp = Blueprint('trainer', __name__)
 
-def perform_training_cycle(app):
-    with app.app_context():
-        """Logic to find files, train, and update the global ModelManager."""
-        manager = current_app.model_manager
-        
-        # Use the manager's lock to prevent concurrent training runs
-        if manager.training_lock.locked():
-            logger.warning("Training already in progress, skipping cycle.")
-            return False
-
-        try:
-            logger.info("Starting training cycle: Scanning for new result files...")
-            
-            # Find json files and process
-            pattern = os.path.join(config.RESULTS_DIR, "*.json")
-            files = glob.glob(pattern)
-            
-            if not files:
-                logger.info("No new results json files found. Processing skipped.")
-            else:
-                logger.info(f"Found {len(files)} results json files. Processing...")
-                process_results(files, config.TS_DIR)
-
-            # Find ts files and train
-            pattern = os.path.join(config.TS_DIR, "*.ts")
-            files = glob.glob(pattern)
-
-            if not files:
-                logger.info("No new ts files found. Training skipped.")
-                return False
-
-            logger.info(f"Found {len(files)} ts files. Training...")
-            success = manager.train(files, config.PROCESSED_DIR)
-            
-            if success:
-                logger.info(f"Training and reload successful. Systems now known: {len(manager.encoders['system'].classes_)}")
-                return True
-            else:
-                logger.error("Training finished but ModelManager failed to reload files.")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Training cycle failed: {e}", exc_info=True)
-            return False
+# The internal URL of your standalone trainer service
+TRAINER_INTERNAL_URL = f"http://{config.SERVER_HOST}:{config.TRAINER_PORT}/internal"
 
 @trainer_bp.route('/train', methods=['POST'])
 def manual_train():
-    """Endpoint to trigger training manually in a background thread."""
-    manager = current_app.model_manager
-    
-    if manager.training_lock.locked():
-        logger.warning("Manual train requested but training is already active.")
-        return jsonify({"status": "error", "message": "Training already in progress"}), 429
+    """Proxies the training request to the standalone Trainer Service."""
+    try:
+        # We use a very short timeout (1s) because we want the 
+        # internal service to handle the 'background' part.
+        logger.info("Forwarding manual training request to internal service...")
+        
+        # We don't wait for the whole training (which takes minutes)
+        # The internal service should return 200/202 immediately or 429 if busy
+        resp = requests.post(f"{TRAINER_INTERNAL_URL}/train", timeout=2)
+        
+        if resp.status_code == 200:
+            return jsonify({"status": "success", "message": "Training triggered"}), 202
+        elif resp.status_code == 429:
+            return jsonify({"status": "error", "message": "Training already in progress"}), 429
+        else:
+            return jsonify({"status": "error", "message": "Internal trainer error"}), 500
 
-    # Get the real app object to pass to the thread
-    app = current_app._get_current_object()
-
-    # Run in a separate thread so the HTTP request doesn't timeout    
-    thread = threading.Thread(target=perform_training_cycle, args=(app,))
-    thread.start()
-    
-    logger.info("Manual training triggered via API.")
-    return jsonify({"status": "success", "message": "Manual training triggered in background"}), 202
+    except requests.exceptions.Timeout:
+        # If the trainer starts immediately, it might not respond in 2s
+        # In this specific architecture, a timeout often means it started!
+        return jsonify({"status": "success", "message": "Training initiated (ack)"}), 202
+    except Exception as e:
+        logger.error(f"Failed to reach internal trainer: {e}")
+        return jsonify({"status": "error", "message": "Trainer service unreachable"}), 503
 
 @trainer_bp.route('/status', methods=['GET'])
 def get_status():
-    """Check the current state of the model and training lock."""
-    manager = current_app.model_manager
-    model, encoders, last_updated = manager.get_state()
-    
-    status_data = {
-        "training_active": manager.training_lock.locked(),
-        "last_train_timestamp": last_updated,
-        "systems_count": len(encoders['system'].classes_) if encoders else 0,
-        "model_loaded": model is not None
-    }
-    
-    logger.info(f"Status requested: {status_data}")
-    return jsonify(status_data)
+    """Fetches the current training state from the standalone service."""
+    try:
+        resp = requests.get(f"{TRAINER_INTERNAL_URL}/status", timeout=5)
+        return jsonify(resp.json()), 200
+    except Exception as e:
+        logger.error(f"Failed to get status from internal trainer: {e}")
+        return jsonify({"error": "Trainer service unreachable"}), 503
