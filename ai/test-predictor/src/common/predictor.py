@@ -5,8 +5,9 @@ from common.config import setup_logging
 
 logger = setup_logging("tp-predictor")
 
-# Silence TF
+# Force absolute isolation
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 def predict_success(model, encoders, name, verb, level, system, attempt=1, duration=0.5):
     logger.info(f"Predicting success for: name={name}, verb={verb}, level={level}, system={system}, attempt={attempt}")
