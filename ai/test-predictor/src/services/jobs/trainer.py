@@ -45,7 +45,7 @@ def perform_training_cycle():
 
         if not files:
             logger.info("No new ts files found. Training skipped.")
-            return False
+            return True
 
         logger.info(f"Found {len(files)} ts files. Training...")
         success = app.model_manager.train(files, config.PROCESSED_DIR)        
