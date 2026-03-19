@@ -22,6 +22,7 @@ def predict():
     data = request.json
     logger.info(f"Received prediction request: {data}")
 
+    model, encoders, _ = app.model_manager.get_state()
     try:
         # Transformation logic (using the loaded 'encoders')
         n_enc = encoders['name'].transform([data['n']])[0]
