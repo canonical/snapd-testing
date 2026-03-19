@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import requests
+
 from flask import Blueprint, current_app, request, jsonify
 
 from common import config
@@ -53,14 +55,18 @@ def predict_scenario():
         logger.error(f"Unknown labels provided: {unknowns}")
         return jsonify({"error": "Unknown labels", "unknown_params": unknowns}), 404
 
-    prob = predict_success(model, encoders, p['n'], p['v'], p['l'], p['s'], attempt=p['attempt'])
-    
-    if prob is None:
-        logger.error(f"Prediction failed for {p}")
-        return jsonify({"error": "Internal prediction failure"}), 500
+    try:
+        # Send data to the standalone predictor service
+        resp = requests.post(f"http://127.0.0.1:{config.PREDICTOR_PORT}/internal/predict", json=p, timeout=10)
+        result = resp.json()
+        
+        return jsonify({
+            "success_probability": result['probability'],
+            "params": p
+        })
+    except Exception as e:
+        return jsonify({"error": "Predictor service unreachable", "detail": str(e)}), 503
 
-    logger.info(f"Predicted success probability for {p}: {prob}")
-    return jsonify({"success_probability": float(prob), "params": p})
 
 @explorer_bp.route('/rank-risk', methods=['GET'])
 def rank_risk():

@@ -17,6 +17,8 @@ RETENTION_DAYS = 30
 # API Settings
 TRAIN_INTERVAL_MINUTES = 30
 
+# Server Settings
+PREDICTOR_PORT = 5001
 
 def setup_logging(name):
     logger = logging.getLogger(name)

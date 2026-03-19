@@ -14,16 +14,20 @@ echo "--- Deploying for User: $TARGET_USER the project in: $PROJECT_ROOT ---"
 
 # Inject User and Home into the templates
 sed -e "s|{{USER}}|$TARGET_USER|g" -e "s|{{HOME}}|$PROJECT_ROOT|g" \
-    "$PROJECT_ROOT/deploy/test-predictor.service.template" > "$PROJECT_ROOT/deploy/test-predictor.service"
+    "$PROJECT_ROOT/deploy/api.service.template" > "$PROJECT_ROOT/deploy/test-predictor-api.service"
+
+sed -e "s|{{USER}}|$TARGET_USER|g" -e "s|{{HOME}}|$PROJECT_ROOT|g" \
+    "$PROJECT_ROOT/deploy/predictor.service.template" > "$PROJECT_ROOT/deploy/test-predictor.service"
 
 # Link and Reload
+sudo ln -sf "$PROJECT_ROOT/deploy/test-predictor-api.service" /etc/systemd/system/test-predictor-api.service
 sudo ln -sf "$PROJECT_ROOT/deploy/test-predictor.service" /etc/systemd/system/test-predictor.service
 
 sudo systemctl daemon-reload
 
 echo "Enabling and Restarting services to apply changes..."
-sudo systemctl enable --now test-predictor
-sudo systemctl restart test-predictor
+sudo systemctl enable --now test-predictor test-predictor-api
+sudo systemctl restart test-predictor test-predictor-api   
 
 echo "--- Deployment Complete ---"
-sudo systemctl status test-predictor --no-pager -l
+sudo systemctl status test-predictor test-predictor-api --no-pager -l

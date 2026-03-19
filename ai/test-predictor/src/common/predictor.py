@@ -1,51 +1,55 @@
-import numpy as np
 import os
+import tensorflow as tf
+import numpy as np
+import pickle
+from flask import Flask, request, jsonify
 
+from common import config
 from common.config import setup_logging
 
 logger = setup_logging("tp-predictor")
 
-# Force absolute isolation
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+# Threading safety for VMs and to ensure isolation of TensorFlow operations
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_inter_op_parallelism_threads(1)
 
-def predict_success(model, encoders, name, verb, level, system, attempt=1, duration=0.5):
-    logger.info(f"Predicting success for: name={name}, verb={verb}, level={level}, system={system}, attempt={attempt}")
+app = Flask(__name__)
+
+# Global model load (Happens once at script start)
+MODEL_PATH = config.MODEL_PATH
+META_PATH = config.META_PATH
+
+logger.info("Loading model into memory...")
+model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+with open(META_PATH, 'rb') as f:
+    encoders, _ = pickle.load(f)
+logger.info("Predictor is READY.")
+
+@app.route('/internal/predict', methods=['POST'])
+def predict():
+    data = request.json
+    logger.info(f"Received prediction request: {data}")
 
     try:
-        # Encode strings (using the shared encoders from ModelManager)
-        n_enc = encoders['name'].transform([name])[0]
-        v_enc = encoders['verb'].transform([verb])[0]
-        l_enc = encoders['level'].transform([level])[0]
-        s_enc = encoders['system'].transform([system])[0]
-        
-        # Default backend (matches your training logic)
-        b_val = encoders['backend'].classes_[0]
-        b_enc = encoders['backend'].transform([b_val])[0]
-        
-        # MATCH THE TRAINING ORDER:
-        # ['duration_ms', 'attempt', 'verb', 'level', 'backend', 'system', 'name']
-        features = np.array([
-            float(duration), # duration_ms
-            float(attempt),  # attempt
-            float(v_enc),    # verb
-            float(l_enc),    # level
-            float(b_enc),    # backend
-            float(s_enc),    # system
-            float(n_enc)     # name
-        ], dtype='float32')
-        
-        # Reshape for LSTM [samples, timesteps, features] -> [1, 1, 7]
+        # Transformation logic (using the loaded 'encoders')
+        n_enc = encoders['name'].transform([data['n']])[0]
+        v_enc = encoders['verb'].transform([data['v']])[0]
+        l_enc = encoders['level'].transform([data['l']])[0]
+        s_enc = encoders['system'].transform([data['s']])[0]
+        b_enc = encoders['backend'].transform([encoders['backend'].classes_[0]])[0]
+
+        features = np.array([0.5, float(data['attempt']), v_enc, l_enc, b_enc, s_enc, n_enc], dtype='float32')
         X_input = features.reshape(1, 1, 7)
         
-        # Use verbose=0 to avoid the Gunicorn log-buffer hang
         prediction = model.predict(X_input, verbose=0)
-        
-        result = float(prediction[0][0])
-        logger.info(f"Prediction successful: {result}")
-        return result
+        logger.info(f"Prediction result for {data}: {prediction[0][0]}")
 
+        return jsonify({"probability": float(prediction[0][0])})
     except Exception as e:
-        logger.error(f"Prediction failed: {e}")
-        return None
+        logger.error(f"Prediction error: {e}")
+        return jsonify({"error": str(e)}), 500
 
+if __name__ == "__main__":
+    # Run without Gunicorn
+    app.run(host='127.0.0.1', port=config.PREDICTOR_PORT, threaded=True)
