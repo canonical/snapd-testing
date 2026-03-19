@@ -3,10 +3,13 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
-# Silence TensorFlow logs BEFORE importing it
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+# Force CPU only
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+# Disable Intel/AMD math optimizations that can hang in VMs
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+# Force the math engine to use exactly 1 thread
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
 os.environ['TF_NUM_INTRAOP_THREADS'] = '1'
 os.environ['TF_NUM_INTEROP_THREADS'] = '1'
 
