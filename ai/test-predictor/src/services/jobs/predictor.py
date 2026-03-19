@@ -17,12 +17,12 @@ tf.config.threading.set_inter_op_parallelism_threads(1)
 app = Flask(__name__)
 
 # Global model load (Happens once at script start)
-MODEL_PATH = config.MODEL_PATH
-META_PATH = config.META_PATH
+model_full_path = os.path.join(config.MODEL_DIR, config.MODEL_NAME)
+metadata_full_path = os.path.join(config.MODEL_DIR, config.METADATA_NAME)
 
 logger.info("Loading model into memory...")
-model = tf.keras.models.load_model(MODEL_PATH, compile=False)
-with open(META_PATH, 'rb') as f:
+model = tf.keras.models.load_model(model_full_path, compile=False)
+with open(metadata_full_path, 'rb') as f:
     encoders, _ = pickle.load(f)
 logger.info("Predictor is READY.")
 
