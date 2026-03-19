@@ -5,7 +5,6 @@ from flask import Blueprint, current_app, request, jsonify
 
 from common import config
 from common.config import setup_logging
-from common.predictor import predict_success
 
 logger = setup_logging("tp-explorer-api")
 explorer_bp = Blueprint('explorer', __name__)
