@@ -7,6 +7,12 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+os.environ['TF_NUM_INTRAOP_THREADS'] = '1'
+os.environ['TF_NUM_INTEROP_THREADS'] = '1'
+
+import tensorflow as tf
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_inter_op_parallelism_threads(1)
 
 from tensorflow.keras.models import load_model, Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
