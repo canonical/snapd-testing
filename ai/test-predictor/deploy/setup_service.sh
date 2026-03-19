@@ -8,7 +8,7 @@ if [ -z "$1" ]; then
 fi
 
 TARGET_USER=$1
-PROJECT_ROOT=$(cd "$(dirname "$0")/.." && pwd)/ai/test-predictor
+PROJECT_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 
 echo "--- Deploying for User: $TARGET_USER the project in: $PROJECT_ROOT ---"
 
