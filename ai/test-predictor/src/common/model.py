@@ -235,4 +235,5 @@ class ModelManager:
         with self._lock:
             logger.info("Manual reload triggered.")
             self.unload_model()
-            return self._load_from_disk()
+
+        return self._load_from_disk()
