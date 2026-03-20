@@ -20,7 +20,7 @@ class ModelManager:
         self.model = None
         self.encoders = None
         self.last_updated = 0
-        self._lock = threading.Lock()
+        self._lock = threading.RLock() 
         self.training_lock = threading.Lock()
 
     def _get_metadata(self):
