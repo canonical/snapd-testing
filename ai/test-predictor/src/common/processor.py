@@ -22,6 +22,18 @@ def _clean_and_transform_data(raw_data, attempt):
 
     # CLEANING
     df = df.replace(r'^\s*$', pd.NA, regex=True)
+
+    # Ensure name and variant are treated as strings to avoid errors
+    df['name'] = df['name'].fillna('').astype(str)
+    df['variant'] = df['variant'].fillna('').astype(str)
+
+    # --- NEW VARIANT CONCATENATION LOGIC ---
+    # Combine name and variant only if variant is not empty
+    df['name'] = df.apply(
+        lambda x: f"{x['name']}:{x['variant']}" if x['variant'] else x['name'], 
+        axis=1
+    )
+
     df = df.dropna(subset=['instance', 'start', 'end', 'verb', 'name'])
     df = df[df['verb'] != 'checking'].copy()
     

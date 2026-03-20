@@ -19,6 +19,18 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
         print("-" * 90)
 
         for item in items:
+            verb = item.get("verb", "")
+            start = item.get("start")
+            end = item.get("end")
+            
+            # Ignore checking items
+            if verb == "checking":
+                continue
+
+            # Ignore if timestamps are missing or null
+            if not start or not end:
+                continue
+
             if not item.get("success") and not item.get("skipped"):
                 level = item.get("level")
                 if level in ["task", "suite"]:
