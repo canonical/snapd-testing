@@ -232,5 +232,7 @@ class ModelManager:
         """
         Public method to trigger a reload from disk, used by API and Predictor.
         """
-        logger.info("Manual reload triggered.")
-        return self._load_from_disk()
+        with self._lock:
+            logger.info("Manual reload triggered.")
+            self.unload_model()
+            return self._load_from_disk()
