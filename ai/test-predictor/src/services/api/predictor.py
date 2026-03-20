@@ -30,6 +30,11 @@ def call_internal_predictor(payload):
     """Helper to call the standalone predictor service."""
     try:
         resp = requests.post(PREDICTOR_URL, json=payload, timeout=5)
+        # If the server returned a 400 (Validation Error), 
+        # we want the user to see exactly WHY it failed.
+        if resp.status_code == 400:
+            return resp.json(), 400
+
         if resp.status_code == 200:
             return resp.json().get('probability')
         return None
