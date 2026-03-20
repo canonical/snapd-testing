@@ -53,7 +53,7 @@ def reload_model():
     logger.info("Reload signal received from Trainer. Refreshing model...")
     
     # Use your existing ModelManager logic to reload
-    success = app.model_manager.load_or_build_model()
+    success = app.model_manager.reload_model()
     
     if success:
         logger.info("Model refreshed successfully.")

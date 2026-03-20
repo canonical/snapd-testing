@@ -227,3 +227,10 @@ class ModelManager:
                 logger.info("Model unloaded successfully.")
             else:
                 logger.info("No model was loaded in memory to unload.")
+
+    def reload_model(self):
+        """
+        Public method to trigger a reload from disk, used by API and Predictor.
+        """
+        logger.info("Manual reload triggered.")
+        return self._load_from_disk()

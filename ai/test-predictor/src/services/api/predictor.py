@@ -130,3 +130,23 @@ def list_metadata(category):
 
     vals = list(encoders[mapping[category]].classes_)
     return jsonify({"category": category, "count": len(vals), "values": vals})
+
+@predictor_bp.route('/reload', methods=['POST'])
+def reload_metadata():
+    """Manual trigger to refresh model and encoders from disk."""
+    logger.info("Reload request received. Refreshing ModelManager state...")
+    
+    # Access the manager via the app context
+    manager = current_app.model_manager
+    success = manager.reload_model()
+    
+    if success:
+        return jsonify({
+            "status": "success",
+            "message": "Model and metadata reloaded"
+        }), 200
+    else:
+        return jsonify({
+            "status": "error", 
+            "message": "Failed to load files from disk. Check logs."
+        }), 500
