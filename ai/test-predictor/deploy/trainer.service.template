@@ -7,6 +7,8 @@ WorkingDirectory={{HOME}}
 Group=www-data
 WorkingDirectory={{HOME}}
 Environment="PYTHONUNBUFFERED=1"
+Environment="CUDA_VISIBLE_DEVICES=-1"
+Environment="TF_CPP_MIN_LOG_LEVEL=2"
 Environment="PYTHONPATH={{HOME}}/src/common:{{HOME}}/src"
 Environment="PATH={{HOME}}/.venv/bin"
 
