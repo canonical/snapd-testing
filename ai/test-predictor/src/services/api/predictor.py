@@ -36,11 +36,15 @@ def call_internal_predictor(payload):
             return resp.json(), 400
 
         if resp.status_code == 200:
-            return resp.json().get('probability')
-        return None
+            return resp.json().get('probability'), 200
+
+        # Any other server error (500, 404, etc)
+        return {"error": "Predictor server error"}, resp.status_code
+
     except Exception as e:
         logger.error(f"Predictor call failed: {e}")
-        return None
+        # Return a 502/503 status code for connectivity issues
+        return {"error": "Predictor service unreachable"}, 502
 
 @predictor_bp.route('/predict', methods=['GET'])
 def predict_scenario():
@@ -48,11 +52,18 @@ def predict_scenario():
     if not all([p['n'], p['v'], p['l'], p['s']]):
         return jsonify({"error": "Missing params"}), 400
     
-    prob = call_internal_predictor(p)
-    if prob is None:
-        return jsonify({"error": "Predictor service error"}), 503
+    # Unpack the tuple: (data_dict, status_code)
+    result, status_code = call_internal_predictor(p)
+
+    # If it's a 400 (Validation error) or anything other than success
+    if status_code != 200:
+        return jsonify(result), status_code
         
-    return jsonify({"success_probability": prob, "params": p})
+    # If successful, return the clean probability
+    return jsonify({
+        "success_probability": result.get("probability"), 
+        "params": p
+    }), 200
 
 @predictor_bp.route('/rank-risk', methods=['GET'])
 def rank_risk():
@@ -79,9 +90,13 @@ def rank_risk():
     # Predict for the given verb, level and system across all names to find the riskiest ones
     for n in names:
         payload = {"n": n, "v": p['v'], "l": p['l'], "s": p['s'], "attempt": p['attempt'], "scenario": p['scenario']}
-        prob = call_internal_predictor(payload)
-        if prob is not None:
-            results.append({"name": n, "prob": float(prob)})
+        result, status_code = call_internal_predictor(payload)
+        
+        if status_code != 200:
+            return jsonify(result), status_code
+    
+        if result is not None:
+            results.append({"name": n, "prob": float(result.get("probability"))})
     
     results.sort(key=lambda x: x['prob'])
     return jsonify({"attempt_analyzed": p['attempt'], "top_high_risk": results[:10]})
@@ -111,9 +126,9 @@ def worst_systems():
     # Predict for the given name, verb and level across all systems to find the riskiest ones
     for s in systems:
         payload = {"n": p['n'], "v": p['v'], "l": p['l'], "s": s, "attempt": p['attempt'], "scenario": p['scenario']}
-        prob = call_internal_predictor(payload)
-        if prob is not None:
-            results.append({"system": s, "prob": float(prob)})
+        result, status_code = call_internal_predictor(payload)
+        if status_code != 200:
+            return jsonify(result), status_code
     
     results.sort(key=lambda x: x['prob'])
     return jsonify(results)
