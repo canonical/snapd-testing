@@ -15,16 +15,23 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
         items = data.get("items", [])
         
         print(f"Connecting to: {base_url}:{port}")
-        print(f"{'NAME':<50} | {'SYSTEM':<20} | {'PROBABILITY'}")
-        print("-" * 85)
+        print(f"{'NAME'[:50]:<50} | {'SYSTEM':<25} | {'PROBABILITY'}")
+        print("-" * 90)
 
         for item in items:
             if not item.get("success") and not item.get("skipped"):
                 level = item.get("level")
                 if level in ["task", "suite"]:
-                    # Base parameters
+                    # --- NEW VARIANT LOGIC ---
+                    name = item.get("name", "")
+                    variant = item.get("variant", "")
+                    
+                    # Combine name and variant if variant exists
+                    full_name = f"{name}:{variant}" if variant and variant.strip() else name
+                    
+                    # Base parameters for API
                     params = {
-                        "name": item.get("name"),
+                        "name": full_name,
                         "verb": item.get("verb"),
                         "level": level
                     }
@@ -43,7 +50,8 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                         prob_val = prob if isinstance(prob, (float, int)) else 0.0
                         prob_str = f"{prob_val:.4f}" if isinstance(prob, (float, int)) else str(prob)
                         
-                        print(f"{predict_params['name'][:48]:<50} | {current_system:<20} | {prob_str}")
+                        # Displaying first 50 chars of full_name
+                        print(f"{full_name[:48]:<50} | {current_system:<25} | {prob_str}")
 
                         # Optional Comparison
                         if compare:
@@ -51,7 +59,6 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                             if worst_resp.status_code == 200:
                                 all_systems = worst_resp.json()
                                 
-                                # Group by probability to avoid the "Wall of 1.0000"
                                 groups = {}
                                 for s_info in all_systems:
                                     if s_info['system'] == current_system: continue
@@ -59,7 +66,6 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                                     p_val = round(s_info['prob'], 4)
                                     groups.setdefault(p_val, []).append(s_info['system'])
 
-                                # Sort groups so the best probabilities are at the top
                                 sorted_probs = sorted(groups.keys(), reverse=True)
 
                                 for p_val in sorted_probs:
@@ -67,7 +73,6 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                                     diff = p_val - prob_val
                                     symbol = "+" if diff > 0 else ""
                                     
-                                    # If the group is huge, summarize it
                                     if len(systems) > 5:
                                         sys_text = f"{systems[0]}, {systems[1]}... (+{len(systems)-2} more)"
                                     else:
@@ -77,7 +82,7 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                                     print(f"{prefix} {p_val:.4f} ({symbol}{diff:+.2f}): {sys_text}")
                         
                     except Exception as e:
-                        print(f"Error for {params['name']}: {e}")
+                        print(f"Error for {full_name}: {e}")
 
     except Exception as e:
         print(f"FATAL: {e}")
@@ -88,7 +93,7 @@ if __name__ == "__main__":
     parser.add_argument("--url", default="http://test-predictor.canonical.com", help="Base URL")
     parser.add_argument("--port", type=int, default=5000, help="Port")
     parser.add_argument("--attempt", type=int, help="Optional attempt number")
-    parser.add_argument("--compare", action="store_true", help="Compare with other systems to find better alternatives")
+    parser.add_argument("--compare", action="store_true", help="Compare with other systems")
     
     args = parser.parse_args()
     base_url = args.url.rstrip('/')
