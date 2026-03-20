@@ -1,0 +1,65 @@
+#!/usr/bin/python3
+
+import json
+import requests
+import argparse
+
+def analyze_results(file_path, base_url, port, attempt=None):
+    api_url = f"{base_url}:{port}/predict"
+
+    try:
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+            
+        items = data.get("items", [])
+        
+        print(f"Connecting to: {api_url}")
+        print(f"{'NAME':<50} | {'SYSTEM':<20} | {'PROBABILITY'}")
+        print("-" * 85)
+
+        for item in items:
+            if not item.get("success") and not item.get("skipped"):
+                level = item.get("level")
+                if level in ["task", "suite"]:
+                    params = {
+                        "name": item.get("name"),
+                        "system": item.get("system"),
+                        "verb": item.get("verb"),
+                        "level": level
+                    }
+                    
+                    if attempt is not None:
+                        params["attempt"] = attempt
+
+                    try:
+                        resp = requests.get(api_url, params=params, timeout=5)
+                        resp.raise_for_status()
+                        
+                        prob = resp.json().get("success_probability", "N/A")
+                        prob_str = f"{prob:.4f}" if isinstance(prob, (float, int)) else str(prob)
+                        print(f"{params['name'][:48]:<50} | {params['system']:<20} | {prob_str}")
+                    
+                    except Exception as e:
+                        print(f"Error for {params['name']}: {e}")
+
+    except Exception as e:
+        print(f"FATAL: {e}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Predict success for failed items in a results file.")
+    parser.add_argument("file", help="Path to the results JSON file")
+    
+    # New optional arguments with your canonical defaults
+    parser.add_argument("--url", default="http://test-predictor.canonical.com", 
+                        help="Base URL of the predictor API (default: http://test-predictor.canonical.com)")
+    parser.add_argument("--port", type=int, default=5000, 
+                        help="Port of the predictor API (default: 5000)")
+    parser.add_argument("--attempt", type=int, help="Optional attempt number to send to API")
+    
+    args = parser.parse_args()
+    
+    # Strip trailing slash from URL if user provides one
+    base_url = args.url.rstrip('/')
+    
+    analyze_results(args.file, base_url, args.port, args.attempt)
