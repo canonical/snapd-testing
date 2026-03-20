@@ -1,15 +1,16 @@
 import glob
 import requests
 import os
+
 from flask import Flask, jsonify
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from common import config
-from common.config import setup_logging
+from common.utils import setup_logging
 from common.model import ModelManager
 from common.processor import process_results
 
-logger = setup_logging("tp-trainer-server")
+logger = setup_logging("trainer-server")
 app = Flask(__name__)
 
 # Initialize the manager once

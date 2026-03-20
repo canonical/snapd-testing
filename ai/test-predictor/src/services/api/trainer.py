@@ -1,9 +1,9 @@
 import requests
 from flask import Blueprint, jsonify
 from common import config
-from common.config import setup_logging
+from common.utils import setup_logging
 
-logger = setup_logging("tp-trainer-gateway")
+logger = setup_logging("trainer-api")
 trainer_bp = Blueprint('trainer', __name__)
 
 # The internal URL of your standalone trainer service

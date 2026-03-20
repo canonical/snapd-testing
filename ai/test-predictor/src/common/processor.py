@@ -1,8 +1,9 @@
 import os, json, re, secrets
 import pandas as pd
-from common.config import setup_logging
 
-logger = setup_logging("tp-processor")
+from common.utils import setup_logging
+
+logger = setup_logging("data-processor")
 
 def _extract_attempt(filename):
     match = re.search(r"attempt_(\d+)", filename)

@@ -1,9 +1,9 @@
 import requests
 from flask import Blueprint, current_app, request, jsonify
 from common import config
-from common.config import setup_logging
+from common.utils import setup_logging
 
-logger = setup_logging("tp-predictor-api")
+logger = setup_logging("predictor-api")
 predictor_bp = Blueprint('predictor', __name__)
 
 # Internal URL for the standalone predictor

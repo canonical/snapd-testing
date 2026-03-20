@@ -1,14 +1,13 @@
 import os
 import tensorflow as tf
 import numpy as np
-import pickle
 from flask import Flask, request, jsonify
 
 from common import config
-from common.config import setup_logging
+from common.utils import setup_logging
 from common.model import ModelManager
 
-logger = setup_logging("tp-predictor")
+logger = setup_logging("predictor-server")
 app = Flask(__name__)
 
 # Initialize the manager once
@@ -34,7 +33,7 @@ def predict():
         features = np.array([0.5, float(data['attempt']), v_enc, l_enc, b_enc, s_enc, n_enc], dtype='float32')
         X_input = features.reshape(1, 1, 7)
         
-        prediction = model.predict(X_input, verbose=0)
+        prediction = model.predict(X_input, verbose=config.PREDICTION_VERBOSE)
         logger.info(f"Prediction result for {data}: {prediction[0][0]}")
 
         return jsonify({"probability": float(prediction[0][0])})

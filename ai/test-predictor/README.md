@@ -21,9 +21,6 @@ source .venv/bin/activate
 # For TensorFlow/Keras
 pip install tensorflow pandas numpy matplotlib
 
-# For PyTorch
-pip install torch torchvision torchaudio pandas numpy
-
 # More deps
 pip install scikit-learn flask apscheduler gunicorn
 
@@ -66,7 +63,7 @@ What it does: It is a background worker that "polls" (checks) the results folder
 The Logic: If it finds new JSON files, it picks them up, transforms them into the format the LSTM model requires, and retrains/updates the model. Once finished, it archives the files so they aren't processed twice.
 Why it's separate: Training a model is slow and resource-heavy (CPU/RAM). By running this as a background job, the APIs stay responsive while the "learning" happens in the back.
 
-3. The Explorer Stage (The Insight)
+3. The Prediction Stage (The Insight)
 Service: test-predictor-explorer
 What it does: It provides real-time answers based on the latest trained model.
 The Logic: It loads the .keras model into memory once (using Gunicorn --preload). When you query the API (e.g., "What's the risk of failure for this test?"), it runs a prediction (inference) and returns a success probability.

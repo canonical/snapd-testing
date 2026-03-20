@@ -1,16 +1,17 @@
-import gc, logging, pickle, os, time, threading, shutil
+import gc, pickle, os, time, threading, shutil
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
-from tensorflow.keras.models import load_model, Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
-from tensorflow.keras.preprocessing.sequence import pad_sequences
-from tensorflow.keras import backend as K
+from keras import backend as K
+from keras.models import Sequential, load_model
+from keras.layers import LSTM, Dense, Dropout, Input
+from keras.utils import pad_sequences
 
-from common.config import setup_logging
+from common import config
+from common.utils import setup_logging
 
-logger = setup_logging("tp-model-manager")
+logger = setup_logging("model-manager")
 
 class ModelManager:
     def __init__(self, model_path, metadata_path):
@@ -88,6 +89,11 @@ class ModelManager:
         2. If on disk, load it (ignores input_shape).
         3. If neither, build fresh using input_shape.
         """
+
+        # Use default input shape if not provided
+        if input_shape is None:
+            input_shape = (config.SEQUENCE_LENGTH, config.NUM_FEATURES)
+
         try:
             # Case A: Already in memory
             if self.model is not None:
@@ -106,17 +112,13 @@ class ModelManager:
 
             # Case C: Brand new (Requires input_shape)
             else:
-                if input_shape is None:
-                    logger.error("No model found and no input_shape provided to build one.")
-                    return None
-                
                 logger.info(f"Building fresh model with input shape {input_shape}")
                 model = Sequential([
                     Input(shape=input_shape),
-                    LSTM(64),
-                    Dropout(0.2),
-                    Dense(32, activation='relu'),
-                    Dense(1, activation='sigmoid')
+                    LSTM(config.LSTM_UNITS),
+                    Dropout(config.DROPOUT_RATE),
+                    Dense(config.DENSE_UNITS, activation=config.HIDDEN_ACTIVATION),
+                    Dense(config.OUTPUT_UNITS, activation=config.OUTPUT_ACTIVATION)
                 ])
 
             # Step 2: Ensure we actually found or built a model
@@ -162,12 +164,8 @@ class ModelManager:
                 # Setup Metadata and Model
                 enc, scal = self._get_metadata()
                 
-                # Peek at first valid dataframe to determine shape
-                first_df, _ = valid_data[0]
-                sample_proc = self._preprocess_dataframe(first_df.copy(), enc, scal)
-                X_sample, _ = self._prepare_sequences(sample_proc)
-                
-                model = self.load_or_build_model((X_sample.shape[1], X_sample.shape[2]))
+                # Load model using the expected shape
+                model = self.load_or_build_model()
 
                 logger.info(f"Starting training on {len(valid_data)} validated files...")
 
@@ -180,7 +178,7 @@ class ModelManager:
                     X, y = self._prepare_sequences(proc_df)
 
                     if len(X) > 0:
-                        model.fit(X, y, epochs=2, batch_size=4, verbose=0)
+                        model.fit(X, y, epochs=config.EPOCHS, batch_size=config.BATCH_SIZE, verbose=config.TRAINING_VERBOSE)
 
                     # 4. Cleanup: Move the file now that training for it is done
                     shutil.move(ts_path, os.path.join(processed_dir, os.path.basename(ts_path)))

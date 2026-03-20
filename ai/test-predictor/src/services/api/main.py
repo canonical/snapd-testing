@@ -8,10 +8,10 @@ from src.services.api.predictor import predictor_bp
 from src.services.api.trainer import trainer_bp
 
 from common import config
-from common.config import setup_logging
+from common.utils import setup_logging
 from common.model import ModelManager
 
-logger = setup_logging("tp-main-api")
+logger = setup_logging("main-api")
 
 # Initialize the model at startup
 model_full_path = os.path.join(config.MODEL_DIR, config.MODEL_NAME)

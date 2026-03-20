@@ -6,9 +6,9 @@ import json
 from flask import Blueprint, request, jsonify
 
 from common import config
-from common.config import setup_logging
+from common.utils import setup_logging
 
-logger = setup_logging("tp-ingestion-api")
+logger = setup_logging("ingestion-api")
 ingestion_bp = Blueprint('ingestion', __name__)
 
 # Ensure the directory exists on startup
