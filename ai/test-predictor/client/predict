@@ -31,7 +31,7 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                     if attempt is not None:
                         params["attempt"] = attempt
 
-                    # 1. Get prediction for the SPECIFIC failing system
+                    # Get prediction for the SPECIFIC failing system
                     predict_params = params.copy()
                     current_system = item.get("system")
                     predict_params["system"] = current_system
@@ -45,17 +45,26 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                         
                         print(f"{predict_params['name'][:48]:<50} | {current_system:<20} | {prob_str}")
 
-                        # 2. Optional Comparison (worst-systems)
+                        # Optional Comparison
                         if compare:
-                            worst_resp = requests.get(worst_url, params=params, timeout=15)
+                            # Bumped timeout to 20s as fetching ALL systems takes longer
+                            worst_resp = requests.get(worst_url, params=params, timeout=20)
                             if worst_resp.status_code == 200:
-                                other_systems = worst_resp.json()
-                                # Filter for systems with BETTER probability than the current failure
-                                alternatives = [s for s in other_systems if s['system'] != current_system and s['prob'] > prob_val]
+                                all_systems = worst_resp.json()
                                 
-                                for s_info in alternatives[:3]:
-                                    diff = s_info['prob'] - prob_val
-                                    print(f"  └─ Better Alt: {s_info['system']:<30} | {s_info['prob']:.4f} (+{diff:.2f})")
+                                for s_info in all_systems:
+                                    s_name = s_info['system']
+                                    s_prob = s_info['prob']
+                                    
+                                    # Skip the current system to avoid redundancy
+                                    if s_name == current_system:
+                                        continue
+                                        
+                                    diff = s_prob - prob_val
+                                    symbol = "+" if diff >= 0 else ""
+                                    
+                                    # Format: indented list of all other known systems
+                                    print(f"  ├─ {s_name:<40} | {s_prob:.4f} ({symbol}{diff:+.2f})")
                         
                     except Exception as e:
                         print(f"Error for {params['name']}: {e}")
