@@ -15,7 +15,7 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
         items = data.get("items", [])
         
         print(f"Connecting to: {base_url}:{port}")
-        print(f"{'NAME'[:50]:<50} | {'SYSTEM':<25} | {'PROBABILITY'}")
+        print(f"{'NAME'[:50]:<50} | {'SYSTEM':<25} | {'SUCCESS PROB'}")
         print("-" * 90)
 
         for item in items:
@@ -23,34 +23,20 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
             start = item.get("start")
             end = item.get("end")
             
-            # Ignore checking items
-            if verb == "checking":
-                continue
-
-            # Ignore if timestamps are missing or null
-            if not start or not end:
+            if verb == "checking" or not start or not end:
                 continue
 
             if not item.get("success") and not item.get("skipped"):
                 level = item.get("level")
                 if level in ["task", "suite"]:
-                    # --- NEW VARIANT LOGIC ---
                     name = item.get("name", "")
                     variant = item.get("variant", "")
-                    
-                    # Combine name and variant if variant exists
                     full_name = f"{name}:{variant}" if variant and variant.strip() else name
                     
-                    # Base parameters for API
-                    params = {
-                        "name": full_name,
-                        "verb": item.get("verb"),
-                        "level": level
-                    }
+                    params = {"name": full_name, "verb": verb, "level": level}
                     if attempt is not None:
                         params["attempt"] = attempt
 
-                    # Get prediction for the SPECIFIC failing system
                     predict_params = params.copy()
                     current_system = item.get("system")
                     predict_params["system"] = current_system
@@ -58,14 +44,18 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                     try:
                         resp = requests.get(predict_url, params=predict_params, timeout=5)
                         resp.raise_for_status()
-                        prob = resp.json().get("success_probability", "N/A")
-                        prob_val = prob if isinstance(prob, (float, int)) else 0.0
-                        prob_str = f"{prob_val:.4f}" if isinstance(prob, (float, int)) else str(prob)
                         
-                        # Displaying first 50 chars of full_name
+                        prob_raw = resp.json().get("success_probability", "N/A")
+                        
+                        if isinstance(prob_raw, (float, int)):
+                            prob_val = float(prob_raw)
+                            prob_str = f"{prob_val * 100:6.2f}%"
+                        else:
+                            prob_val = 0.0
+                            prob_str = str(prob_raw)
+                        
                         print(f"{full_name[:48]:<50} | {current_system:<25} | {prob_str}")
 
-                        # Optional Comparison
                         if compare:
                             worst_resp = requests.get(worst_url, params=params, timeout=20)
                             if worst_resp.status_code == 200:
@@ -74,7 +64,6 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                                 groups = {}
                                 for s_info in all_systems:
                                     if s_info['system'] == current_system: continue
-                                    
                                     p_val = round(s_info['prob'], 4)
                                     groups.setdefault(p_val, []).append(s_info['system'])
 
@@ -82,7 +71,7 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
 
                                 for p_val in sorted_probs:
                                     systems = groups[p_val]
-                                    diff = p_val - prob_val
+                                    diff = (p_val - prob_val) * 100
                                     symbol = "+" if diff > 0 else ""
                                     
                                     if len(systems) > 5:
@@ -91,7 +80,8 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                                         sys_text = ", ".join(systems)
 
                                     prefix = "  ├─" if p_val != sorted_probs[-1] else "  └─"
-                                    print(f"{prefix} {p_val:.4f} ({symbol}{diff:+.2f}): {sys_text}")
+                                    # Shows e.g., 90.00% (+10.0%)
+                                    print(f"{prefix} {p_val * 100:6.2f}% ({symbol}{diff:+.1f}%): {sys_text}")
                         
                     except Exception as e:
                         print(f"Error for {full_name}: {e}")
@@ -108,5 +98,4 @@ if __name__ == "__main__":
     parser.add_argument("--compare", action="store_true", help="Compare with other systems")
     
     args = parser.parse_args()
-    base_url = args.url.rstrip('/')
-    analyze_results(args.file, base_url, args.port, args.attempt, args.compare)
+    analyze_results(args.file, args.url.rstrip('/'), args.port, args.attempt, args.compare)
