@@ -36,7 +36,7 @@ def call_internal_predictor(payload):
             return resp.json(), 400
 
         if resp.status_code == 200:
-            return resp.json().get('probability'), 200
+            return {"probability": resp.json().get('probability')}, 200            
 
         # Any other server error (500, 404, etc)
         return {"error": "Predictor server error"}, resp.status_code
