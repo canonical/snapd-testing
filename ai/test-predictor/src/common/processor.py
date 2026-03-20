@@ -1,17 +1,18 @@
 import os, json, re, secrets
 import pandas as pd
 
+from common import config
 from common.utils import setup_logging
 
 logger = setup_logging("data-processor")
 
 def _extract_scenario(filename):
     match = re.search(r"scenario_([a-zA-Z0-9-]+)", filename)
-    return match.group(1) if match else "default"
+    return match.group(1) if match else config.DEFAULT_SCENARIO
 
 def _extract_attempt(filename):
     match = re.search(r"attempt_(\d+)", filename)
-    return int(match.group(1)) if match else 1
+    return int(match.group(1)) if match else config.DEFAULT_ATTEMPT
 
 def _clean_and_transform_data(raw_data, scenario, attempt):
     """
