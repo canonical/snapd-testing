@@ -1,8 +1,60 @@
 # LSTM Test Success Predictor
 
-This project uses a Long Short-Term Memory (LSTM) Neural Network to predict the success probability of system tests. It analyzes historical data including **Test Name**, **Verb**, **Level**, and **System** to identify high-risk scenarios before they happen.
+This project uses an LSTM (Long Short-Term Memory) Neural Network to predict system test success probabilities. It analyzes historical data—Test Name (including Variants), Verb, Level, System, and Attempt—to identify high-risk scenarios and flaky tests.
 
----
+## Project Overview
+
+This project uses an LSTM (Long Short-Term Memory) Neural Network to predict system test success probabilities.
+It analyzes historical data—Test Name (including Variants), Verb, Level, System, and Attempt—to identify
+high-risk scenarios and flaky tests.
+
+```text
+.
+├── client/                 # CLI tools for end-users
+│   └── predict/            # Python script to analyze results via SSH tunnels
+│
+├── data/                   # Data lifecycle storage
+│   ├── results/            # Incoming raw JSON files (ingestion layer)
+│   ├── ts/                 # Cleaned time-series data (CSV) for training
+│   └── processed/          # Archived data after successful training
+│
+├── deploy/                 # Systemd templates & management scripts
+│   ├── *.service.template  # Templates for API, Predictor, and Trainer
+│   └── *_service.sh        # Setup / restart / uninstall automation
+│
+├── model/                  # Stored models (.keras) and metadata (metadata.pkl)
+│
+├── src/
+│   ├── common/             # Shared logic (config, model manager, processing)
+│   └── services/
+│       ├── api/            # Flask gateway (main entry points)
+│       └── jobs/           # Internal services (Predictor, Trainer)
+│
+└── README.md
+```
+
+## The Three-Tier Architecture
+
+The system is split into three independent services. This ensures "heavy" AI tasks never hang the "light" web API.
+
+1. Main API Gateway (deploy/api.service.template)
+Source: src/services/api/main.py (Ports 5000)
+Role: The public "Front Door." It handles Ingestion (receiving JSONs), Explorer (fetching risks), and Trainer status.
+Design: Zero-AI logic. It proxies heavy requests to the internal jobs via HTTP.
+
+2. Standalone Predictor (deploy/predictor.service.template)
+Source: src/services/jobs/predictor.py (Internal Port 5001)
+Role: Persistent inference engine.
+Logic: Loads the model once into memory. It stays responsive for /predict, /worst-systems, and /worst-tests.
+Feature: Supports /internal/reload to swap model weights without restarting.
+
+3. Standalone Trainer (deploy/trainer.service.template)
+Source: src/services/jobs/trainer.py (Internal Port 5002)
+Role: Background learning and data processing.
+Logic:
+Processor: Converts JSON from data/results/ to data/ts/ (merging name:variant).
+Trainer: Fits the model on-demand using SEQUENCE_LENGTH history.
+Cleanup: Moves files to data/processed/ and unloads model from RAM to free resources.
 
 ## Environment Setup
 
@@ -12,59 +64,33 @@ It is highly recommended to use a virtual environment to manage dependencies and
 # Install the virtual environment package
 sudo apt install python3.10-venv
 
-# Create the environment
+# Create and activate the environment
 python3 -m venv .venv
-
-# Activate the environment
 source .venv/bin/activate
 
-# For TensorFlow/Keras
-pip install tensorflow pandas numpy matplotlib
+# Install Core AI and Data stacks
+pip install tensorflow pandas numpy scikit-learn
 
-# More deps
-pip install scikit-learn flask apscheduler gunicorn
+# Install Web and Task management
+pip install flask gunicorn requests apscheduler
 
 ```
 
-An AI-powered pipeline for ingesting test results and predicting success rates using an LSTM model.
+## Model Configuration (src/common/config.py)
 
-## Project Overview
+Modify these variables to tune the "Brain":
 
-This project consists of three core components:
-1. **Ingestion API**: A Flask service (Port 5000) that receives and saves test result JSON files.
-2. **Explorer API**: A Keras-backed service (Port 5001) providing predictive analysis and test rankings.
-3. **Background Processor**: A worker job that periodically monitors new data and retrains the model.
+```bash
+SEQUENCE_LENGTH: History window (e.g., 50 runs).
+LSTM_UNITS / DENSE_UNITS: Internal neuron counts (64/32).
+EPOCHS: Training intensity (10 laps).
+BATCH_SIZE: Training "bite" size (32 rows).
+```
 
-## Structure
+## Usage (Client)
 
-- `src/services/api/`: Web service implementations.
-- `src/services/jobs/`: Background worker scripts.
-- `src/common/`: Shared logic for prediction, training, and config.
-- `deploy/`: Systemd service templates and deployment scripts.
-- `data/results/`: Storage for incoming JSON test data.
-- `data/ts/`: Processed Time-Series data ready for the LSTM.
-- `data/processed/`: Raw ts moved here after successful training.
-- `model/`: Storage for the trained `.keras` model and metadata.
+The client tool allows you to scan local result files and query the lab API (even through a bastion tunnel):
 
-
-## The Three-Stage Pipeline
-
-To manage resources efficiently, the solution is divided into three specialized stages. This architecture ensures that "heavy" AI tasks don't block "light" data collection.
-
-1. The Ingestion Stage (The Entry Point)
-Service: test-predictor-ingestion
-What it does: It acts as the "front door." When a client (like a CI/CD runner) finishes a test, it sends a JSON file to this API.
-The Logic: It validates the JSON, gives it a unique name (using job_id and run_id), and drops it into a specific folder (data/results/).
-Why it's separate: This service is very fast and uses almost no RAM. Even if the AI model is busy or broken, this service can still safely collect and store incoming data.
-
-2. The Processing Stage (The Brain Update)
-Service: test-predictor-processor
-What it does: It is a background worker that "polls" (checks) the results folder every 180 seconds.
-The Logic: If it finds new JSON files, it picks them up, transforms them into the format the LSTM model requires, and retrains/updates the model. Once finished, it archives the files so they aren't processed twice.
-Why it's separate: Training a model is slow and resource-heavy (CPU/RAM). By running this as a background job, the APIs stay responsive while the "learning" happens in the back.
-
-3. The Prediction Stage (The Insight)
-Service: test-predictor-explorer
-What it does: It provides real-time answers based on the latest trained model.
-The Logic: It loads the .keras model into memory once (using Gunicorn --preload). When you query the API (e.g., "What's the risk of failure for this test?"), it runs a prediction (inference) and returns a success probability.
-Why it's separate: Because it keeps the heavy LSTM model in RAM, it requires specific Gunicorn settings—like longer timeouts and higher memory limits—than the lightweight Ingestion API.
+```bash
+./client/predict results.json --compare
+```
