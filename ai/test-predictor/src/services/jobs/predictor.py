@@ -66,11 +66,14 @@ def predict():
         sce_enc = encoders['scenario'].transform([data.get('scenario', config.DEFAULT_SCENARIO)])[0]
         attempt = float(data.get('attempt', config.DEFAULT_ATTEMPT))
 
+        # Create the flat feature vector (size 8)
         features = np.array([0.5, attempt, v_enc, l_enc, b_enc, s_enc, n_enc, sce_enc], dtype='float32')
 
-        # Create a buffer of SEQUENCE_LENGTH timesteps (all zeros)
-        X_input = features.reshape(1, config.SEQUENCE_LENGTH, config.NUM_FEATURES)
-        # Place the current features at the very last timestep (index SEQUENCE_LENGTH - 1)
+        # Initialize a buffer of (1, 50, 8) with zeros
+        # This creates the 50 timesteps the model expects
+        X_input = np.zeros((1, config.SEQUENCE_LENGTH, config.NUM_FEATURES), dtype='float32')
+
+        # Place the 8 features into the VERY LAST timestep (index SEQUENCE_LENGTH - 1)
         X_input[0, -1, :] = features
 
         prediction = model.predict(X_input, verbose=config.PREDICTION_VERBOSE)
