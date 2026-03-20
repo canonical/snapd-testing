@@ -6,7 +6,7 @@ from common.utils import setup_logging
 logger = setup_logging("data-processor")
 
 def _extract_scenario(filename):
-    match = re.search(r"scenario_([a-zA-Z0-9_-]+)", filename)
+    match = re.search(r"scenario_([a-zA-Z0-9-]+)", filename)
     return match.group(1) if match else "default"
 
 def _extract_attempt(filename):

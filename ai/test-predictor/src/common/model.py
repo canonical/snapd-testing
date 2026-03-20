@@ -202,34 +202,37 @@ class ModelManager:
             logger.info("First request detected. Triggering lazy load...")
             self._load_from_disk()
 
-        return self.model, self.encoders, self.last_updated
+        with self._lock:
+            return self.model, self.encoders, self.last_updated
 
     def unload_model(self):
         """
         Forcefully unloads the model from memory and clears the TensorFlow session.
         """
-        if self.model is not None:
-            logger.info("Unloading model and clearing TensorFlow session...")
-            
-            # Clear the Keras/TF backend session
-            # This destroys the underlying C++ graph and variables
-            K.clear_session()
-            
-            # Remove the Python reference
-            self.model = None
-            self.encoders = None
-            
-            # Explicitly trigger Python Garbage Collection
-            gc.collect()
-            
-            logger.info("Model unloaded successfully.")
-        else:
-            logger.info("No model was loaded in memory to unload.")
+        with self._lock:
+            if self.model is not None:
+                logger.info("Unloading model and clearing TensorFlow session...")
+                
+                # Clear the Keras/TF backend session
+                # This destroys the underlying C++ graph and variables
+                K.clear_session()
+                
+                # Remove the Python reference
+                self.model = None
+                self.encoders = None
+                
+                # Explicitly trigger Python Garbage Collection
+                gc.collect()
+                
+                logger.info("Model unloaded successfully.")
+            else:
+                logger.info("No model was loaded in memory to unload.")
 
     def reload_model(self):
         """
         Public method to trigger a reload from disk, used by API and Predictor.
         """
-        logger.info("Manual reload triggered.")
-        self.unload_model()
-        return self._load_from_disk()
+        with self._lock:
+            logger.info("Manual reload triggered.")
+            self.unload_model()
+            return self._load_from_disk()

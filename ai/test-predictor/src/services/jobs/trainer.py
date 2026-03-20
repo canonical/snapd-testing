@@ -70,17 +70,6 @@ def perform_training_cycle():
             except Exception as e:
                 logger.error(f"Could not reach Predictor to trigger reload: {e}")
 
-            logger.info("Notifying API...")
-            try:
-                api_url = f"http://{config.API_HOST}:{config.API_PORT}/reload"
-                resp = requests.post(api_url, timeout=5)
-                if resp.status_code == 200:
-                    logger.info("API successfully reloaded the new model.")
-                else:
-                    logger.warning("API acknowledged but failed to reload.")
-            except Exception as e:
-                logger.error(f"Could not reach API to trigger reload: {e}")
-
             return True
         else:
             logger.error("Training finished but ModelManager failed to reload files.")

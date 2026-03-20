@@ -1,3 +1,4 @@
+from email import encoders
 import os
 import tensorflow as tf
 import numpy as np
@@ -16,12 +17,45 @@ metadata_full_path = os.path.join(config.MODEL_DIR, config.METADATA_NAME)
 app.model_manager = ModelManager(model_full_path, metadata_full_path)
 app.model_manager.load_or_build_model()
 
+
+def validate_labels(params, keys_to_check, encoders):
+    # Mapping request keys to internal encoder keys
+    mapping = {
+        'n': 'name', 
+        'v': 'verb', 
+        'l': 'level', 
+        's': 'system', 
+        'scenario': 'scenario'
+    }
+    unknowns = []
+    for k in keys_to_check:
+        # Get value, defaulting to config if it's the scenario key
+        val = params.get(k)
+        if k == 'scenario' and not val:
+            val = config.DEFAULT_SCENARIO
+            
+        if val not in encoders[mapping[k]].classes_:
+            unknowns.append(f"{mapping[k]}: {val}")
+    return unknowns
+
+
 @app.route('/internal/predict', methods=['POST'])
 def predict():
     data = request.json
     logger.info(f"Received prediction request: {data}")
 
     model, encoders, _ = app.model_manager.get_state()
+
+    if encoders is None:
+        return jsonify({"error": "Metadata not loaded"}), 503
+
+    # Validate incoming labels before transforming
+    keys_to_validate = ['n', 'v', 'l', 's', 'scenario']
+    unknowns = validate_labels(data, keys_to_validate, encoders)
+    if unknowns:
+        logger.warning(f"Validation failed: {unknowns}")
+        return jsonify({"error": "Unknown labels", "details": unknowns}), 400
+
     try:
         # Transformation logic (using the loaded 'encoders')
         n_enc = encoders['name'].transform([data['n']])[0]
@@ -61,6 +95,39 @@ def reload_model():
     else:
         logger.error("Failed to reload model from disk.")
         return jsonify({"status": "error", "message": "Reload failed"}), 500
+
+
+# In your predictor_server.py (the one with app.model_manager)
+
+@app.route('/internal/list/<category>', methods=['GET'])
+def list_metadata(category):
+    # Access the manager directly from the app instance
+    model, encoders, _ = app.model_manager.get_state()
+    
+    if encoders is None:
+        return jsonify({"error": "Metadata not loaded on server"}), 503
+
+    mapping = {
+        'names': 'name', 
+        'verbs': 'verb', 
+        'levels': 'level', 
+        'systems': 'system',
+        'scenarios': 'scenario' 
+    }
+    
+    if category not in mapping:
+        return jsonify({"error": f"Invalid category. Options: {list(mapping.keys())}"}), 400
+
+    try:
+        # Get classes from the specific LabelEncoder
+        vals = list(encoders[mapping[category]].classes_)
+        return jsonify({
+            "category": category, 
+            "count": len(vals), 
+            "values": vals
+        })
+    except KeyError:
+        return jsonify({"error": f"Encoder for {category} not found"}), 500
 
 
 if __name__ == "__main__":
