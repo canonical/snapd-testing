@@ -24,7 +24,8 @@ def ingest_data():
     job_id = request.form.get('job_id')
     run_id = request.form.get('run_id')
     attempt = request.form.get('attempt', '0')
-    logger.info(f"Received ingestion request: job_id={job_id}, run_id={run_id}, attempt={attempt}")
+    scenario = request.form.get('scenario', 'generic')
+    logger.info(f"Received ingestion request: job_id={job_id}, run_id={run_id}, attempt={attempt}, scenario={scenario}")
 
     if not job_id or not run_id:
         logger.warning("Missing mandatory parameters: job_id and run_id are required")
@@ -58,7 +59,7 @@ def ingest_data():
         return jsonify({"error": "Invalid JSON content"}), 400
 
     # Construct path and check for existing file    
-    filename = f"results_job_{job_id}_run_{run_id}_attempt_{attempt}.json"
+    filename = f"results_job_{job_id}_run_{run_id}_scenario_{scenario}_attempt_{attempt}.json"
     filepath = os.path.join(config.RESULTS_DIR, filename)
 
     if os.path.exists(filepath):
@@ -73,6 +74,7 @@ def ingest_data():
             "status": "success", 
             "job_id": job_id, 
             "run_id": run_id,
+            "scenario": scenario,
             "filename": filename
         }), 201
     except Exception as e:

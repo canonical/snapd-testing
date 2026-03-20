@@ -28,8 +28,8 @@ OUTPUT_UNITS = 1
 # 1 = Current run only. 10 = Look at the last 10 results.
 SEQUENCE_LENGTH = 50
 # The "width" of the data. It tells the AI exactly how many different pieces of information it gets for every single run.
-# Currently Duration (ms), Attempt number, Verb (encoded), Level (encoded), Backend (encoded), System (encoded) and Name (encoded).
-NUM_FEATURES = 7
+# Currently Duration (ms), Attempt number, Verb (encoded), Level (encoded), Backend (encoded), System (encoded), Name (encoded) and Scenario (encoded).
+NUM_FEATURES = 8
 # Validation Split (0.2): 20% of data is hidden from the trainer to test accuracy.
 VALIDATION_SPLIT = 0.2
 
@@ -52,6 +52,8 @@ PREDICTION_VERBOSE = 1
 
 # API Settings
 TRAIN_INTERVAL_MINUTES = 30
+DEFAULT_SCENARIO = "generic"
+DEFAULT_ATTEMPT = 1
 
 # Server Settings
 SERVER_HOST = '127.0.0.1'

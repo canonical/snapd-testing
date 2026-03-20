@@ -5,11 +5,15 @@ from common.utils import setup_logging
 
 logger = setup_logging("data-processor")
 
+def _extract_scenario(filename):
+    match = re.search(r"scenario_([a-zA-Z0-9_-]+)", filename)
+    return match.group(1) if match else "default"
+
 def _extract_attempt(filename):
     match = re.search(r"attempt_(\d+)", filename)
     return int(match.group(1)) if match else 1
 
-def _clean_and_transform_data(raw_data, attempt):
+def _clean_and_transform_data(raw_data, scenario, attempt):
     """
     Core logic to transform raw JSON items into the specific TS format.
     """
@@ -40,6 +44,7 @@ def _clean_and_transform_data(raw_data, attempt):
     
     # METADATA
     df['runid'] = run_id
+    df['scenario'] = scenario 
     df['attempt'] = attempt
 
     # FILTER
@@ -62,7 +67,7 @@ def _clean_and_transform_data(raw_data, attempt):
 
     # FINAL COLUMN ORDER
     requested_order = [
-        'runid', 'instance', 'start', 'duration_ms', 'attempt', 
+        'runid', 'instance', 'start', 'duration_ms', 'scenario', 'attempt', 
         'verb', 'level', 'backend', 'system', 'name', 'success'
     ]
     
@@ -84,8 +89,9 @@ def process_results(json_files, ts_dir):
         
         try:
             attempt = _extract_attempt(filename)
+            scenario = _extract_scenario(filename)
             with open(json_path, 'r') as f:
-                df, _ = _clean_and_transform_data(json.load(f), attempt)
+                df, _ = _clean_and_transform_data(json.load(f), scenario, attempt)
             df.to_csv(ts_path, index=False)
 
             os.remove(json_path)

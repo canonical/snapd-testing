@@ -34,7 +34,7 @@ class ModelManager:
             pickle.dump((encoders, scaler), f)
 
     def _preprocess_dataframe(self, df, encoders, scaler):
-        cat_cols = ['verb', 'level', 'backend', 'system', 'name']
+        cat_cols = ['verb', 'level', 'backend', 'system', 'name', 'scenario']
         for col in cat_cols:
             if col in df.columns:
                 if col not in encoders:
@@ -55,13 +55,13 @@ class ModelManager:
     def _prepare_sequences(self, df):
         sequences, targets = [], []
         for _, group in df.groupby('instance'):
-            features = group[['duration_ms', 'attempt', 'verb', 'level', 'backend', 'system', 'name']].values
+            features = group[['duration_ms', 'attempt', 'verb', 'level', 'backend', 'system', 'name', 'scenario']].values
             target = group['success'].iloc[-1] 
             sequences.append(features)
             targets.append(target)
         
-        X = pad_sequences(sequences, padding='post', dtype='float32')
-        logger.info(f"Prepared {len(X)} sequences")
+        X = pad_sequences(sequences, maxlen=config.SEQUENCE_LENGTH, padding='post', dtype='float32')
+        logger.info(f"Prepared {len(X)} sequences with {X.shape[2]} features")
         return X, np.array(targets)
 
     def exists(self):

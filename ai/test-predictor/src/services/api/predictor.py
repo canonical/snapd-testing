@@ -11,15 +11,18 @@ PREDICTOR_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/p
 
 def get_params():
     try:
-        attempt = int(request.args.get('attempt', 1))
+        attempt = int(request.args.get('attempt', config.DEFAULT_ATTEMPT))
+        scenario = request.args.get('scenario', config.DEFAULT_SCENARIO)
     except ValueError:
-        attempt = 1
+        attempt = config.DEFAULT_ATTEMPT
+        scenario = config.DEFAULT_SCENARIO
     return {
         "n": request.args.get('name'),
         "v": request.args.get('verb'),
         "l": request.args.get('level'),
         "s": request.args.get('system'),
-        "attempt": attempt
+        "attempt": attempt,
+        "scenario": scenario
     }
 
 def validate_labels(params, encoders, keys_to_check):
@@ -76,8 +79,9 @@ def rank_risk():
 
     names = list(encoders['name'].classes_)
     results = []
+    # Predict for the given verb, level and system across all names to find the riskiest ones
     for n in names:
-        payload = {"n": n, "v": p['v'], "l": p['l'], "s": p['s'], "attempt": p['attempt']}
+        payload = {"n": n, "v": p['v'], "l": p['l'], "s": p['s'], "attempt": p['attempt'], "scenario": p['scenario']}
         prob = call_internal_predictor(payload)
         if prob is not None:
             results.append({"name": n, "prob": float(prob)})
@@ -98,8 +102,9 @@ def worst_systems():
 
     systems = list(encoders['system'].classes_)
     results = []
+    # Prefict for the given name, verb and level across all systems to find the riskiest ones
     for s in systems:
-        payload = {"n": p['n'], "v": p['v'], "l": p['l'], "s": s, "attempt": p['attempt']}
+        payload = {"n": p['n'], "v": p['v'], "l": p['l'], "s": s, "attempt": p['attempt'], "scenario": p['scenario']}
         prob = call_internal_predictor(payload)
         if prob is not None:
             results.append({"system": s, "prob": float(prob)})
@@ -113,7 +118,13 @@ def list_metadata(category):
     if encoders is None:
         return jsonify({"error": "Metadata not available"}), 503
 
-    mapping = {'names': 'name', 'verbs': 'verb', 'levels': 'level', 'systems': 'system'}
+    mapping = {
+        'names': 'name', 
+        'verbs': 'verb', 
+        'levels': 'level', 
+        'systems': 'system',
+        'scenarios': 'scenario' 
+    }
     if category not in mapping:
         return jsonify({"error": "Invalid category"}), 400
 
