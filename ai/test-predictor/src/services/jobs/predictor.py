@@ -42,6 +42,22 @@ def predict():
         logger.error(f"Prediction error: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/internal/reload', methods=['POST'])
+def reload_model():
+    """Triggered by the Trainer to refresh the model from disk."""
+    logger.info("Reload signal received from Trainer. Refreshing model...")
+    
+    # Use your existing ModelManager logic to reload
+    success = app.model_manager.load_or_build_model()
+    
+    if success:
+        logger.info("Model refreshed successfully.")
+        return jsonify({"status": "success", "message": "Model reloaded"}), 200
+    else:
+        logger.error("Failed to reload model from disk.")
+        return jsonify({"status": "error", "message": "Reload failed"}), 500
+
+
 if __name__ == "__main__":
     # Run without Gunicorn
     app.run(host=config.SERVER_HOST, port=config.PREDICTOR_PORT, threaded=True)

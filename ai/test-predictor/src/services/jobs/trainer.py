@@ -1,4 +1,5 @@
 import glob
+import requests
 import os
 from flask import Flask, jsonify
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -56,6 +57,18 @@ def perform_training_cycle():
                 logger.info(f"Training and reload successful. Systems now known: {count}")
     
             app.model_manager.unload_model()
+
+            logger.info("Notifying Predictor...")
+            try:
+                predictor_url = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/reload"
+                resp = requests.post(predictor_url, timeout=5)
+                if resp.status_code == 200:
+                    logger.info("Predictor successfully reloaded the new model.")
+                else:
+                    logger.warning("Predictor acknowledged but failed to reload.")
+            except Exception as e:
+                logger.error(f"Could not reach Predictor to trigger reload: {e}")
+
             return True
         else:
             logger.error("Training finished but ModelManager failed to reload files.")
