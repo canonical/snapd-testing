@@ -14,7 +14,7 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
         
         items = data.get("items", [])
 
-        # --- DYNAMIC WIDTH CALCULATION ---
+        # Dynamic width calculation for the NAME column based on the longest name in the items
         max_name_len = 50  # Minimum default width
         for item in items:
             name = str(item.get("name", "")).strip()
@@ -68,8 +68,29 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                         if compare:
                             worst_resp = requests.get(worst_url, params=params, timeout=20)
                             if worst_resp.status_code == 200:
-                                # ... (rest of your existing comparison logic)
-                                pass
+                                all_systems = worst_resp.json()
+                                
+                                groups = {}
+                                for s_info in all_systems:
+                                    if s_info['system'] == current_system: continue
+                                    p_val = round(s_info['prob'], 4)
+                                    groups.setdefault(p_val, []).append(s_info['system'])
+
+                                sorted_probs = sorted(groups.keys(), reverse=True)
+
+                                for p_val in sorted_probs:
+                                    systems = groups[p_val]
+                                    diff = (p_val - prob_val) * 100
+                                    symbol = "+" if diff > 0 else ""
+                                    
+                                    if len(systems) > 5:
+                                        sys_text = f"{systems[0]}, {systems[1]}... (+{len(systems)-2} more)"
+                                    else:
+                                        sys_text = ", ".join(systems)
+
+                                    prefix = "  ├─" if p_val != sorted_probs[-1] else "  └─"
+                                    # Shows e.g., 90.00% (+10.0%)
+                                    print(f"{prefix} {p_val * 100:6.2f}% ({symbol}{diff:+.1f}%): {sys_text}")
                         
                     except Exception as e:
                         print(f"Error for {full_name}: {e}")
