@@ -47,24 +47,34 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
 
                         # Optional Comparison
                         if compare:
-                            # Bumped timeout to 20s as fetching ALL systems takes longer
                             worst_resp = requests.get(worst_url, params=params, timeout=20)
                             if worst_resp.status_code == 200:
                                 all_systems = worst_resp.json()
                                 
+                                # Group by probability to avoid the "Wall of 1.0000"
+                                groups = {}
                                 for s_info in all_systems:
-                                    s_name = s_info['system']
-                                    s_prob = s_info['prob']
+                                    if s_info['system'] == current_system: continue
                                     
-                                    # Skip the current system to avoid redundancy
-                                    if s_name == current_system:
-                                        continue
-                                        
-                                    diff = s_prob - prob_val
-                                    symbol = "+" if diff >= 0 else ""
+                                    p_val = round(s_info['prob'], 4)
+                                    groups.setdefault(p_val, []).append(s_info['system'])
+
+                                # Sort groups so the best probabilities are at the top
+                                sorted_probs = sorted(groups.keys(), reverse=True)
+
+                                for p_val in sorted_probs:
+                                    systems = groups[p_val]
+                                    diff = p_val - prob_val
+                                    symbol = "+" if diff > 0 else ""
                                     
-                                    # Format: indented list of all other known systems
-                                    print(f"  ├─ {s_name:<40} | {s_prob:.4f} ({symbol}{diff:+.2f})")
+                                    # If the group is huge, summarize it
+                                    if len(systems) > 5:
+                                        sys_text = f"{systems[0]}, {systems[1]}... (+{len(systems)-2} more)"
+                                    else:
+                                        sys_text = ", ".join(systems)
+
+                                    prefix = "  ├─" if p_val != sorted_probs[-1] else "  └─"
+                                    print(f"{prefix} {p_val:.4f} ({symbol}{diff:+.2f}): {sys_text}")
                         
                     except Exception as e:
                         print(f"Error for {params['name']}: {e}")
