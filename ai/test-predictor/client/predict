@@ -45,8 +45,9 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                     name = str(item.get("name", "")).strip()
                     variant = str(item.get("variant", "")).strip()
                     full_name = f"{name}:{variant}" if variant else name
-                    
-                    params = {"name": full_name, "verb": verb, "level": level}
+                    scenario = str(item.get("scenario", "generic")).strip()
+
+                    params = {"name": full_name, "verb": verb, "level": level, "scenario": scenario}
                     if attempt is not None:
                         params["attempt"] = attempt
 
