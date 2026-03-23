@@ -13,24 +13,23 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
             data = json.load(f)
         
         items = data.get("items", [])
+        
+        # Track if we actually have failures to display
+        found_failures = False
 
-        # Dynamic width calculation for the NAME column based on the longest name in the items
-        max_name_len = 50  # Minimum default width
+        # Dynamic width calculation for NAME based only on items that will be shown
+        max_name_len = 30 
         for item in items:
-            name = str(item.get("name", "")).strip()
-            variant = str(item.get("variant", "")).strip()
-            full_name = f"{name}:{variant}" if variant else name
-            if len(full_name) > max_name_len:
-                max_name_len = len(full_name)
+            if not item.get("success") and not item.get("skipped") and item.get("level") in ["task", "suite"]:
+                name = str(item.get("name", "")).strip()
+                variant = str(item.get("variant", "")).strip()
+                full_name = f"{name}:{variant}" if variant else name
+                if len(full_name) > max_name_len:
+                    max_name_len = len(full_name)
         
-        # Add a little padding for breathing room
         name_width = max_name_len + 2 
+        verb_width = 10
         
-        print(f"Connecting to: {base_url}:{port}")
-        # Use the dynamic width for the header and separator
-        print(f"{'NAME':<{name_width}} | {'SYSTEM':<25} | {'SUCCESS PROB'}")
-        print("-" * (name_width + 45))
-
         for item in items:
             verb = item.get("verb", "")
             start = item.get("start")
@@ -42,6 +41,12 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
             if not item.get("success") and not item.get("skipped"):
                 level = item.get("level")
                 if level in ["task", "suite"]:
+                    # Print header once if we find at least one failure
+                    if not found_failures:
+                        print(f"{'NAME':<{name_width}} | {'VERB':<{verb_width}} | {'SYSTEM':<25} | {'SUCCESS PROB'}")
+                        print("-" * (name_width + verb_width + 45))
+                        found_failures = True
+
                     name = str(item.get("name", "")).strip()
                     variant = str(item.get("variant", "")).strip()
                     full_name = f"{name}:{variant}" if variant else name
@@ -63,8 +68,8 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                         prob_val = float(prob_raw)
                         prob_str = f"{prob_val * 100:6.2f}%"
                         
-                        # Apply the dynamic width here as well
-                        print(f"{full_name:<{name_width}} | {current_system:<25} | {prob_str}")
+                        # Reordered columns: NAME, VERB, SYSTEM, PROB
+                        print(f"{full_name:<{name_width}} | {verb:<{verb_width}} | {current_system:<25} | {prob_str}")
 
                         if compare:
                             worst_resp = requests.get(worst_url, params=params, timeout=20)
@@ -90,11 +95,14 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                                         sys_text = ", ".join(systems)
 
                                     prefix = "  ├─" if p_val != sorted_probs[-1] else "  └─"
-                                    # Shows e.g., 90.00% (+10.0%)
                                     print(f"{prefix} {p_val * 100:6.2f}% ({symbol}{diff:+.1f}%): {sys_text}")
                         
                     except Exception as e:
                         print(f"Error for {full_name}: {e}")
+
+        # If no items were processed, show a success message instead of an empty table
+        if not found_failures:
+            print("\n No failing tests/suites found.")
 
     except Exception as e:
         print(f"FATAL: {e}")
