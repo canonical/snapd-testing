@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 
-import requests
 import argparse
+import json
+import requests
+
 
 def print_table(headers, rows):
     """Helper to print a simple formatted table."""
@@ -54,7 +56,7 @@ def handle_risk(args):
     
     try:
         # High timeout as this is a heavy operation on the server side
-        resp = requests.get(url, params=params, timeout=180)
+        resp = requests.get(url, params=params, timeout=300)
         if resp.status_code == 200:
             data = resp.json().get("top_high_risk", [])
             rows = [[item['name'], f"{item['prob']*100:.2f}%"] for item in data]
@@ -84,6 +86,30 @@ def handle_worst_systems(args):
     except Exception as e:
         print(f"Failed: {e}")
 
+def handle_list(args):
+    """Fetches metadata via the proxy list endpoint."""
+    url = f"{args.url.rstrip('/')}:{args.port}/list/{args.category}"
+    
+    try:
+        resp = requests.get(url, timeout=15)
+        if resp.status_code == 200:
+            data = resp.json()
+            # Handle both raw lists and {"values": [...]} structures
+            items = data.get("values", data) if isinstance(data, dict) else data
+            
+            print(f"\nAvailable {args.category.upper()}:")
+            if isinstance(items, list):
+                for item in sorted(items):
+                    print(f" - {item}")
+                print(f"\nTotal: {len(items)}")
+            else:
+                print(json.dumps(data, indent=4))
+        else:
+            print(f"Error ({resp.status_code}): {resp.text}")
+    except Exception as e:
+        print(f"Failed to fetch list: {e}")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Predictor API Client")
     parser.add_argument("--url", default="http://test-predictor.canonical.com", help="Base URL")
@@ -94,30 +120,36 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Predict Command
-    p_parser = subparsers.add_parser("check", help="Check single item probability")
+    p_parser = subparsers.add_parser("predict", help="Predict single item probability")
+    p_parser.add_argument("--verb", default="executing")
+    p_parser.add_argument("--level", default="task")
     p_parser.add_argument("--name", required=True)
-    p_parser.add_argument("--verb", required=True)
-    p_parser.add_argument("--level", required=True)
     p_parser.add_argument("--system", required=True)
 
-    # Risk Command (Updated with --limit)
+    # Risk Command
     r_parser = subparsers.add_parser("risk", help="List riskiest tests for a system")
-    r_parser.add_argument("--verb", required=True)
-    r_parser.add_argument("--level", required=True)
-    r_parser.add_argument("--system", required=True)
+    r_parser.add_argument("--verb", default="executing")
+    r_parser.add_argument("--level", default="task")
     r_parser.add_argument("--limit", type=int, default=10, help="Number of tests to show (omit for all)")
-
+    r_parser.add_argument("--system", required=True)
+    
     # Worst Systems Command
     s_parser = subparsers.add_parser("compare", help="Compare test across all systems")
+    s_parser.add_argument("--verb", default="executing")
+    s_parser.add_argument("--level", default="task")
     s_parser.add_argument("--name", required=True)
-    s_parser.add_argument("--verb", required=True)
-    s_parser.add_argument("--level", required=True)
+
+    # List Command
+    l_parser = subparsers.add_parser("list", help="List metadata (names, systems, verbs, levels)")
+    l_parser.add_argument("category", help="Category to list")
 
     args = parser.parse_args()
 
-    if args.command == "check": 
+    if args.command == "predict": 
         handle_predict(args)
     elif args.command == "risk": 
         handle_risk(args)
     elif args.command == "compare": 
         handle_worst_systems(args)
+    elif args.command == "list":
+        handle_list(args)

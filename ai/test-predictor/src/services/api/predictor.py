@@ -111,7 +111,6 @@ def rank_risk():
         "top_high_risk": final_results
     })
 
-
 @predictor_bp.route('/worst-systems', methods=['GET'])
 def worst_systems():
     p = get_params()
@@ -144,9 +143,6 @@ def worst_systems():
     results.sort(key=lambda x: x['prob'])
     return jsonify(results)
 
-# In your predictor_bp (the API side)
-import requests
-
 @predictor_bp.route('/list/<category>', methods=['GET'])
 def proxy_list_metadata(category):
     try:
@@ -154,4 +150,3 @@ def proxy_list_metadata(category):
         return (response.content, response.status_code, response.headers.items())
     except Exception as e:
         return jsonify({"error": f"Predictor server unreachable: {e}"}), 502
-

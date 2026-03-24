@@ -6,7 +6,7 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from keras import backend as K
 from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Dropout, Input
-from keras.utils import pad_sequences
+from keras.utils import pad_sequences, class_weight
 
 from common import config
 from common.utils import setup_logging
@@ -35,21 +35,38 @@ class ModelManager:
 
     def _preprocess_dataframe(self, df, encoders, scaler):
         cat_cols = ['verb', 'level', 'backend', 'system', 'name', 'scenario']
+        
         for col in cat_cols:
             if col in df.columns:
+                # Ensure the column is string type for consistent encoding
+                col_data = df[col].astype(str)
+                
                 if col not in encoders:
                     encoders[col] = LabelEncoder()
-                    df[col] = encoders[col].fit_transform(df[col].astype(str))
+                    df[col] = encoders[col].fit_transform(col_data)
                 else:
+                    # Logic to handle unseen labels without breaking the mapping
                     existing_classes = set(encoders[col].classes_)
-                    new_labels = set(df[col].astype(str).unique())
+                    new_labels = set(col_data.unique())
+                    
                     if not new_labels.issubset(existing_classes):
+                        # Merge new labels and update the encoder classes
                         combined = sorted(list(existing_classes | new_labels))
                         encoders[col].classes_ = np.array(combined)
-                    df[col] = encoders[col].transform(df[col].astype(str))
+                    
+                    df[col] = encoders[col].transform(col_data)
         
-        df[['duration_ms']] = scaler.fit_transform(df[['duration_ms']])
-        logger.info(f"Preprocessed: {len(df)} rows")
+        # Prevent Scaler Reset
+        # We only 'fit' the scaler if it hasn't been fitted yet. 
+        # After that, we only 'transform' so that 5000ms always scales to the same value.
+        if not hasattr(scaler, 'scale_'):
+            logger.info("Initializing global scaler...")
+            df[['duration_ms']] = scaler.fit_transform(df[['duration_ms']])
+        else:
+            # We use transform() to maintain global consistency
+            df[['duration_ms']] = scaler.transform(df[['duration_ms']])
+        
+        logger.info(f"Preprocessed: {len(df)} rows (Labels updated for: {list(encoders.keys())})")
         return df
 
     def _prepare_sequences(self, df):
@@ -141,59 +158,85 @@ class ModelManager:
         if not ts_files:
             return False
 
-        # Pre-validation and Loading
-        valid_data = []
-        for ts_file in ts_files:
-            if not ts_file.endswith(".ts"):
-                continue
-            try:
-                df = pd.read_csv(ts_file)
-                if df.empty:
-                    logger.warning(f"Removing empty file: {ts_file}")
-                    os.remove(ts_file)
-                    continue
-                valid_data.append((df, ts_file))
-            except Exception as e:
-                logger.error(f"Error reading {ts_file}: {e}")
-
-        if not valid_data:
-            return False
-
         with self.training_lock:
             try:
-                # Setup Metadata and Model
+                # Load metadata once
                 enc, scal = self._get_metadata()
-                
-                # Load model using the expected shape
                 model = self.load_or_build_model()
+                
+                all_X = []
+                all_y = []
+                files_to_move = []
 
-                logger.info(f"Starting training on {len(valid_data)} validated files...")
+                logger.info(f"Aggregating {len(ts_files)} files for batch training...")
 
-                # 3. Training Loop using pre-loaded DataFrames
-                for i, (df, ts_path) in enumerate(valid_data):
-                    logger.info(f"[{i+1}/{len(valid_data)}] Training on: {os.path.basename(ts_path)}")
-                    
-                    # Process the dataframe already in memory
-                    proc_df = self._preprocess_dataframe(df, enc, scal)
-                    X, y = self._prepare_sequences(proc_df)
+                # Collection Loop (No .fit() here!)
+                for ts_file in ts_files:
+                    if not ts_file.endswith(".ts"):
+                        continue
+                    try:
+                        df = pd.read_csv(ts_file)
+                        if df.empty:
+                            os.remove(ts_file)
+                            continue
+                        
+                        # Preprocess and prepare sequences
+                        proc_df = self._preprocess_dataframe(df, enc, scal)
+                        X, y = self._prepare_sequences(proc_df)
+                        
+                        if len(X) > 0:
+                            all_X.append(X)
+                            all_y.append(y)
+                            files_to_move.append(ts_file)
+                            
+                    except Exception as e:
+                        logger.error(f"Error reading {ts_file}: {e}")
 
-                    if len(X) > 0:
-                        model.fit(X, y, epochs=config.EPOCHS, batch_size=config.BATCH_SIZE, verbose=config.TRAINING_VERBOSE)
+                if not all_X:
+                    return False
 
-                    # 4. Cleanup: Move the file now that training for it is done
-                    shutil.move(ts_path, os.path.join(processed_dir, os.path.basename(ts_path)))
+                # Concatenate all data into single arrays
+                X_train = np.concatenate(all_X, axis=0)
+                y_train = np.concatenate(all_y, axis=0)
 
-                # 5. Final Persist and Sync
+                # Handle Class Imbalance (Prevents the "Always 0.99" problem)
+                # This makes the model care more about the rare failures
+                unique_classes = np.unique(y_train)
+                weights = class_weight.compute_class_weight(
+                    class_weight='balanced',
+                    classes=unique_classes,
+                    y=y_train
+                )
+                class_weight_dict = dict(zip(unique_classes, weights))
+
+                logger.info(f"Training on {len(X_train)} total sequences...")
+                
+                # Single fit call for the whole dataset
+                model.fit(
+                    X_train, 
+                    y_train, 
+                    epochs=config.EPOCHS, 
+                    batch_size=config.BATCH_SIZE, 
+                    class_weight=class_weight_dict,
+                    verbose=config.TRAINING_VERBOSE,
+                    shuffle=True # Important for LSTMs to see mixed data
+                )
+
+                # Save and Cleanup
                 model.save(self.model_path)
                 self._save_metadata(enc, scal)
                 
-                logger.info("Syncing in-memory model...")
+                for path in files_to_move:
+                    shutil.move(path, os.path.join(processed_dir, os.path.basename(path)))
+
+                logger.info("Training complete. Reloading model into memory...")
                 self._load_from_disk()
                 return True
 
             except Exception as e:
                 logger.error(f"Training failed: {e}", exc_info=True)
                 return False
+
 
 
     def get_state(self):
