@@ -5,6 +5,10 @@ import argparse
 
 def print_table(headers, rows):
     """Helper to print a simple formatted table."""
+    if not rows:
+        print("\nNo results found.")
+        return
+        
     widths = [len(h) for h in headers]
     for row in rows:
         for i, val in enumerate(row):
@@ -41,13 +45,21 @@ def handle_risk(args):
         "attempt": args.attempt, "scenario": args.scenario
     }
     
-    print(f"Analyzing top 10 riskiest items for {args.system}...")
+    # Add limit to params only if specified by user
+    if args.limit is not None:
+        params["limit"] = args.limit
+        print(f"Analyzing top {args.limit} riskiest items for {args.system}...")
+    else:
+        print(f"Analyzing all riskiest items for {args.system}...")
+    
     try:
+        # High timeout as this is a heavy operation on the server side
         resp = requests.get(url, params=params, timeout=180)
         if resp.status_code == 200:
             data = resp.json().get("top_high_risk", [])
             rows = [[item['name'], f"{item['prob']*100:.2f}%"] for item in data]
             print_table(["NAME", "PASS PROB"], rows)
+            print(f"\nTotal items returned: {len(rows)}")
         else:
             print(f"Error: {resp.text}")
     except Exception as e:
@@ -65,7 +77,6 @@ def handle_worst_systems(args):
         resp = requests.get(url, params=params, timeout=60)
         if resp.status_code == 200:
             data = resp.json()
-            # In your server code, results is a list of {"system": s, "prob": p}
             rows = [[item['system'], f"{item['prob']*100:.2f}%"] for item in data]
             print_table(["SYSTEM", "PASS PROB"], rows)
         else:
@@ -75,8 +86,8 @@ def handle_worst_systems(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Predictor API Client")
-    parser.add_argument("--url", default="http://test-predictor.canonical.com", help="API URL")
-    parser.add_argument("--port", type=int, default=5000, help="API Port")
+    parser.add_argument("--url", default="http://test-predictor.canonical.com", help="Base URL")
+    parser.add_argument("--port", type=int, default=5000, help="Port")
     parser.add_argument("--attempt", type=int, default=1)
     parser.add_argument("--scenario", default="generic")
 
@@ -89,11 +100,12 @@ if __name__ == "__main__":
     p_parser.add_argument("--level", required=True)
     p_parser.add_argument("--system", required=True)
 
-    # Risk Command
+    # Risk Command (Updated with --limit)
     r_parser = subparsers.add_parser("risk", help="List riskiest tests for a system")
     r_parser.add_argument("--verb", required=True)
     r_parser.add_argument("--level", required=True)
     r_parser.add_argument("--system", required=True)
+    r_parser.add_argument("--limit", type=int, default=10, help="Number of tests to show (omit for all)")
 
     # Worst Systems Command
     s_parser = subparsers.add_parser("compare", help="Compare test across all systems")

@@ -68,38 +68,49 @@ def predict_scenario():
 @predictor_bp.route('/rank-risk', methods=['GET'])
 def rank_risk():
     p = get_params()
+    
+    # Get 'limit' from query params, default to None if not provided or invalid
+    limit_raw = request.args.get('limit')
+    try:
+        limit = int(limit_raw) if limit_raw is not None else None
+    except ValueError:
+        limit = None
 
     if not all([p['v'], p['l'], p['s']]):
         return jsonify({"error": "Missing verb, level, and system"}), 400
 
-    # Fetch the names list from the Predictor Server
     try:
-        # We call the 'internal/list/names' route we just created on the server        
         list_response = requests.get(f"{CATEGORY_URL}/names", timeout=10)
-        
         if list_response.status_code != 200:
-            return jsonify({"error": "Could not retrieve names from predictor server"}), 503
-            
-        # Extract the 'values' list from the server response
+            return jsonify({"error": "Could not retrieve names"}), 503
         names = list_response.json().get('values', [])
     except Exception as e:
-        logger.error(f"Failed to connect to Predictor Server for metadata: {e}")
+        logger.error(f"Failed to connect to Predictor Server: {e}")
         return jsonify({"error": "Predictor service communication error"}), 502
 
     results = []
-    # Predict for the given verb, level and system across all names to find the riskiest ones
     for n in names:
-        payload = {"n": n, "v": p['v'], "l": p['l'], "s": p['s'], "attempt": p['attempt'], "scenario": p['scenario']}
-        result, status_code = call_internal_predictor(payload)
+        p = {
+            "n": n, "v": p['v'], "l": p['l'], "s": p['s'], 
+            "attempt": p['attempt'], "scenario": p['scenario']
+        }
+        result, status_code = call_internal_predictor(p)
         
-        if status_code != 200:
-            return jsonify(result), status_code
-    
-        if result is not None:
+        if status_code == 200 and result is not None:
             results.append({"name": n, "prob": float(result.get("probability"))})
-    
+
+    # Sort by probability (minor/lowest first)
     results.sort(key=lambda x: x['prob'])
-    return jsonify({"attempt_analyzed": p['attempt'], "top_high_risk": results[:10]})
+
+    # Apply limit slice: if limit is None, it returns results[:] (the whole list)
+    final_results = results[:limit] if limit is not None else results
+
+    return jsonify({
+        "attempt_analyzed": p['attempt'], 
+        "count": len(final_results),
+        "top_high_risk": final_results
+    })
+
 
 @predictor_bp.route('/worst-systems', methods=['GET'])
 def worst_systems():
