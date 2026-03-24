@@ -43,7 +43,7 @@ def handle_risk(args):
     
     print(f"Analyzing top 10 riskiest items for {args.system}...")
     try:
-        resp = requests.get(url, params=params, timeout=30)
+        resp = requests.get(url, params=params, timeout=180)
         if resp.status_code == 200:
             data = resp.json().get("top_high_risk", [])
             rows = [[item['name'], f"{item['prob']*100:.2f}%"] for item in data]
@@ -62,7 +62,7 @@ def handle_worst_systems(args):
     
     print(f"Comparing system performance for {args.name}...")
     try:
-        resp = requests.get(url, params=params, timeout=30)
+        resp = requests.get(url, params=params, timeout=60)
         if resp.status_code == 200:
             data = resp.json()
             # In your server code, results is a list of {"system": s, "prob": p}
