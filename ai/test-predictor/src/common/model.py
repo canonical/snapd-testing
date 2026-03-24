@@ -40,35 +40,39 @@ class ModelManager:
         
         for col in cat_cols:
             if col in df.columns:
-                # Ensure the column is string type for consistent encoding
+                # Force string type for consistent categorical treatment
                 col_data = df[col].astype(str)
                 
                 if col not in encoders:
+                    # INITIAL CREATION: Establish a stable base by sorting unique labels
                     encoders[col] = LabelEncoder()
-                    df[col] = encoders[col].fit_transform(col_data)
+                    base_labels = sorted(col_data.unique())
+                    encoders[col].classes_ = np.array(base_labels)
+                    logger.info(f"Initialized encoder for {col} with {len(base_labels)} classes.")
                 else:
-                    # Logic to handle unseen labels WITHOUT breaking the mapping
+                    # INCREMENTAL UPDATE: Append only to prevent ID shifting
                     existing_classes = encoders[col].classes_
-                    new_labels = [l for l in col_data.unique() if l not in existing_classes]
-                    
+                    new_labels = sorted([l for l in col_data.unique() if l not in existing_classes])
+
                     if new_labels:
-                        # This keeps the original IDs exactly where they were.
-                        updated_classes = np.concatenate([existing_classes, sorted(new_labels)])
+                        # Append new items to the END so existing IDs (0, 1, 2...) stay the same
+                        updated_classes = np.concatenate([existing_classes, new_labels])
                         encoders[col].classes_ = updated_classes
-                    
-                    df[col] = encoders[col].transform(col_data)
-        
-        # Prevent Scaler Reset
-        # We only 'fit' the scaler if it hasn't been fitted yet. 
-        # After that, we only 'transform' so that 5000ms always scales to the same value.
+                        logger.info(f"Appended {len(new_labels)} new labels to {col} encoder.")
+                
+                # Apply the stable mapping to the dataframe
+                df[col] = encoders[col].transform(col_data)
+
+        # Prevent Scaler Reset (Ensures time values are consistently interpreted)
         if not hasattr(scaler, 'scale_'):
-            logger.info("Initializing global scaler...")
+            logger.info("Initializing global scaler for duration_ms...")
+            # We fit on the first batch to set the min/max baseline
             df[['duration_ms']] = scaler.fit_transform(df[['duration_ms']])
         else:
-            # We use transform() to maintain global consistency
+            # We only transform thereafter to maintain the same scale across all runs
             df[['duration_ms']] = scaler.transform(df[['duration_ms']])
-        
-        logger.info(f"Preprocessed: {len(df)} rows (Labels updated for: {list(encoders.keys())})")
+
+        logger.info(f"Preprocessed {len(df)} rows.")
         return df
 
     def _prepare_sequences(self, df):
