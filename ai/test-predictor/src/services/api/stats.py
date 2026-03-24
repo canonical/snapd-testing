@@ -8,7 +8,7 @@ from common import config
 from common.utils import setup_logging
 
 logger = setup_logging("stats-api")
-audit_bp = Blueprint('stats', __name__)
+stats_bp = Blueprint('stats', __name__)
 
 def count_filtered_success(directory, filters):
     """
@@ -74,7 +74,7 @@ def get_all_systems_stats(directory, filters):
             
     return system_stats
 
-@audit_bp.route('/stats', methods=['GET'])
+@stats_bp.route('/stats', methods=['GET'])
 def get_filtered_stats():
     # Extract filters from the URL query string
     filters = {
@@ -102,7 +102,7 @@ def get_filtered_stats():
         }
     }), 200
 
-@audit_bp.route('/stats/all-systems', methods=['GET'])
+@stats_bp.route('/stats/all-systems', methods=['GET'])
 def get_all_systems_audit():
     filters = {
         "name": request.args.get('name'),
