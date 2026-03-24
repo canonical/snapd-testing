@@ -35,6 +35,9 @@ SEQUENCE_LENGTH = 50
 NUM_FEATURES = 8
 # Validation Split (0.2): 20% of data is hidden from the trainer to test accuracy.
 VALIDATION_SPLIT = 0.2
+# The normalized duration (0.0 to 1.0) used during inference.
+# 0.0 represents the minimum duration seen during training.
+PREDICTION_DEFAULT_DURATION = 0.0
 
 # Training Settings
 

@@ -104,7 +104,7 @@ def predict():
         attempt = float(data.get('attempt', config.DEFAULT_ATTEMPT))
 
         # Create the flat feature vector (size 8)
-        features = np.array([0.5, attempt, v_enc, l_enc, b_enc, s_enc, n_enc, sce_enc], dtype='float32')
+        features = np.array([config.PREDICTION_DEFAULT_DURATION, attempt, v_enc, l_enc, b_enc, s_enc, n_enc, sce_enc], dtype='float32')
 
         # Initialize a buffer of (1, 50, 8) with zeros
         # This creates the 50 timesteps the model expects
