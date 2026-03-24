@@ -10,7 +10,6 @@ from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Dropout, Input
 from keras.utils import pad_sequences
 
-
 from common import config
 from common.utils import setup_logging
 

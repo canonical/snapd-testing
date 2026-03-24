@@ -4,7 +4,7 @@ import os
 import shutil
 import time
 from common import config
-from common.config import setup_logging
+from common.utils import setup_logging
 
 logger = setup_logging("cleaner-job")
 
