@@ -47,14 +47,14 @@ class ModelManager:
                     encoders[col] = LabelEncoder()
                     df[col] = encoders[col].fit_transform(col_data)
                 else:
-                    # Logic to handle unseen labels without breaking the mapping
-                    existing_classes = set(encoders[col].classes_)
-                    new_labels = set(col_data.unique())
+                    # Logic to handle unseen labels WITHOUT breaking the mapping
+                    existing_classes = encoders[col].classes_
+                    new_labels = [l for l in col_data.unique() if l not in existing_classes]
                     
-                    if not new_labels.issubset(existing_classes):
-                        # Merge new labels and update the encoder classes
-                        combined = sorted(list(existing_classes | new_labels))
-                        encoders[col].classes_ = np.array(combined)
+                    if new_labels:
+                        # This keeps the original IDs exactly where they were.
+                        updated_classes = np.concatenate([existing_classes, sorted(new_labels)])
+                        encoders[col].classes_ = updated_classes
                     
                     df[col] = encoders[col].transform(col_data)
         
