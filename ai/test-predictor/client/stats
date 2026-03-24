@@ -32,9 +32,9 @@ def get_audit(args):
     
     # Select endpoint based on whether we want one system or all
     if args.system and args.system.lower() == "all":
-        url = f"{base_url}:{args.port}/audit/stats/all-systems"
+        url = f"{base_url}:{args.port}/stats/all-systems"
     else:
-        url = f"{base_url}:{args.port}/audit/stats"
+        url = f"{base_url}:{args.port}/stats"
         if args.system:
             filters["system"] = args.system
 
