@@ -1,5 +1,5 @@
 import requests
-from flask import Blueprint, current_app, request, jsonify
+from flask import Blueprint, request, jsonify
 from common import config
 from common.utils import setup_logging
 
@@ -14,16 +14,19 @@ def get_params():
     try:
         attempt = int(request.args.get('attempt', config.DEFAULT_ATTEMPT))
         scenario = request.args.get('scenario', config.DEFAULT_SCENARIO)
+        audit = request.args.get('audit', config.DEFAULT_AUDIT)
     except ValueError:
         attempt = config.DEFAULT_ATTEMPT
         scenario = config.DEFAULT_SCENARIO
+        audit = config.DEFAULT_AUDIT
     return {
         "n": request.args.get('name'),
         "v": request.args.get('verb'),
         "l": request.args.get('level'),
         "s": request.args.get('system'),
         "attempt": attempt,
-        "scenario": scenario
+        "scenario": scenario,
+        "audit": audit
     }
 
 def call_internal_predictor(payload):

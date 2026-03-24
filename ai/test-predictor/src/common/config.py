@@ -2,6 +2,7 @@
 RESULTS_DIR = 'data/results'
 PROCESSED_DIR = 'data/processed'
 TS_DIR = 'data/ts'
+LOGS_DIR = 'logs'
 MODEL_DIR = 'model'
 
 # Model Settings
@@ -9,6 +10,8 @@ MODEL_DIR = 'model'
 MODEL_NAME = 'test_predictor_lstm.keras'
 # This file stores the "Translation Dictionary" (Encoders)
 METADATA_NAME = 'metadata.pkl'
+# This file stores the "Memory" of all predictions for auditing and future analysis.
+PREDICTION_LOG = 'prediction_audit.jsonl'
 # Units (64 or 128): The number of memory cells in the LSTM layer.
 LSTM_UNITS = 64
 # Dropout (0.2): Percentage of neurons to ignore during training to prevent overfitting.
@@ -54,6 +57,7 @@ PREDICTION_VERBOSE = 1
 TRAIN_INTERVAL_MINUTES = 30
 DEFAULT_SCENARIO = "generic"
 DEFAULT_ATTEMPT = 1
+DEFAULT_AUDIT = False
 
 # Cleaner Settings
 CLEANER_INTERVAL_HOURS = 24

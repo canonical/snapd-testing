@@ -1,7 +1,8 @@
-from email import encoders
-import os
-import tensorflow as tf
+import json
 import numpy as np
+import os
+import time
+
 from flask import Flask, request, jsonify
 
 from common import config
@@ -38,6 +39,42 @@ def validate_labels(params, keys_to_check, encoders):
             unknowns.append(f"{mapping[k]}: {val}")
     return unknowns
 
+
+def audit_prediction(X_input, probability, params, model_manager):
+    """
+    Records the exact features, model metadata, and timestamp for a prediction.
+    """
+    model, _, last_updated = model_manager.get_state()
+    
+    # Extract the last timestep of the LSTM sequence (the most relevant data)
+    # X_input shape is (1, sequence_length, num_features)
+    current_features = X_input[0, -1, :].tolist() 
+    
+    # Map features back to names for readability
+    feature_names = ['duration_ms', 'attempt', 'verb', 'level', 'backend', 'system', 'name', 'scenario']
+    feature_map = dict(zip(feature_names, current_features))
+
+    # Build the audit record
+    audit_record = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "model_info": {
+            "last_trained": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last_updated)),
+            "model_file": os.path.basename(model_manager.model_path)
+        },
+        "request_params": params,       # Original strings from the API request
+        "model_input_raw": feature_map, # The actual encoded/scaled numbers fed to LSTM
+        "prediction": {
+            "success_probability": float(probability),
+            "verdict": "pass" if probability > 0.5 else "fail"
+        }
+    }
+
+    # Save to a rolling log file
+    audit_log_path = os.path.join(config.LOGS_DIR, config.PREDICTION_LOG)
+    with open(audit_log_path, "a") as f:
+        f.write(json.dumps(audit_record) + "\n")
+
+    return audit_record
 
 @app.route('/internal/predict', methods=['POST'])
 def predict():
@@ -78,6 +115,9 @@ def predict():
 
         prediction = model.predict(X_input, verbose=config.PREDICTION_VERBOSE)
         logger.info(f"Prediction result for {data}: {prediction[0][0]}")
+
+        if data.get('audit', config.DEFAULT_AUDIT):
+            audit_prediction(X_input, prediction[0][0], data, app.model_manager)
 
         return jsonify({"probability": float(prediction[0][0])})
     except Exception as e:

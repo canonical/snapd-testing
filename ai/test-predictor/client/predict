@@ -6,7 +6,6 @@ import argparse
 
 def analyze_results(file_path, base_url, port, attempt=None, compare=False):
     predict_url = f"{base_url}:{port}/predict"
-    worst_url = f"{base_url}:{port}/worst-systems"
 
     try:
         with open(file_path, 'r') as f:
@@ -71,32 +70,6 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                         # Reordered columns: NAME, VERB, SYSTEM, PROB
                         print(f"{full_name:<{name_width}} | {verb:<{verb_width}} | {current_system:<25} | {prob_str}")
 
-                        if compare:
-                            worst_resp = requests.get(worst_url, params=params, timeout=20)
-                            if worst_resp.status_code == 200:
-                                all_systems = worst_resp.json()
-                                
-                                groups = {}
-                                for s_info in all_systems:
-                                    if s_info['system'] == current_system: continue
-                                    p_val = round(s_info['prob'], 4)
-                                    groups.setdefault(p_val, []).append(s_info['system'])
-
-                                sorted_probs = sorted(groups.keys(), reverse=True)
-
-                                for p_val in sorted_probs:
-                                    systems = groups[p_val]
-                                    diff = (p_val - prob_val) * 100
-                                    symbol = "+" if diff > 0 else ""
-                                    
-                                    if len(systems) > 5:
-                                        sys_text = f"{systems[0]}, {systems[1]}... (+{len(systems)-2} more)"
-                                    else:
-                                        sys_text = ", ".join(systems)
-
-                                    prefix = "  ├─" if p_val != sorted_probs[-1] else "  └─"
-                                    print(f"{prefix} {p_val * 100:6.2f}% ({symbol}{diff:+.1f}%): {sys_text}")
-                        
                     except Exception as e:
                         print(f"Error for {full_name}: {e}")
 
@@ -114,7 +87,6 @@ if __name__ == "__main__":
     parser.add_argument("--url", default="http://test-predictor.canonical.com", help="Base URL")
     parser.add_argument("--port", type=int, default=5000, help="Port")
     parser.add_argument("--attempt", type=int, help="Optional attempt number")
-    parser.add_argument("--compare", action="store_true", help="Compare with other systems")
     
     args = parser.parse_args()
     analyze_results(args.file, args.url.rstrip('/'), args.port, args.attempt, args.compare)
