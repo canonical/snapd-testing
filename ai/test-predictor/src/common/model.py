@@ -1,12 +1,15 @@
 import gc, pickle, os, time, threading, shutil
 import numpy as np
 import pandas as pd
+
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
+from sklearn.utils import class_weight
 
 from keras import backend as K
 from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Dropout, Input
-from keras.utils import pad_sequences, class_weight
+from keras.utils import pad_sequences
+
 
 from common import config
 from common.utils import setup_logging
@@ -160,9 +163,8 @@ class ModelManager:
 
         with self.training_lock:
             try:
-                # Load metadata once
+                # Load metadata and existing model (or build a fresh one)
                 enc, scal = self._get_metadata()
-                model = self.load_or_build_model()
                 
                 all_X = []
                 all_y = []
@@ -170,7 +172,7 @@ class ModelManager:
 
                 logger.info(f"Aggregating {len(ts_files)} files for batch training...")
 
-                # Collection Loop (No .fit() here!)
+                # Collection Loop: Process all files into memory first
                 for ts_file in ts_files:
                     if not ts_file.endswith(".ts"):
                         continue
@@ -180,7 +182,7 @@ class ModelManager:
                             os.remove(ts_file)
                             continue
                         
-                        # Preprocess and prepare sequences
+                        # Preprocess (using the updated _preprocess_dataframe logic)
                         proc_df = self._preprocess_dataframe(df, enc, scal)
                         X, y = self._prepare_sequences(proc_df)
                         
@@ -193,14 +195,18 @@ class ModelManager:
                         logger.error(f"Error reading {ts_file}: {e}")
 
                 if not all_X:
+                    logger.warning("No valid training data found in provided files.")
                     return False
 
-                # Concatenate all data into single arrays
+                # Concatenate all sequences into single arrays for the optimizer
                 X_train = np.concatenate(all_X, axis=0)
                 y_train = np.concatenate(all_y, axis=0)
+                
+                # Re-fetch or build model now that we know the input shape (X_train.shape[1:])
+                model = self.load_or_build_model(input_shape=(X_train.shape[1], X_train.shape[2]))
 
-                # Handle Class Imbalance (Prevents the "Always 0.99" problem)
-                # This makes the model care more about the rare failures
+                # Calculate Class Weights using sklearn
+                # This fixes the "always 0.99" problem by making failures more important
                 unique_classes = np.unique(y_train)
                 weights = class_weight.compute_class_weight(
                     class_weight='balanced',
@@ -208,10 +214,10 @@ class ModelManager:
                     y=y_train
                 )
                 class_weight_dict = dict(zip(unique_classes, weights))
-
+                
                 logger.info(f"Training on {len(X_train)} total sequences...")
                 
-                # Single fit call for the whole dataset
+                # Single fit call: Training on the full batch prevents catastrophic forgetting
                 model.fit(
                     X_train, 
                     y_train, 
@@ -219,23 +225,29 @@ class ModelManager:
                     batch_size=config.BATCH_SIZE, 
                     class_weight=class_weight_dict,
                     verbose=config.TRAINING_VERBOSE,
-                    shuffle=True # Important for LSTMs to see mixed data
+                    shuffle=True 
                 )
 
-                # Save and Cleanup
+                # Save model and the updated metadata (encoders/scaler)
                 model.save(self.model_path)
                 self._save_metadata(enc, scal)
                 
+                # Move files to processed directory only after successful save
                 for path in files_to_move:
-                    shutil.move(path, os.path.join(processed_dir, os.path.basename(path)))
+                    dest = os.path.join(processed_dir, os.path.basename(path))
+                    # Handle existing files in processed_dir
+                    if os.path.exists(dest):
+                        os.remove(dest)
+                    shutil.move(path, dest)
 
-                logger.info("Training complete. Reloading model into memory...")
+                logger.info("Training complete. Syncing in-memory state...")
                 self._load_from_disk()
                 return True
 
             except Exception as e:
                 logger.error(f"Training failed: {e}", exc_info=True)
                 return False
+
 
 
 
