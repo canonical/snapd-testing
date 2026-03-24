@@ -22,6 +22,9 @@ sed -e "s|{{USER}}|$TARGET_USER|g" -e "s|{{HOME}}|$PROJECT_ROOT|g" \
 sed -e "s|{{USER}}|$TARGET_USER|g" -e "s|{{HOME}}|$PROJECT_ROOT|g" \
     "$PROJECT_ROOT/deploy/trainer.service.template" > "$PROJECT_ROOT/deploy/test-predictor-trainer.service"
 
+sed -e "s|{{USER}}|$TARGET_USER|g" -e "s|{{HOME}}|$PROJECT_ROOT|g" \
+    "$PROJECT_ROOT/deploy/cleaner.service.template" > "$PROJECT_ROOT/deploy/test-predictor-cleaner.service"
+
 # Link and Reload
 sudo ln -sf "$PROJECT_ROOT/deploy/test-predictor-api.service" /etc/systemd/system/test-predictor-api.service
 sudo ln -sf "$PROJECT_ROOT/deploy/test-predictor.service" /etc/systemd/system/test-predictor.service
