@@ -1,0 +1,105 @@
+#!/usr/bin/python3
+
+import requests
+import argparse
+import sys
+
+def print_table(headers, rows):
+    """Helper to print a simple formatted table."""
+    if not rows:
+        print("\nNo results found.")
+        return
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, val in enumerate(row):
+            widths[i] = max(widths[i], len(str(val)))
+    
+    fmt = " | ".join([f"{{:<{w}}}" for w in widths])
+    print("\n" + fmt.format(*headers))
+    print("-" * (sum(widths) + (3 * (len(headers) - 1))))
+    for row in rows:
+        print(fmt.format(*row))
+
+def get_audit(args):
+    base_url = args.url.rstrip('/')
+    filters = {
+        "name": args.name,
+        "attempt": args.attempt,
+        "scenario": args.scenario,
+        "verb": args.verb,
+        "level": args.level
+    }
+    
+    # Select endpoint based on whether we want one system or all
+    if args.system and args.system.lower() == "all":
+        url = f"{base_url}:{args.port}/audit/stats/all-systems"
+    else:
+        url = f"{base_url}:{args.port}/audit/stats"
+        if args.system:
+            filters["system"] = args.system
+
+    # Remove None values
+    params = {k: v for k, v in filters.items() if v is not None}
+
+    try:
+        print(f"📡 Querying Audit API at {url}...")
+        response = requests.get(url, params=params, timeout=60)
+        
+        if response.status_code != 200:
+            print(f"Error ({response.status_code}): {response.text}")
+            return
+
+        data = response.json()
+
+        # Handle 'All Systems' Table View
+        if "systems" in data:
+            systems = data["systems"]
+            rows = []
+            for s_name, stats in sorted(systems.items()):
+                p, f = stats['pass'], stats['fail']
+                total = p + f
+                rate = f"{(p/total*100):.1f}%" if total > 0 else "0%"
+                rows.append([s_name, p, f, total, rate])
+            
+            print_table(["SYSTEM", "PASS", "FAIL", "TOTAL", "RATE"], rows)
+
+        # Handle 'Single System' Summary View
+        elif "results" in data:
+            res = data["results"]
+            p, f, t = res['pass'], res['fail'], res['total']
+            rate = f"{(p/t*100):.2f}%" if t > 0 else "0%"
+            
+            print("\n SINGLE SYSTEM AUDIT")
+            print(f"Target: {data.get('filters_applied', {}).get('system', 'Unknown')}")
+            print("-" * 30)
+            print(f"PASS:  {p}")
+            print(f"FAIL:  {f}")
+            print(f"TOTAL: {t}")
+            print(f"RATE:  {rate}")
+
+    except requests.exceptions.ConnectionError:
+        print(f"Failed to connect to server at {base_url}:{args.port}")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Audit Client for Historical Test Results")
+    
+    # Connection
+    parser.add_argument("--url", default="http://test-predictor.canonical.com", help="API URL")
+    parser.add_argument("--port", type=int, default=5000, help="API Port")
+    
+    # Filters
+    parser.add_argument("--scenario", default="generic")
+    parser.add_argument("--verb", default="executing")
+    parser.add_argument("--level", default="task")
+    parser.add_argument("--attempt", type=int, default=1)
+    parser.add_argument("--system", help="System name or 'all' for breakdown")
+    parser.add_argument("--name", help="Test name")
+    
+    args = parser.parse_args()
+
+    if not any([args.system, args.name, args.attempt, args.scenario, args.verb, args.level]):
+        parser.error("At least one filter (e.g., --system all or --name) must be provided.")
+
+    get_audit(args)
