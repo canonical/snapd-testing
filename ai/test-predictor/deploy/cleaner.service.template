@@ -3,7 +3,6 @@ Description=Standalone Python Trainer Service
 After=network.target
 
 [Service]
-Type=oneshot
 WorkingDirectory={{HOME}}
 Environment="PYTHONUNBUFFERED=1"
 Environment="PYTHONPATH={{HOME}}/src/common:{{HOME}}/src"
