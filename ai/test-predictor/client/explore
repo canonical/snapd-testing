@@ -1,0 +1,111 @@
+#!/usr/bin/python3
+
+import requests
+import argparse
+
+def print_table(headers, rows):
+    """Helper to print a simple formatted table."""
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, val in enumerate(row):
+            widths[i] = max(widths[i], len(str(val)))
+    
+    fmt = " | ".join([f"{{:<{w}}}" for w in widths])
+    print("\n" + fmt.format(*headers))
+    print("-" * (sum(widths) + (3 * (len(headers) - 1))))
+    for row in rows:
+        print(fmt.format(*row))
+
+def handle_predict(args):
+    url = f"{args.url.rstrip('/')}:{args.port}/predict"
+    params = {
+        "name": args.name, "verb": args.verb, "level": args.level,
+        "system": args.system, "attempt": args.attempt, "scenario": args.scenario
+    }
+    
+    try:
+        resp = requests.get(url, params=params, timeout=10)
+        if resp.status_code == 200:
+            prob = resp.json().get("success_probability", 0)
+            print(f"\nPrediction for {args.name} on {args.system}:")
+            print(f"   Success Probability: {prob * 100:.2f}%")
+        else:
+            print(f"Error ({resp.status_code}): {resp.json().get('error')}")
+    except Exception as e:
+        print(f"Connection Failed: {e}")
+
+def handle_risk(args):
+    url = f"{args.url.rstrip('/')}:{args.port}/rank-risk"
+    params = {
+        "verb": args.verb, "level": args.level, "system": args.system,
+        "attempt": args.attempt, "scenario": args.scenario
+    }
+    
+    print(f"Analyzing top 10 riskiest items for {args.system}...")
+    try:
+        resp = requests.get(url, params=params, timeout=30)
+        if resp.status_code == 200:
+            data = resp.json().get("top_high_risk", [])
+            rows = [[item['name'], f"{item['prob']*100:.2f}%"] for item in data]
+            print_table(["NAME", "PASS PROB"], rows)
+        else:
+            print(f"Error: {resp.text}")
+    except Exception as e:
+        print(f"Failed: {e}")
+
+def handle_worst_systems(args):
+    url = f"{args.url.rstrip('/')}:{args.port}/worst-systems"
+    params = {
+        "name": args.name, "verb": args.verb, "level": args.level,
+        "attempt": args.attempt, "scenario": args.scenario
+    }
+    
+    print(f"Comparing system performance for {args.name}...")
+    try:
+        resp = requests.get(url, params=params, timeout=30)
+        if resp.status_code == 200:
+            data = resp.json()
+            # In your server code, results is a list of {"system": s, "prob": p}
+            rows = [[item['system'], f"{item['prob']*100:.2f}%"] for item in data]
+            print_table(["SYSTEM", "PASS PROB"], rows)
+        else:
+            print(f"Error: {resp.text}")
+    except Exception as e:
+        print(f"Failed: {e}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Predictor API Client")
+    parser.add_argument("--url", default="http://test-predictor.canonical.com", help="API URL")
+    parser.add_argument("--port", type=int, default=5000, help="API Port")
+    parser.add_argument("--attempt", type=int, default=1)
+    parser.add_argument("--scenario", default="generic")
+
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # Predict Command
+    p_parser = subparsers.add_parser("check", help="Check single item probability")
+    p_parser.add_argument("--name", required=True)
+    p_parser.add_argument("--verb", required=True)
+    p_parser.add_argument("--level", required=True)
+    p_parser.add_argument("--system", required=True)
+
+    # Risk Command
+    r_parser = subparsers.add_parser("risk", help="List riskiest tests for a system")
+    r_parser.add_argument("--verb", required=True)
+    r_parser.add_argument("--level", required=True)
+    r_parser.add_argument("--system", required=True)
+
+    # Worst Systems Command
+    s_parser = subparsers.add_parser("compare", help="Compare test across all systems")
+    s_parser.add_argument("--name", required=True)
+    s_parser.add_argument("--verb", required=True)
+    s_parser.add_argument("--level", required=True)
+
+    args = parser.parse_args()
+
+    if args.command == "check": 
+        handle_predict(args)
+    elif args.command == "risk": 
+        handle_risk(args)
+    elif args.command == "compare": 
+        handle_worst_systems(args)
