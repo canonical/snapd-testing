@@ -1,19 +1,16 @@
 [Unit]
-Description=Standalone Python Predictor Service
+Description=Standalone Python Trainer Service
 After=network.target
 
 [Service]
-User={{USER}}
+Type=oneshot
 WorkingDirectory={{HOME}}
-Group=www-data
 Environment="PYTHONUNBUFFERED=1"
-Environment="CUDA_VISIBLE_DEVICES=-1"
-Environment="TF_CPP_MIN_LOG_LEVEL=2"
 Environment="PYTHONPATH={{HOME}}/src/common:{{HOME}}/src"
 Environment="PATH={{HOME}}/.venv/bin"
 
 # Run the script directly
-ExecStart={{HOME}}/.venv/bin/python3 src/services/jobs/predictor.py
+ExecStart={{HOME}}/.venv/bin/python3 src/services/jobs/cleaner.py
 Restart=always
 
 [Install]

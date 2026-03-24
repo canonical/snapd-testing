@@ -26,12 +26,12 @@ sed -e "s|{{USER}}|$TARGET_USER|g" -e "s|{{HOME}}|$PROJECT_ROOT|g" \
 sudo ln -sf "$PROJECT_ROOT/deploy/test-predictor-api.service" /etc/systemd/system/test-predictor-api.service
 sudo ln -sf "$PROJECT_ROOT/deploy/test-predictor.service" /etc/systemd/system/test-predictor.service
 sudo ln -sf "$PROJECT_ROOT/deploy/test-predictor-trainer.service" /etc/systemd/system/test-predictor-trainer.service
-
+sudo ln -sf "$PROJECT_ROOT/deploy/test-predictor-cleaner.service" /etc/systemd/system/test-predictor-cleaner.service
 sudo systemctl daemon-reload
 
 echo "Enabling and Restarting services to apply changes..."
-sudo systemctl enable --now test-predictor test-predictor-api test-predictor-trainer
-sudo systemctl restart test-predictor test-predictor-api test-predictor-trainer
+sudo systemctl enable --now test-predictor test-predictor-api test-predictor-trainer test-predictor-cleaner
+sudo systemctl restart test-predictor test-predictor-api test-predictor-trainer test-predictor-cleaner
 
 echo "--- Deployment Complete ---"
-sudo systemctl status test-predictor test-predictor-api test-predictor-trainer --no-pager -l
+sudo systemctl status test-predictor test-predictor-api test-predictor-trainer test-predictor-cleaner --no-pager -l

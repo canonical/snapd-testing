@@ -6,6 +6,7 @@ from flask import Flask, jsonify
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from common import config
+from common.cleaner import cleanup_and_restore
 from common.utils import setup_logging
 from common.model import ModelManager
 from common.processor import process_results
@@ -87,6 +88,14 @@ def trigger_train():
         return jsonify({"status": "success"}), 200
     return jsonify({"status": "busy_or_failed"}), 429
 
+@app.route('/internal/retrain', methods=['POST'])
+def trigger_retrain():
+    cleanup_and_restore()
+    success = perform_training_cycle()
+    if success:
+        return jsonify({"status": "success"}), 200
+    return jsonify({"status": "busy_or_failed"}), 429
+
 @app.route('/internal/status', methods=['GET'])
 def get_internal_status():
     manager = app.model_manager
@@ -103,5 +112,4 @@ scheduler.add_job(func=perform_training_cycle, trigger="interval", minutes=confi
 scheduler.start()
 
 if __name__ == "__main__":
-    # Run without Gunicorn
     app.run(host=config.SERVER_HOST, port=config.TRAINER_PORT, threaded=True)

@@ -3,7 +3,6 @@ Description=Standalone Python Trainer Service
 After=network.target
 
 [Service]
-WorkingDirectory={{HOME}}
 Group=www-data
 WorkingDirectory={{HOME}}
 Environment="PYTHONUNBUFFERED=1"

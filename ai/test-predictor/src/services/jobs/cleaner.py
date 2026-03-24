@@ -1,15 +1,32 @@
-#!/usr/bin/env python3
+import os
+import time
+from flask import Flask, jsonify
+from apscheduler.schedulers.background import BackgroundScheduler
 
-from common.config import setup_logging
- 
-logger = setup_logging("cleaner-job")
+from common import config
+from common.utils import setup_logging
+from common.cleaner import cleanup_processed_files
 
-def cleanup_processed_files():
-    return
+logger = setup_logging("cleaner-server")
+app = Flask(__name__)
 
-def rebuild_model_memory():
-    return
+@app.route('/internal/cleanup', methods=['POST'])
+def trigger_cleanup():
+    """Manual trigger for the cleanup job."""
+    success = cleanup_processed_files()
+    if success:
+        return jsonify({"status": "success", "message": "Cleanup completed"}), 200
+    return jsonify({"status": "error", "message": "Cleanup failed"}), 500
+
+
+# Initialize scheduler
+scheduler = BackgroundScheduler(daemon=True)
+scheduler.add_job(
+    func=cleanup_processed_files, 
+    trigger="interval", 
+    hours=config.CLEANER_INTERVAL_HOURS
+)
+scheduler.start()
 
 if __name__ == "__main__":
-    cleanup_processed_files()
-    rebuild_model_memory()
+    app.run(host=config.SERVER_HOST, port=config.CLEANER_PORT, threaded=True)
