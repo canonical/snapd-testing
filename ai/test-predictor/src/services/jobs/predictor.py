@@ -8,16 +8,20 @@ from flask import Flask, request, jsonify
 from common import config
 from common.utils import setup_logging
 from common.model import ModelManager
+from common.cache import SystemStateCache
 
 logger = setup_logging("predictor-server")
 app = Flask(__name__)
+
+# Initialize the cache
+app.state_cache = SystemStateCache(history_size=config.SEQUENCE_LENGTH - 1)
+app.state_cache.prime_from_disk(config.PROCESSED_DIR)
 
 # Initialize the manager once
 model_full_path = os.path.join(config.MODEL_DIR, config.MODEL_NAME)
 metadata_full_path = os.path.join(config.MODEL_DIR, config.METADATA_NAME)
 app.model_manager = ModelManager(model_full_path, metadata_full_path)
 app.model_manager.load_or_build_model()
-
 
 def validate_labels(params, keys_to_check, encoders):
     # Mapping request keys to internal encoder keys
@@ -38,6 +42,37 @@ def validate_labels(params, keys_to_check, encoders):
         if val not in encoders[mapping[k]].classes_:
             unknowns.append(f"{mapping[k]}: {val}")
     return unknowns
+
+
+# --- Helper: Encode a single data dictionary to a feature vector ---
+def encode_to_vector(data, encoders):
+    # Mapping request keys/defaults to encoder keys
+    # Note: For historical data (from .ts), keys might be full names ('name' vs 'n')
+    n = data.get('n') or data.get('name')
+    v = data.get('v') or data.get('verb')
+    l = data.get('l') or data.get('level')
+    s = data.get('s') or data.get('system')
+    scenario = data.get('scenario', config.DEFAULT_SCENARIO)
+    attempt = float(data.get('attempt', config.DEFAULT_ATTEMPT))
+    
+    # success is 1 if it passed, 0 if it failed. 
+    # For CURRENT prediction, we assume success=0.5 (neutral) or 1.0 (optimistic)
+    # until the real result comes back via Ingestion.
+    success = float(data.get('success', 1.0)) 
+    duration = float(data.get('duration_ms', config.PREDICTION_DEFAULT_DURATION))
+
+    # Actual Encoding
+    n_enc = encoders['name'].transform([n])[0]
+    v_enc = encoders['verb'].transform([v])[0]
+    l_enc = encoders['level'].transform([l])[0]
+    s_enc = encoders['system'].transform([s])[0]
+    # We use scenario as is, backend we take first class if not in data
+    b_val = data.get('backend', encoders['backend'].classes_[0])
+    b_enc = encoders['backend'].transform([b_val])[0]
+    sce_enc = encoders['scenario'].transform([scenario])[0]
+
+    # Return the 8-feature vector
+    return np.array([duration, attempt, v_enc, l_enc, b_enc, s_enc, n_enc, sce_enc], dtype='float32')
 
 
 def audit_prediction(X_input, probability, params, model_manager):
@@ -79,50 +114,60 @@ def audit_prediction(X_input, probability, params, model_manager):
 @app.route('/internal/predict', methods=['POST'])
 def predict():
     data = request.json
-    logger.info(f"Received prediction request: {data}")
-
+    system = data.get('s')
+    
     model, encoders, _ = app.model_manager.get_state()
-
     if encoders is None:
         return jsonify({"error": "Metadata not loaded"}), 503
 
-    # Validate incoming labels before transforming
+    # Validate
     keys_to_validate = ['n', 'v', 'l', 's', 'scenario']
     unknowns = validate_labels(data, keys_to_validate, encoders)
     if unknowns:
-        logger.warning(f"Validation failed: {unknowns}")
         return jsonify({"error": "Unknown labels", "details": unknowns}), 400
 
     try:
-        # Transformation logic (using the loaded 'encoders')
-        n_enc = encoders['name'].transform([data['n']])[0]
-        v_enc = encoders['verb'].transform([data['v']])[0]
-        l_enc = encoders['level'].transform([data['l']])[0]
-        s_enc = encoders['system'].transform([data['s']])[0]
-        b_enc = encoders['backend'].transform([encoders['backend'].classes_[0]])[0]
-        sce_enc = encoders['scenario'].transform([data.get('scenario', config.DEFAULT_SCENARIO)])[0]
-        attempt = float(data.get('attempt', config.DEFAULT_ATTEMPT))
-
-        # Create the flat feature vector (size 8)
-        features = np.array([config.PREDICTION_DEFAULT_DURATION, attempt, v_enc, l_enc, b_enc, s_enc, n_enc, sce_enc], dtype='float32')
-
-        # Initialize a buffer of (1, 50, 8) with zeros
-        # This creates the 50 timesteps the model expects
+        # GET CONTEXT: Last tests for this system
+        history = app.state_cache.get_context(system)
+        
+        # CONSTRUCT SEQUENCE: (1, 50, 8)
         X_input = np.zeros((1, config.SEQUENCE_LENGTH, config.NUM_FEATURES), dtype='float32')
+        
+        # Combine history + current request
+        full_sequence = history + [data]
+        
+        # Fill from the end (Pre-padding)
+        for i, raw_item in enumerate(reversed(full_sequence)):
+            if i >= config.SEQUENCE_LENGTH: break
+            vector = encode_to_vector(raw_item, encoders)
+            X_input[0, -1 - i, :] = vector
 
-        # Place the 8 features into the VERY LAST timestep (index SEQUENCE_LENGTH - 1)
-        X_input[0, -1, :] = features
-
+        # PREDICT
         prediction = model.predict(X_input, verbose=config.PREDICTION_VERBOSE)
-        logger.info(f"Prediction result for {data}: {prediction[0][0]}")
+        prob = float(prediction[0][0])
 
         if data.get('audit', config.DEFAULT_AUDIT):
-            audit_prediction(X_input, prediction[0][0], data, app.model_manager)
+            audit_prediction(X_input, prob, data, app.model_manager)
 
-        return jsonify({"probability": float(prediction[0][0])})
+        return jsonify({
+            "probability": prob,
+            "context_len": len(history)
+        })
+
     except Exception as e:
-        logger.error(f"Prediction error: {e}")
+        logger.error(f"Prediction error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+@app.route('/internal/update_context', methods=['POST'])
+def update_context():
+    """Called by Trainer Service when a real result is known."""
+    data = request.json
+    system = data.get('s') or data.get('system')
+    if system:
+        app.state_cache.update(system, data)
+        return jsonify({"status": "updated"}), 200
+    return jsonify({"error": "No system provided"}), 400
+
 
 @app.route('/internal/reload', methods=['POST'])
 def reload_model():
