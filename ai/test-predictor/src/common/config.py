@@ -12,6 +12,8 @@ MODEL_NAME = 'test_predictor_lstm.keras'
 METADATA_NAME = 'metadata.pkl'
 # This file stores the "Memory" of all predictions for auditing and future analysis.
 PREDICTION_LOG = 'prediction_audit.jsonl'
+# This file stores the "Memory" of all historical contexts for auditing and future analysis.
+HISTORY_LOG = 'history_audit.jsonl'
 # Units (64 or 128): The number of memory cells in the LSTM layer.
 LSTM_UNITS = 64
 # Dropout (0.2): Percentage of neurons to ignore during training to prevent overfitting.

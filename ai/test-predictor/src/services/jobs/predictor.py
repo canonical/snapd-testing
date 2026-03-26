@@ -111,6 +111,60 @@ def audit_prediction(X_input, probability, params, model_manager):
 
     return audit_record
 
+import json
+import time
+import os
+import numpy as np
+
+def audit_history(history, model_manager):
+    """
+    Formats the system history (last 49 tests) into a structured 
+    audit record for debugging sequence-based predictions.
+    """
+    model, encoders, last_updated = model_manager.get_state()
+    
+    # Prepare the sequence descriptions
+    # We want to see the readable names of what the LSTM 'remembered'
+    sequence_summary = []
+    
+    for i, entry in enumerate(history):
+        # Extract readable fields
+        name = entry.get('n') or entry.get('name', 'unknown')
+        verb = entry.get('v') or entry.get('verb', 'unknown')
+        success = entry.get('success', 'unknown')
+        
+        sequence_summary.append({
+            "step": i - len(history), # e.g., -49, -48...
+            "name": name,
+            "verb": verb,
+            "result": "PASS" if str(success) == "1" else "FAIL"
+        })
+
+    # Build the audit record
+    audit_record = {
+        "audit_type": "sequence_context",
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "model_version": {
+            "last_trained": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last_updated)),
+            "file": os.path.basename(model_manager.model_path)
+        },
+        "history_length": len(history),
+        "events": sequence_summary,
+        "summary": " -> ".join([f"{e['name']}({e['result']})" for e in sequence_summary[-5:]]) # Last 5 for quick look
+    }
+
+    # Log to the audit file
+    # We use a separate log or the main prediction log
+    audit_log_path = os.path.join(os.path.dirname(model_manager.model_path), "history_audit.jsonl")
+    try:
+        with open(audit_log_path, "a") as f:
+            f.write(json.dumps(audit_record) + "\n")
+    except Exception as e:
+        print(f"Error writing history audit: {e}")
+
+    return audit_record
+
+
 @app.route('/internal/predict', methods=['POST'])
 def predict():
     data = request.json
@@ -129,6 +183,9 @@ def predict():
     try:
         # GET CONTEXT: Last tests for this system
         history = app.state_cache.get_context(system)
+
+        if data.get('audit', config.DEFAULT_AUDIT):
+            audit_history(history, app.model_manager)
         
         # CONSTRUCT SEQUENCE: (1, 50, 8)
         X_input = np.zeros((1, config.SEQUENCE_LENGTH, config.NUM_FEATURES), dtype='float32')
