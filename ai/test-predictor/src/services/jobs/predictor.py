@@ -111,11 +111,6 @@ def audit_prediction(X_input, probability, params, model_manager):
 
     return audit_record
 
-import json
-import time
-import os
-import numpy as np
-
 def audit_history(history, model_manager):
     """
     Formats the system history (last 49 tests) into a structured 
@@ -155,7 +150,7 @@ def audit_history(history, model_manager):
 
     # Log to the audit file
     # We use a separate log or the main prediction log
-    audit_log_path = os.path.join(os.path.dirname(model_manager.model_path), "history_audit.jsonl")
+    audit_log_path = os.path.join(config.LOGS_DIR, config.HISTORY_LOG)
     try:
         with open(audit_log_path, "a") as f:
             f.write(json.dumps(audit_record) + "\n")
