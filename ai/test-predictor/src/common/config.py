@@ -35,7 +35,7 @@ ADAM_LEARNING_RATE = 0.0001
 
 # Sequence Length (1): How many historical runs to look at. 
 # 1 = Current run only. 10 = Look at the last 10 results.
-SEQUENCE_LENGTH = 25
+SEQUENCE_LENGTH = 10
 # The "width" of the data. It tells the AI exactly how many different pieces of information it gets for every single run.
 # Currently Duration (ms), Attempt number, Verb (encoded), Level (encoded), Backend (encoded), System (encoded), Name (encoded) and Scenario (encoded).
 NUM_FEATURES = 9
