@@ -169,9 +169,12 @@ def predict():
     if encoders is None:
         return jsonify({"error": "Metadata not loaded"}), 503
 
+    # This ensures the 'Target' matches the format used in training
+    normalized_target = app.state_cache._normalize_entry(data)
+
     # Validate
     keys_to_validate = ['n', 'v', 'l', 's', 'scenario']
-    unknowns = validate_labels(data, keys_to_validate, encoders)
+    unknowns = validate_labels(normalized_target, keys_to_validate, encoders)
     if unknowns:
         return jsonify({"error": "Unknown labels", "details": unknowns}), 400
 
@@ -186,11 +189,12 @@ def predict():
         X_input = np.zeros((1, config.SEQUENCE_LENGTH, config.NUM_FEATURES), dtype='float32')
         
         # Combine history + current request
-        full_sequence = history + [data]
+        full_sequence = history + [normalized_target]
         
         # Fill from the end (Pre-padding)
         for i, raw_item in enumerate(reversed(full_sequence)):
-            if i >= config.SEQUENCE_LENGTH: break
+            if i >= config.SEQUENCE_LENGTH: 
+                break
             vector = encode_to_vector(raw_item, encoders)
             X_input[0, -1 - i, :] = vector
 
@@ -199,7 +203,7 @@ def predict():
         prob = float(prediction[0][0])
 
         if data.get('audit', config.DEFAULT_AUDIT):
-            audit_prediction(X_input, prob, data, app.model_manager)
+            audit_prediction(X_input, prob, normalized_target, app.model_manager)
 
         return jsonify({
             "probability": prob,

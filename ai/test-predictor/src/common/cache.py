@@ -13,16 +13,44 @@ class SystemStateCache:
         self.cache = {}  # { 'system_name': [[f1, f2...], [f1, f2...]] }
         self.history_size = history_size
 
+    def _normalize_entry(self, data):
+        """Standardizes the raw dictionary to match training expectations."""
+        # Map shortened keys (n, v, l, s) to full names if necessary
+        clean = {
+            'name': data.get('n') or data.get('name'),
+            'verb': data.get('v') or data.get('verb'),
+            'level': data.get('l') or data.get('level'),
+            'system': data.get('s') or data.get('system'),
+            'success': data.get('success', 1),
+            'duration_ms': data.get('duration_ms', 0),
+            'attempt': data.get('attempt', 1),
+            'scenario': data.get('scenario', 'generic')
+        }
+
+        # Fix the NaN Name issue based on the Level
+        if not clean['name'] or str(clean['name']) == 'nan':
+            if clean['level'] == 'project':
+                clean['name'] = 'global:setup'
+            elif clean['level'] == 'suite':
+                clean['name'] = 'suite:setup'
+            else:
+                clean['name'] = 'unknown_step'
+        
+        return clean
+
     def get_context(self, system):
         """Returns the list of previous feature vectors for a system."""
         return self.cache.get(system, [])
 
-    def update(self, system, features):
-        """Updates the system history with a new observation."""
+    def update(self, system, raw_data):
+        normalized = self._normalize_entry(raw_data)
+        
         if system not in self.cache:
             self.cache[system] = []
-        self.cache[system].append(features)
-        # Maintain a rolling window of history
+            
+        self.cache[system].append(normalized)
+        
+        # Keep the sliding window of 49 previous steps
         if len(self.cache[system]) > self.history_size:
             self.cache[system] = self.cache[system][-self.history_size:]
 
