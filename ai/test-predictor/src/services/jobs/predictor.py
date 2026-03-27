@@ -178,6 +178,7 @@ def predict():
     system = data.get('s') or data.get('system')
     name = data.get('n') or data.get('name')
     verb = data.get('v') or data.get('verb')
+    attempt = data.get('attempt') or data.get('a', config.DEFAULT_ATTEMPT)
     scenario = data.get('scenario', config.DEFAULT_SCENARIO)
     
     model, encoders, _ = app.model_manager.get_state()
@@ -199,7 +200,8 @@ def predict():
         history = app.state_cache.get_context(
             system=system, 
             name=name, 
-            verb=verb, 
+            verb=verb,
+            attempt=attempt, 
             scenario=scenario
         )
 
@@ -220,7 +222,6 @@ def predict():
             X_input[0, -1 - i, :] = vector
 
         # PREDICT
-        logger.warning(f"DEBUG INPUT (Last Step): {X_input[-1, -1, :]}") 
         prediction = model.predict(X_input, verbose=config.PREDICTION_VERBOSE)
         prob = float(prediction[0][0])
 

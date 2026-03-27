@@ -38,33 +38,27 @@ class SystemStateCache:
         }
 
     def update(self, raw_data):
-        """Updates the specific [system][name][verb][scenario] bucket."""
+        """Updates the specific [system][name][verb][scenario][attempt] bucket."""
         item = self._normalize_entry(raw_data)
-        s, n, v, sce = item['system'], item['name'], item['verb'], item['scenario']
+        s, n, v, sce, a = item['system'], item['name'], item['verb'], item['scenario'], item['attempt']
 
-        # Ensure the nested path exists
-        if s not in self.cache: 
-            self.cache[s] = {}
-        if n not in self.cache[s]:
-            self.cache[s][n] = {}
-        if v not in self.cache[s][n]:
-            self.cache[s][n][v] = {}
-        if sce not in self.cache[s][n][v]:
-            self.cache[s][n][v][sce] = []
+        # Ensure the nested path exists down to the attempt level
+        self.cache.setdefault(s, {}).setdefault(n, {}).setdefault(v, {}).setdefault(sce, {}).setdefault(a, [])
 
-        # Store only the key values the LSTM needs
-        history = self.cache[s][n][v][sce]
+        history = self.cache[s][n][v][sce][a]
         history.append(item)
 
-        # Maintain sliding window
+        # Maintain sliding window for this specific attempt type
         if len(history) > self.history_size:
-            self.cache[s][n][v][sce] = history[-self.history_size:]
+            self.cache[s][n][v][sce][a] = history[-self.history_size:]
 
-    def get_context(self, system, name, verb, scenario=config.DEFAULT_SCENARIO):
-        """Retrieves history for a specific test configuration."""
+    def get_context(self, system, name, verb, attempt=config.DEFAULT_ATTEMPT, scenario=config.DEFAULT_SCENARIO):
+        """Retrieves history for a specific test and attempt number."""
         try:
-            return self.cache[system][name][verb][scenario]
+            # Now requires the attempt integer to find the right bucket
+            return self.cache[system][name][verb][scenario][int(attempt)]
         except KeyError:
+            # If no history for Attempt 2, return empty list
             return []
 
     def prime_from_disk(self, processed_dir=config.PROCESSED_DIR):
@@ -91,16 +85,16 @@ class SystemStateCache:
         if 'start' in master_df.columns:
             master_df['start'] = pd.to_datetime(master_df['start'])
             master_df = master_df.sort_values('start')
-        groups = master_df.groupby(['system', 'name', 'verb', 'scenario'])
+        groups = master_df.groupby(['system', 'name', 'verb', 'scenario', 'attempt'])
 
         logger.info("Updating cache with historical data...")
         # Populate the multi-level cache
-        for (sys, name, verb, sce), group in groups:
+        for (sys, name, verb, sce, att), group in groups:
             # Normalize and store the last N items for this specific bucket
             # We use _normalize_entry to handle the 'NaN' name logic
             history = [self._normalize_entry(r) for r in group.tail(self.history_size).to_dict('records')]
             
             # Ensure the nested structure exists and set the history
-            self.cache.setdefault(sys, {}).setdefault(name, {}).setdefault(verb, {})[sce] = history
+            self.cache.setdefault(sys, {}).setdefault(name, {}).setdefault(verb, {}).setdefault(sce, {})[att] = history
             
         logger.info("Cache primed successfully.")
