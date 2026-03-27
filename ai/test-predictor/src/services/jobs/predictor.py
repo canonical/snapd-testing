@@ -41,35 +41,53 @@ def validate_labels(params, keys_to_check, encoders):
     return unknowns
 
 
-# --- Helper: Encode a single data dictionary to a feature vector ---
 def encode_to_vector(data, encoders):
-    # Mapping request keys/defaults to encoder keys
-    # Note: For historical data (from .ts), keys might be full names ('name' vs 'n')
+    # Extract and Normalize Strings/Values
     n = data.get('n') or data.get('name')
     v = data.get('v') or data.get('verb')
     l = data.get('l') or data.get('level')
     s = data.get('s') or data.get('system')
     scenario = data.get('scenario', config.DEFAULT_SCENARIO)
+    
+    # attempt is usually small (1, 2, 3), but you can divide by 10 for safety
     attempt = float(data.get('attempt', config.DEFAULT_ATTEMPT))
     
-    # success is 1 if it passed, 0 if it failed. 
-    # For CURRENT prediction, we assume success=0.5 (neutral) or 1.0 (optimistic)
-    # until the real result comes back via Ingestion.
+    # We now include the success bit (1.0 or 0.0) in the features
+    # If it's a future prediction, we default to 1.0
     success = float(data.get('success', 1.0)) 
     duration = float(data.get('duration_ms', config.PREDICTION_DEFAULT_DURATION))
 
-    # Actual Encoding
-    n_enc = encoders['name'].transform([n])[0]
-    v_enc = encoders['verb'].transform([v])[0]
-    l_enc = encoders['level'].transform([l])[0]
-    s_enc = encoders['system'].transform([s])[0]
-    # We use scenario as is, backend we take first class if not in data
-    b_val = data.get('backend', encoders['backend'].classes_[0])
-    b_enc = encoders['backend'].transform([b_val])[0]
-    sce_enc = encoders['scenario'].transform([scenario])[0]
+    # Encode and SCALE to 0.0 - 1.0 range
+    def scale_val(key, value):
+        enc = encoders[key]
+        idx = enc.transform([value])[0]
+        num_classes = len(enc.classes_)
+        return float(idx) / (num_classes - 1) if num_classes > 1 else 0.0
 
-    # Return the 8-feature vector
-    return np.array([duration, attempt, v_enc, l_enc, b_enc, s_enc, n_enc, sce_enc], dtype='float32')
+    n_enc = scale_val('name', n)
+    v_enc = scale_val('verb', v)
+    l_enc = scale_val('level', l)
+    s_enc = scale_val('system', s)
+    
+    b_val = data.get('backend', encoders['backend'].classes_[0])
+    b_enc = scale_val('backend', b_val)
+    
+    sce_enc = scale_val('scenario', scenario)
+
+    # Return the 9-feature vector (Added Success)
+    # Ensure config.NUM_FEATURES is updated to 9 in your config.py
+    return np.array([
+        duration, 
+        attempt, 
+        v_enc, 
+        l_enc, 
+        b_enc, 
+        s_enc, 
+        n_enc, 
+        sce_enc, 
+        success
+    ], dtype='float32')
+
 
 
 def audit_prediction(X_input, probability, params, model_manager):
@@ -239,6 +257,9 @@ def reload_model():
     success = app.model_manager.reload_model()
     
     if success:
+        # This ensures Step -1 matches the data just trained
+        app.state_cache.prime_from_disk(config.PROCESSED_DIR)
+
         logger.info("Model refreshed successfully.")
         return jsonify({"status": "success", "message": "Model reloaded"}), 200
     else:

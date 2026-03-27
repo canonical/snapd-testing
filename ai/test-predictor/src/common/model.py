@@ -55,25 +55,32 @@ class ModelManager:
                     new_labels = sorted([l for l in col_data.unique() if l not in existing_classes])
 
                     if new_labels:
-                        # Append new items to the END so existing IDs (0, 1, 2...) stay the same
+                        # Append new items to the END so existing IDs stay the same
                         updated_classes = np.concatenate([existing_classes, new_labels])
                         encoders[col].classes_ = updated_classes
                         logger.info(f"Appended {len(new_labels)} new labels to {col} encoder.")
                 
-                # Apply the stable mapping to the dataframe
-                df[col] = encoders[col].transform(col_data)
+                # 1. Transform to Integer IDs
+                df[col] = encoders[col].transform(col_data).astype('float32')
 
-        # Prevent Scaler Reset (Ensures time values are consistently interpreted)
+                # 2. NEW: SCALE IDs to 0.0 - 1.0 range
+                # This ensures Name ID 500 doesn't "drown out" Success 1.0
+                num_classes = len(encoders[col].classes_)
+                if num_classes > 1:
+                    df[col] = df[col] / (num_classes - 1)
+                else:
+                    df[col] = 0.0
+
+        # Prevent Scaler Reset for duration_ms
         if not hasattr(scaler, 'scale_'):
             logger.info("Initializing global scaler for duration_ms...")
-            # We fit on the first batch to set the min/max baseline
             df[['duration_ms']] = scaler.fit_transform(df[['duration_ms']])
         else:
-            # We only transform thereafter to maintain the same scale across all runs
             df[['duration_ms']] = scaler.transform(df[['duration_ms']])
 
-        logger.info(f"Preprocessed {len(df)} rows.")
+        logger.info(f"Preprocessed {len(df)} rows. All features normalized to [0, 1].")
         return df
+
 
     def _prepare_sequences(self, df):
         sequences, targets = [], []
