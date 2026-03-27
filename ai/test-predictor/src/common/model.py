@@ -82,12 +82,19 @@ class ModelManager:
         return df
 
     def _prepare_sequences(self, df):
+        # Sort by time
         if 'start' in df.columns:
             df['start'] = pd.to_datetime(df['start'])
             df = df.sort_values(by='start')
 
         sequences, targets = [], []
         
+        # Identify 'executing' rows while the column is still strings/raw
+        # If _preprocess_dataframe was already called, 'verb' is now numeric.
+        # We check for both just in case.
+        is_executing = (df['verb'] == 'executing')
+        
+        # Process groups
         for _, group in df.groupby('system'):
             feature_cols = [
                 'duration_ms', 'attempt', 'verb', 'level', 
@@ -97,28 +104,25 @@ class ModelManager:
             group_features = group[feature_cols].values
             group_targets = group['success'].values
             
-            # ONLY CREATE SAMPLES FOR 'executing' ROWS ---
-            # We use the history (including preparing/restoring) as the WINDOW,
-            # but we only care about predicting the 'executing' outcome.
-            
-            # Find indices where verb is 'executing'
-            # Note: You'll need to know the encoded ID for 'executing' 
-            # or just use a mask on the original dataframe before .values
-            exec_indices = group.index[group['verb'] == 'executing'].tolist()
-            
-            # Get the relative integer positions of 'executing' rows within this group
-            group_positions = [group.index.get_loc(idx) for idx in exec_indices]
+            # Find the positions of 'executing' within this specific group
+            # We use the mask we created earlier
+            group_mask = is_executing.loc[group.index].values
+            exec_positions = np.where(group_mask)[0]
 
-            for i in group_positions:
+            for i in exec_positions:
                 start_idx = max(0, i - config.SEQUENCE_LENGTH + 1)
                 window = group_features[start_idx : i + 1]
                 
                 sequences.append(window)
                 targets.append(group_targets[i])
         
+        if not sequences:
+            return np.array([]), np.array([])
+
         X = pad_sequences(sequences, maxlen=config.SEQUENCE_LENGTH, padding='pre', dtype='float32')
         logger.info(f"Prepared {len(X)} sequences (focused on executions).")
         return X, np.array(targets)
+
 
     def exists(self):
         return os.path.exists(self.model_path) and os.path.exists(self.metadata_path)
