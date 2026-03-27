@@ -111,7 +111,7 @@ def handle_list(args):
         print(f"Failed to fetch list: {e}")
 
 def handle_context(args):
-    """Fetches prediction PLUS the historical context used by the LSTM."""
+    """Fetches prediction PLUS context"""
     url = f"{args.url.rstrip('/')}:{args.port}/predict-with-history"
     params = {
         "name": args.name, "verb": args.verb, "level": args.level,
@@ -131,23 +131,17 @@ def handle_context(args):
             print(f"Context: {len(history)} historical steps found in cache.")
             
             if history:
-                # Format history for the table
-                # history items contain: start, duration_ms, attempt, success
                 rows = []
                 for i, entry in enumerate(history):
-                    if entry.get('success') == 1:
-                        res = "PASS"
-                    else:
-                        res = "FAIL"
+                    res = "PASS" if entry.get('success') == 1 else "FAIL"
 
                     rows.append([
                         f"Step -{len(history)-i}",
                         entry.get('start', 'N/A')[:19], # Truncate timestamp
-                        f"{entry.get('duration_ms', 0):.0f}ms",
                         f"Atmt {entry.get('attempt', 1)}",
                         res
                     ])
-                print_table(["OFFSET", "START TIME", "DURATION", "TRY", "RESULT"], rows)
+                print_table(["OFFSET", "START TIME", "TRY", "RESULT"], rows)
             else:
                 print("No history available for this specific test/system/verb.")
         else:

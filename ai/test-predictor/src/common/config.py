@@ -38,7 +38,6 @@ ADAM_LEARNING_RATE = 0.0001
 SEQUENCE_LENGTH = 15
 # This list must match the EXACT order used during model.fit() as in the .ts files
 FEATURE_COLUMNS = [
-    'duration_ms', 
     'scenario', 
     'attempt', 
     'verb', 
@@ -49,13 +48,10 @@ FEATURE_COLUMNS = [
     'success'
 ]
 # The "width" of the data. It tells the AI exactly how many different pieces of information it gets for every single run.
-# Currently Duration (ms), Attempt number, Verb (encoded), Level (encoded), Backend (encoded), System (encoded), Name (encoded) and Scenario (encoded).
+# Attempt number, Verb (encoded), Level (encoded), Backend (encoded), System (encoded), Name (encoded) and Scenario (encoded).
 NUM_FEATURES = len(FEATURE_COLUMNS)
 # Validation Split (0.2): 20% of data is hidden from the trainer to test accuracy.
 VALIDATION_SPLIT = 0.2
-# The normalized duration (0.0 to 1.0) used during inference.
-# 0.0 represents the minimum duration seen during training.
-PREDICTION_DEFAULT_DURATION = 0.0
 
 # Training Settings
 

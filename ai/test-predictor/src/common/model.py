@@ -37,143 +37,81 @@ class ModelManager:
             pickle.dump((encoders, scaler), f)
 
     def _preprocess_dataframe(self, df, encoders, scaler):
-        """
-        Normalizes and encodes raw test data into a format suitable for LSTM input.
-        
-        This method performs three critical transformations:
-        1. Incremental Label Encoding: Maps strings to integers but ensures 
-           existing IDs never change (prevents 'ID Shifting').
-        2. Categorical Scaling: Divides all integer IDs by the max class count 
-           to keep them in a [0, 1] range.
-        3. Duration Scaling: Uses a global MinMaxScaler to normalize test 
-           timing consistently across all training sessions.
+        # HANDLE SUCCESS (Binary Force)
+        if 'success' in df.columns:
+            # Convert numeric/strings to float, force binary 0 or 1
+            df['success'] = pd.to_numeric(df['success'], errors='coerce').fillna(0)
+            df['success'] = (df['success'] >= 1).astype('float32')
 
-        Args:
-            df (pd.DataFrame): Raw dataframe containing 'name', 'verb', etc.
-            encoders (dict): Dictionary of LabelEncoder objects per category.
-            scaler (MinMaxScaler): The global scaler for 'duration_ms'.
+        # HANDLE ATTEMPT (Simple scaling to 0-1)
+        if 'attempt' in df.columns:
+            # Assume 10 as a reasonable max attempt to keep value small
+            df['attempt'] = pd.to_numeric(df['attempt'], errors='coerce').fillna(1).astype('float32') / 10.0
 
-        Returns:
-            pd.DataFrame: A dataframe where all values are float32 in range [0, 1].
-
-        Example:
-            Input Data:
-            Name: 'apt-test' (Encoded ID: 100), Success: 1.0, Duration: 5000ms
-            
-            If total unique Names known is 201:
-            1. Encoding: 'apt-test' -> 100.0
-            2. Scaling: 100 / (201 - 1) -> 0.5
-            3. Final Feature Vector: [..., 0.5, 1.0, ...]
-            
-            This ensures that 'Success' (1.0) and 'Name' (0.5) have comparable 
-            mathematical weight during the LSTM's Matrix Multiplication.
-        """
+        # CATEGORICAL ENCODING
+        # Note: 'success' and 'attempt' are excluded from cat_cols as they are handled above
         cat_cols = ['verb', 'level', 'backend', 'system', 'name', 'scenario']
         
         for col in cat_cols:
             if col in df.columns:
-                # Force string type for consistent categorical treatment
-                col_data = df[col].astype(str)
+                col_data = df[col].astype(str).fillna("unknown")
                 
                 if col not in encoders:
-                    # INITIAL CREATION: Establish a stable base by sorting unique labels
                     encoders[col] = LabelEncoder()
                     base_labels = sorted(col_data.unique())
                     encoders[col].classes_ = np.array(base_labels)
-                    logger.info(f"Initialized encoder for {col} with {len(base_labels)} classes.")
                 else:
-                    # INCREMENTAL UPDATE: Append only to prevent ID shifting
                     existing_classes = encoders[col].classes_
                     new_labels = sorted([l for l in col_data.unique() if l not in existing_classes])
-
                     if new_labels:
-                        # Append new items to the END so existing IDs stay the same
-                        updated_classes = np.concatenate([existing_classes, new_labels])
-                        encoders[col].classes_ = updated_classes
-                        logger.info(f"Appended {len(new_labels)} new labels to {col} encoder.")
+                        encoders[col].classes_ = np.concatenate([existing_classes, new_labels])
                 
-                # 1. Transform to Integer IDs
+                # Transform to IDs and Scale 0.0 - 1.0
                 df[col] = encoders[col].transform(col_data).astype('float32')
-
-                # 2. NEW: SCALE IDs to 0.0 - 1.0 range
-                # This ensures Name ID 500 doesn't "drown out" Success 1.0
                 num_classes = len(encoders[col].classes_)
                 if num_classes > 1:
                     df[col] = df[col] / (num_classes - 1)
                 else:
                     df[col] = 0.0
 
-        # Prevent Scaler Reset for duration_ms
-        if not hasattr(scaler, 'scale_'):
-            logger.info("Initializing global scaler for duration_ms...")
-            df[['duration_ms']] = scaler.fit_transform(df[['duration_ms']])
-        else:
-            df[['duration_ms']] = scaler.transform(df[['duration_ms']])
-
         logger.info(f"Preprocessed {len(df)} rows.")
         return df
 
     def _prepare_sequences(self, df):
         """
-        Transforms a DataFrame of test results into 3D sequences for LSTM training.
-        
-        This method uses a sliding window approach to capture the chronological 'story' 
-        of a system. For every row, it looks back at the previous (N-1) events to 
-        provide context for the current result.
-
-        Args:
-            df (pd.DataFrame): Preprocessed dataframe containing 9 normalized 
-                features and a 'start' timestamp.
-
-        Returns:
-            tuple: (X, y) where X is a 3D NumPy array of shape 
-                (samples, SEQUENCE_LENGTH, 9) and y is a 1D array of results.
-
-        Example:
-            If SEQUENCE_LENGTH = 3 and a system has these events:
-            1. [Prep, apt, Pass]
-            2. [Exec, apt, Pass]
-            3. [Rest, apt, Pass]
-            4. [Prep, snap, Fail]
-
-            The sliding window produces these samples:
-            Sample 1: [[0,0,0], [0,0,0], [Prep,apt,Pass]] -> Target: Pass
-            Sample 2: [[0,0,0], [Prep,apt,Pass], [Exec,apt,Pass]] -> Target: Pass
-            Sample 3: [[Prep,apt,Pass], [Exec,apt,Pass], [Rest,apt,Pass]] -> Target: Pass
-            Sample 4: [[Exec,apt,Pass], [Rest,apt,Pass], [Prep,snap,Fail]] -> Target: Fail
+        Transforms DataFrame into 3D sequences using global FEATURE_COLUMNS.
+        Ensures chronological order and pads to SEQUENCE_LENGTH.
         """
-        # Ensure chronological order for the sliding window
         if 'start' in df.columns:
             df['start'] = pd.to_datetime(df['start'])
             df = df.sort_values(by='start')
 
+        # Single Source of Truth from config.py
+        feature_cols = config.FEATURE_COLUMNS
         sequences, targets = [], []
         
-        # Use the Single Source of Truth for feature order
-        feature_cols = config.FEATURE_COLUMNS
-        
-        # Group by system to maintain separate timelines
         for _, group in df.groupby('system'):
+            # Ensure all required features exist
+            available_cols = [c for c in feature_cols if c in group.columns]
+            if len(available_cols) < len(feature_cols):
+                continue
+
             group_features = group[feature_cols].values
             group_targets = group['success'].values
             
-            # Create a sliding window for EVERY row in the group
             for i in range(len(group_features)):
                 start_idx = max(0, i - config.SEQUENCE_LENGTH + 1)
                 window = group_features[start_idx : i + 1]
-                
                 sequences.append(window)
                 targets.append(group_targets[i])
         
         if not sequences:
             return np.array([]), np.array([])
 
-        # Pad sequences so they all match SEQUENCE_LENGTH
         X = pad_sequences(sequences, maxlen=config.SEQUENCE_LENGTH, padding='pre', dtype='float32')
         
         logger.info(f"Prepared {len(X)} sequences with {X.shape[2]} features.")
         return X, np.array(targets)
-
 
     def exists(self):
         return os.path.exists(self.model_path) and os.path.exists(self.metadata_path)

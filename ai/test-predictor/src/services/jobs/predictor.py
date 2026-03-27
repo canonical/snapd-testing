@@ -54,7 +54,6 @@ def encode_to_vector(data, encoders):
     # We now include the success bit (1.0 or 0.0) in the features
     # If it's a future prediction, we default to 1.0
     success = float(data.get('success', 1.0)) 
-    duration = float(data.get('duration_ms', config.PREDICTION_DEFAULT_DURATION))
 
     # Encode and SCALE to 0.0 - 1.0 range
     def scale_val(key, value):
@@ -73,10 +72,9 @@ def encode_to_vector(data, encoders):
     
     sce_enc = scale_val('scenario', scenario)
 
-    # Return the 9-feature vector (Added Success)
+    # Return the feature vector (Added Success)
     # Ensure config.NUM_FEATURES is updated to 9 in your config.py
     return np.array([
-        duration, 
         attempt, 
         v_enc, 
         l_enc, 
@@ -100,7 +98,7 @@ def audit_prediction(X_input, probability, params, model_manager):
     current_features = X_input[0, -1, :].tolist() 
     
     # Map features back to names for readability
-    feature_names = ['duration_ms', 'attempt', 'verb', 'level', 'backend', 'system', 'name', 'scenario']
+    feature_names = ['attempt', 'verb', 'level', 'backend', 'system', 'name', 'scenario']
     feature_map = dict(zip(feature_names, current_features))
 
     # Build the audit record
@@ -222,6 +220,7 @@ def predict():
             X_input[0, -1 - i, :] = vector
 
         # PREDICT
+        logger.warning(f"DEBUG INPUT (Last Step): {X_input[-1, -1, :]}") 
         prediction = model.predict(X_input, verbose=config.PREDICTION_VERBOSE)
         prob = float(prediction[0][0])
 

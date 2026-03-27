@@ -33,7 +33,6 @@ class SystemStateCache:
             'system': str(data.get('s') or data.get('system', 'unknown')),
             'scenario': str(data.get('scenario', 'generic')),
             'success': int(data.get('success', 1)),
-            'duration_ms': float(data.get('duration_ms', 0.0)),
             'attempt': int(data.get('attempt', 1)),
             'start': data.get('start', '')
         }
