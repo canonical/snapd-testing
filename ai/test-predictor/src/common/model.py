@@ -324,7 +324,24 @@ class ModelManager:
                 # Training
                 X_train = np.concatenate(all_X, axis=0)
                 y_train = np.concatenate(all_y, axis=0)
-                
+
+                # LOG DISTRIBUTION: If you see 0 failures here, the model can't learn!
+                unique, counts = np.unique(y_train, return_counts=True)
+                dist = dict(zip(unique, counts))
+                logger.info(f"Target distribution (0=Fail, 1=Pass): {dist}")
+
+                # CALCULATE CLASS WEIGHTS
+                # This makes the model 'fear' missing a failure (0)
+                class_weight_dict = None
+                if len(unique) > 1:
+                    weights = class_weight.compute_class_weight(
+                        class_weight='balanced',
+                        classes=unique,
+                        y=y_train
+                    )
+                    class_weight_dict = dict(zip(unique, weights))
+                    logger.info(f"Calculated Class Weights: {class_weight_dict}")
+
                 model = self.load_or_build_model(input_shape=(X_train.shape[1], X_train.shape[2]))
                 
                 total_samples = len(X_train)
