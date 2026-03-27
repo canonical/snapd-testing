@@ -81,21 +81,14 @@ class ModelManager:
         logger.info(f"Preprocessed {len(df)} rows. All features normalized to [0, 1].")
         return df
 
-    def _prepare_sequences(self, df):
-        # Sort by time
-        if 'start' in df.columns:
-            df['start'] = pd.to_datetime(df['start'])
-            df = df.sort_values(by='start')
+    def _prepare_sequences(self, df, raw_verbs):
+        # Align index
+        raw_verbs = raw_verbs.reindex(df.index)
 
         sequences, targets = [], []
         
-        # Identify 'executing' rows while the column is still strings/raw
-        # If _preprocess_dataframe was already called, 'verb' is now numeric.
-        # We check for both just in case.
-        is_executing = (df['verb'] == 'executing')
-        
-        # Process groups
         for _, group in df.groupby('system'):
+            # Must match your config.NUM_FEATURES = 9
             feature_cols = [
                 'duration_ms', 'attempt', 'verb', 'level', 
                 'backend', 'system', 'name', 'scenario', 'success'
@@ -104,12 +97,12 @@ class ModelManager:
             group_features = group[feature_cols].values
             group_targets = group['success'].values
             
-            # Find the positions of 'executing' within this specific group
-            # We use the mask we created earlier
-            group_mask = is_executing.loc[group.index].values
-            exec_positions = np.where(group_mask)[0]
+            # Use the raw_verbs copy to find the indices of 'executing' rows
+            group_raw_verbs = raw_verbs.loc[group.index].values
+            exec_indices = np.where(group_raw_verbs == 'executing')[0]
 
-            for i in exec_positions:
+            for i in exec_indices:
+                # Sliding window of history leading up to this execution
                 start_idx = max(0, i - config.SEQUENCE_LENGTH + 1)
                 window = group_features[start_idx : i + 1]
                 
@@ -222,9 +215,11 @@ class ModelManager:
                             os.remove(ts_file)
                             continue
                         
+                        raw_verbs = df['verb'].copy()
+
                         # Preprocess (using the updated _preprocess_dataframe logic)
                         proc_df = self._preprocess_dataframe(df, enc, scal)
-                        X, y = self._prepare_sequences(proc_df)
+                        X, y = self._prepare_sequences(proc_df, raw_verbs)
                         
                         if len(X) > 0:
                             all_X.append(X)
@@ -288,9 +283,6 @@ class ModelManager:
             except Exception as e:
                 logger.error(f"Training failed: {e}", exc_info=True)
                 return False
-
-
-
 
     def get_state(self):
         # If not loaded yet, try a one-time load
