@@ -230,7 +230,9 @@ class ModelManager:
                 logger.info(f"Building fresh model with input shape {input_shape}")
                 model = Sequential([
                     Input(shape=input_shape),
-                    LSTM(config.LSTM_UNITS),
+                    LSTM(config.LSTM_UNITS, return_sequences=True),
+                    Dropout(config.DROPOUT_RATE),
+                    LSTM(config.SECOND_LSTM_UNITS),
                     Dropout(config.DROPOUT_RATE),
                     Dense(config.DENSE_UNITS, activation=config.HIDDEN_ACTIVATION),
                     Dense(config.OUTPUT_UNITS, activation=config.OUTPUT_ACTIVATION)
@@ -332,7 +334,8 @@ class ModelManager:
 
                 # CALCULATE CLASS WEIGHTS
                 # This makes the model 'fear' missing a failure (0)
-                class_weight_dict = None
+                # Force the model to pay 50x more attention to Failures
+                class_weight_dict = {0: 50.0, 1: 1.0}
                 if len(unique) > 1:
                     weights = class_weight.compute_class_weight(
                         class_weight='balanced',

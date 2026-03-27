@@ -16,6 +16,8 @@ PREDICTION_LOG = 'prediction_audit.jsonl'
 HISTORY_LOG = 'history_audit.jsonl'
 # Units (64 or 128): The number of memory cells in the LSTM layer.
 LSTM_UNITS = 64
+# Units (32): The number of memory cells in the second LSTM layer, if used.
+SECOND_LSTM_UNITS = 32
 # Dropout (0.2): Percentage of neurons to ignore during training to prevent overfitting.
 DROPOUT_RATE = 0.2
 # Neurons (32): The size of the decision-making Dense layer.
