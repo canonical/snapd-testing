@@ -142,28 +142,23 @@ class ModelManager:
             Sample 3: [[Prep,apt,Pass], [Exec,apt,Pass], [Rest,apt,Pass]] -> Target: Pass
             Sample 4: [[Exec,apt,Pass], [Rest,apt,Pass], [Prep,snap,Fail]] -> Target: Fail
         """
-
-        # Ensure chronological order
+        # Ensure chronological order for the sliding window
         if 'start' in df.columns:
             df['start'] = pd.to_datetime(df['start'])
             df = df.sort_values(by='start')
 
         sequences, targets = [], []
         
+        # Use the Single Source of Truth for feature order
+        feature_cols = config.FEATURE_COLUMNS
+        
         # Group by system to maintain separate timelines
         for _, group in df.groupby('system'):
-            # Must match config.NUM_FEATURES = 9
-            feature_cols = [
-                'duration_ms', 'attempt', 'verb', 'level', 
-                'backend', 'system', 'name', 'scenario', 'success'
-            ]
-            
             group_features = group[feature_cols].values
             group_targets = group['success'].values
             
             # Create a sliding window for EVERY row in the group
             for i in range(len(group_features)):
-                # Take the last N steps leading up to the current row
                 start_idx = max(0, i - config.SEQUENCE_LENGTH + 1)
                 window = group_features[start_idx : i + 1]
                 
@@ -173,10 +168,10 @@ class ModelManager:
         if not sequences:
             return np.array([]), np.array([])
 
-        # Use pre-padding (standard for LSTMs to keep recent data at the end)
+        # Pad sequences so they all match SEQUENCE_LENGTH
         X = pad_sequences(sequences, maxlen=config.SEQUENCE_LENGTH, padding='pre', dtype='float32')
         
-        logger.info(f"Prepared {len(X)} sequences (Full lifecycle).")
+        logger.info(f"Prepared {len(X)} sequences with {X.shape[2]} features.")
         return X, np.array(targets)
 
 

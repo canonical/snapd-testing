@@ -35,10 +35,22 @@ ADAM_LEARNING_RATE = 0.0001
 
 # Sequence Length (1): How many historical runs to look at. 
 # 1 = Current run only. 10 = Look at the last 10 results.
-SEQUENCE_LENGTH = 10
+SEQUENCE_LENGTH = 15
+# This list must match the EXACT order used during model.fit() as in the .ts files
+FEATURE_COLUMNS = [
+    'duration_ms', 
+    'scenario', 
+    'attempt', 
+    'verb', 
+    'level', 
+    'backend', 
+    'system', 
+    'name', 
+    'success'
+]
 # The "width" of the data. It tells the AI exactly how many different pieces of information it gets for every single run.
 # Currently Duration (ms), Attempt number, Verb (encoded), Level (encoded), Backend (encoded), System (encoded), Name (encoded) and Scenario (encoded).
-NUM_FEATURES = 9
+NUM_FEATURES = len(FEATURE_COLUMNS)
 # Validation Split (0.2): 20% of data is hidden from the trainer to test accuracy.
 VALIDATION_SPLIT = 0.2
 # The normalized duration (0.0 to 1.0) used during inference.
@@ -57,7 +69,6 @@ EPOCHS = 5
 BATCH_SIZE = 32
 # Verbose (0): No output. 1: Progress bar. 2: One line per epoch.
 TRAINING_VERBOSE = 0
-
 # To prevent the trainer from getting overwhelmed, we can set a cap on how many files it processes in one go.
 TRAINING_MAX_FILES = 200
 # To prevent the trainer from getting overwhelmed, we can also set a cap on how many rows it processes in one go.

@@ -67,12 +67,7 @@ def _clean_and_transform_data(raw_data, scenario, attempt):
     df = df.sort_values(by=['instance', 'start_dt'])
 
     # FINAL COLUMN ORDER
-    requested_order = [
-        'runid', 'instance', 'start', 'duration_ms', 'scenario', 'attempt', 
-        'verb', 'level', 'backend', 'system', 'name', 'success'
-    ]
-    
-    final_cols = [c for c in requested_order if c in df.columns]
+    final_cols = [c for c in config.FEATURE_COLUMNS if c in df.columns]
 
     logger.info(f"Transformed data for run_id={run_id} with {len(df)} items and columns: {final_cols}")
     return df[final_cols], run_id
