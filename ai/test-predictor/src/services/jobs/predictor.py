@@ -24,23 +24,20 @@ app.model_manager = ModelManager(model_full_path, metadata_full_path)
 app.model_manager.load_or_build_model()
 
 def validate_labels(params, keys_to_check, encoders):
-    # Mapping request keys to internal encoder keys
-    mapping = {
-        'n': 'name', 
-        'v': 'verb', 
-        'l': 'level', 
-        's': 'system', 
-        'scenario': 'scenario'
-    }
+    # Since 'params' is now the 'normalized_target', 
+    # the keys in params are already 'name', 'verb', etc.
     unknowns = []
     for k in keys_to_check:
-        # Get value, defaulting to config if it's the scenario key
         val = params.get(k)
-        if k == 'scenario' and not val:
-            val = config.DEFAULT_SCENARIO
+        
+        # Ensure we are checking against the correct LabelEncoder
+        # encoders keys are: 'name', 'verb', 'level', 'system', 'scenario'
+        if k in encoders:
+            if val not in encoders[k].classes_:
+                unknowns.append(f"{k}: {val}")
+        else:
+            logger.warning(f"Encoder for key {k} not found during validation")
             
-        if val not in encoders[mapping[k]].classes_:
-            unknowns.append(f"{mapping[k]}: {val}")
     return unknowns
 
 
