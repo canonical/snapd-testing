@@ -339,7 +339,7 @@ class ModelManager:
                 # CALCULATE CLASS WEIGHTS
                 # This makes the model 'fear' missing a failure (0)
                 # Force the model to pay 50x more attention to Failures
-                class_weight_dict = {0: 5.0, 1: 1.0}
+                class_weight_dict = {0: config.WEIGHT_NEGATIVE_CLASS, 1: config.WEIGHT_POSITIVE_CLASS}
                 if len(unique) > 1:
                     weights = class_weight.compute_class_weight(
                         class_weight='balanced',

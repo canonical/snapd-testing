@@ -62,6 +62,9 @@ TRAINING_VERBOSE = 0
 TRAINING_MAX_FILES = 200
 # To prevent the trainer from getting overwhelmed, we can also set a cap on how many rows it processes in one go.
 TRAINING_CHUNKS_SIZE = 30000
+# Weights used during training to handle class imbalance. The model will "pay more attention" to the underrepresented class.
+WEIGHT_POSITIVE_CLASS = 1.0
+WEIGHT_NEGATIVE_CLASS = 2.0
 
 # Prediction Settings
 # Verbose (0): No output. 1: Progress bar. 2: One line per epoch.
