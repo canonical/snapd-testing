@@ -24,20 +24,19 @@ app.model_manager = ModelManager(model_full_path, metadata_full_path)
 app.model_manager.load_or_build_model()
 
 def validate_labels(params, keys_to_check, encoders):
-    # Since 'params' is now the 'normalized_target', 
-    # the keys in params are already 'name', 'verb', etc.
+    """
+    Validates that the values in 'params' exist in the 
+    corresponding LabelEncoder classes.
+    """
     unknowns = []
     for k in keys_to_check:
         val = params.get(k)
-        
-        # Ensure we are checking against the correct LabelEncoder
-        # encoders keys are: 'name', 'verb', 'level', 'system', 'scenario'
+        # Check if the encoder exists for this key (e.g., 'name', 'system')
         if k in encoders:
             if val not in encoders[k].classes_:
                 unknowns.append(f"{k}: {val}")
         else:
-            logger.warning(f"Encoder for key {k} not found during validation")
-            
+            logger.warning(f"No encoder found for key: {k}")
     return unknowns
 
 
@@ -190,9 +189,10 @@ def predict():
     # This ensures the 'Target' matches the format used in training
     normalized_target = app.state_cache._normalize_entry(data)
 
-    # Validate
-    keys_to_validate = ['n', 'v', 'l', 's', 'scenario']
+    # Validate: use the long names that exist in both normalized_target and encoders
+    keys_to_validate = ['name', 'verb', 'level', 'system', 'scenario']
     unknowns = validate_labels(normalized_target, keys_to_validate, encoders)
+
     if unknowns:
         return jsonify({"error": "Unknown labels", "details": unknowns}), 400
 
