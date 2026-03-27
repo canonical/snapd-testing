@@ -271,16 +271,6 @@ class ModelManager:
                     import gc
                     gc.collect()
 
-                logger.info(f"Training on {len(X_train)} sequences...")
-                model.fit(
-                    X_train, 
-                    y_train, 
-                    epochs=config.EPOCHS, 
-                    batch_size=config.BATCH_SIZE, 
-                    verbose=config.TRAINING_VERBOSE,
-                    shuffle=True 
-                )
-
                 # Persist
                 model.save(self.model_path)
                 self._save_metadata(enc, scal)
