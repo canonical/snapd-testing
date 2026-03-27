@@ -53,13 +53,28 @@ class SystemStateCache:
             self.cache[s][n][v][sce][a] = history[-self.history_size:]
 
     def get_context(self, system, name, verb, attempt=config.DEFAULT_ATTEMPT, scenario=config.DEFAULT_SCENARIO):
-        """Retrieves history for a specific test and attempt number."""
+        """Retrieves history for a specific attempt, or falls back to general history."""
+        # Try the specific attempt first (The "Apples to Apples" match)
         try:
-            # Now requires the attempt integer to find the right bucket
-            return self.cache[system][name][verb][scenario][int(attempt)]
+            specific_history = self.cache[system][name][verb][scenario][int(attempt)]
+            if specific_history:
+                return specific_history
         except KeyError:
-            # If no history for Attempt 2, return empty list
+            pass
+
+        # FALLBACK: If no history for Attempt X, find the most common history for this test
+        try:
+            # Flatten all attempt buckets for this specific test configuration
+            all_attempts = self.cache[system][name][verb][scenario]
+            # Grab history from the most frequent attempt bucket (usually Attempt 1)
+            # or just the first available one to provide SOME context to the LSTM
+            for a in sorted(all_attempts.keys()):
+                if all_attempts[a]:
+                    return all_attempts[a]
+        except KeyError:
             return []
+            
+        return []
 
     def prime_from_disk(self, processed_dir=config.PROCESSED_DIR):
         """Reconstructs the specific histories from all .ts files."""
