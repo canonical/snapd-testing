@@ -81,14 +81,21 @@ class ModelManager:
         logger.info(f"Preprocessed {len(df)} rows. All features normalized to [0, 1].")
         return df
 
-    def _prepare_sequences(self, df, raw_verbs):
-        # Align index
-        raw_verbs = raw_verbs.reindex(df.index)
+    def _prepare_sequences(self, df):
+        """
+        Generates sliding window sequences for all rows (Preparing, Executing, Restoring)
+        to capture the full test lifecycle.
+        """
+        # Ensure chronological order
+        if 'start' in df.columns:
+            df['start'] = pd.to_datetime(df['start'])
+            df = df.sort_values(by='start')
 
         sequences, targets = [], []
         
+        # Group by system to maintain separate timelines
         for _, group in df.groupby('system'):
-            # Must match your config.NUM_FEATURES = 9
+            # Must match config.NUM_FEATURES = 9
             feature_cols = [
                 'duration_ms', 'attempt', 'verb', 'level', 
                 'backend', 'system', 'name', 'scenario', 'success'
@@ -97,12 +104,9 @@ class ModelManager:
             group_features = group[feature_cols].values
             group_targets = group['success'].values
             
-            # Use the raw_verbs copy to find the indices of 'executing' rows
-            group_raw_verbs = raw_verbs.loc[group.index].values
-            exec_indices = np.where(group_raw_verbs == 'executing')[0]
-
-            for i in exec_indices:
-                # Sliding window of history leading up to this execution
+            # Create a sliding window for EVERY row in the group
+            for i in range(len(group_features)):
+                # Take the last N steps leading up to the current row
                 start_idx = max(0, i - config.SEQUENCE_LENGTH + 1)
                 window = group_features[start_idx : i + 1]
                 
@@ -112,8 +116,10 @@ class ModelManager:
         if not sequences:
             return np.array([]), np.array([])
 
+        # Use pre-padding (standard for LSTMs to keep recent data at the end)
         X = pad_sequences(sequences, maxlen=config.SEQUENCE_LENGTH, padding='pre', dtype='float32')
-        logger.info(f"Prepared {len(X)} sequences (focused on executions).")
+        
+        logger.info(f"Prepared {len(X)} sequences (Full lifecycle).")
         return X, np.array(targets)
 
 
@@ -196,93 +202,79 @@ class ModelManager:
 
         with self.training_lock:
             try:
-                # Load metadata and existing model (or build a fresh one)
-                enc, scal = self._get_metadata()
+                #  Store a copy of ALL files to move later
+                all_ts_files_to_move = [f for f in ts_files if f.endswith(".ts")]
                 
-                all_X = []
-                all_y = []
-                files_to_move = []
+                # Sort and CAP the training set only
+                ts_files.sort(key=os.path.getmtime, reverse=True)
+                total_available = len(ts_files)
+                training_subset = ts_files[:config.TRAINING_MAX_FILES]
+                
+                logger.info(f"Cleanup: {total_available} files will be moved. "
+                            f"Training: Using {len(training_subset)} most recent.")
 
-                logger.info(f"Aggregating {len(ts_files)} files for batch training...")
+                enc, scal = self._get_metadata()
+                all_X, all_y = [], []
 
-                # Collection Loop: Process all files into memory first
-                for ts_file in ts_files:
-                    if not ts_file.endswith(".ts"):
-                        continue
+                # Aggregation Loop (Only on the subset)
+                for ts_file in training_subset:
                     try:
                         df = pd.read_csv(ts_file)
                         if df.empty:
-                            os.remove(ts_file)
                             continue
                         
-                        raw_verbs = df['verb'].copy()
-
-                        # Preprocess (using the updated _preprocess_dataframe logic)
                         proc_df = self._preprocess_dataframe(df, enc, scal)
-                        X, y = self._prepare_sequences(proc_df, raw_verbs)
+                        X, y = self._prepare_sequences(proc_df)
                         
                         if len(X) > 0:
                             all_X.append(X)
                             all_y.append(y)
-                            files_to_move.append(ts_file)
                             
                     except Exception as e:
                         logger.error(f"Error reading {ts_file}: {e}")
 
                 if not all_X:
-                    logger.warning("No valid training data found in provided files.")
+                    logger.warning("No valid training data found in subset.")
+                    # Even if training fails, we don't move files to avoid losing data
                     return False
 
-                # Concatenate all sequences into single arrays for the optimizer
+                # Training
                 X_train = np.concatenate(all_X, axis=0)
                 y_train = np.concatenate(all_y, axis=0)
-                
-                # Re-fetch or build model now that we know the input shape (X_train.shape[1:])
                 model = self.load_or_build_model(input_shape=(X_train.shape[1], X_train.shape[2]))
 
-                # Calculate Class Weights using sklearn
-                # This fixes the "always 0.99" problem by making failures more important
-                # unique_classes = np.unique(y_train)
-                #weights = class_weight.compute_class_weight(
-                #    class_weight='balanced',
-                #    classes=unique_classes,
-                #    y=y_train
-                #)
-                #class_weight_dict = dict(zip(unique_classes, weights))
-                #class_weight_dict = None
-                
-                logger.info(f"Training on {len(X_train)} total sequences...")
-                
-                # Single fit call: Training on the full batch prevents catastrophic forgetting
+                logger.info(f"Training on {len(X_train)} sequences...")
                 model.fit(
                     X_train, 
                     y_train, 
                     epochs=config.EPOCHS, 
                     batch_size=config.BATCH_SIZE, 
-                    #class_weight=class_weight_dict,
                     verbose=config.TRAINING_VERBOSE,
                     shuffle=True 
                 )
 
-                # Save model and the updated metadata (encoders/scaler)
+                # Persist
                 model.save(self.model_path)
                 self._save_metadata(enc, scal)
                 
-                # Move files to processed directory only after successful save
-                for path in files_to_move:
+                # Finalize: Move ALL files originally in the directory
+                files_moved = 0
+                for path in all_ts_files_to_move:
+                    if not os.path.exists(path): continue
                     dest = os.path.join(processed_dir, os.path.basename(path))
-                    # Handle existing files in processed_dir
                     if os.path.exists(dest):
                         os.remove(dest)
                     shutil.move(path, dest)
+                    files_moved += 1
 
-                logger.info("Training complete. Syncing in-memory state...")
+                logger.info(f"Training complete. Moved {files_moved} files to processed.")
                 self._load_from_disk()
                 return True
 
             except Exception as e:
                 logger.error(f"Training failed: {e}", exc_info=True)
                 return False
+
 
     def get_state(self):
         # If not loaded yet, try a one-time load

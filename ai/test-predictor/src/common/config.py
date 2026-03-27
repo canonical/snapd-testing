@@ -54,6 +54,9 @@ BATCH_SIZE = 32
 # Verbose (0): No output. 1: Progress bar. 2: One line per epoch.
 TRAINING_VERBOSE = 0
 
+# To prevent the trainer from getting overwhelmed, we can set a cap on how many files it processes in one go.
+TRAINING_MAX_FILES = 300
+
 # Prediction Settings
 # Verbose (0): No output. 1: Progress bar. 2: One line per epoch.
 PREDICTION_VERBOSE = 1
