@@ -92,6 +92,7 @@ class SystemStateCache:
         if 'start' in master_df.columns:
             master_df['start'] = pd.to_datetime(master_df['start'])
             master_df = master_df.sort_values('start')
+        groups = master_df.groupby(['system', 'name', 'verb', 'scenario'])
 
         logger.info("Updating cache with historical data...")
         # Populate the multi-level cache
