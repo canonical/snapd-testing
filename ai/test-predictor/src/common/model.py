@@ -210,13 +210,14 @@ class ModelManager:
 
                 # Calculate Class Weights using sklearn
                 # This fixes the "always 0.99" problem by making failures more important
-                unique_classes = np.unique(y_train)
-                weights = class_weight.compute_class_weight(
-                    class_weight='balanced',
-                    classes=unique_classes,
-                    y=y_train
-                )
-                class_weight_dict = dict(zip(unique_classes, weights))
+                # unique_classes = np.unique(y_train)
+                #weights = class_weight.compute_class_weight(
+                #    class_weight='balanced',
+                #    classes=unique_classes,
+                #    y=y_train
+                #)
+                #class_weight_dict = dict(zip(unique_classes, weights))
+                #class_weight_dict = None
                 
                 logger.info(f"Training on {len(X_train)} total sequences...")
                 
@@ -226,7 +227,7 @@ class ModelManager:
                     y_train, 
                     epochs=config.EPOCHS, 
                     batch_size=config.BATCH_SIZE, 
-                    class_weight=class_weight_dict,
+                    #class_weight=class_weight_dict,
                     verbose=config.TRAINING_VERBOSE,
                     shuffle=True 
                 )
