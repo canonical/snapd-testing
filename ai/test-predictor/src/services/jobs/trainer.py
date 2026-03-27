@@ -63,7 +63,7 @@ def perform_training_cycle():
             logger.info("Notifying Predictor...")
             try:
                 predictor_url = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/reload"
-                resp = requests.post(predictor_url, timeout=5)
+                resp = requests.post(predictor_url, timeout=300)
                 if resp.status_code == 200:
                     logger.info("Predictor successfully reloaded the new model.")
                 else:

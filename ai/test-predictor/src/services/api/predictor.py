@@ -9,6 +9,7 @@ predictor_bp = Blueprint('predictor', __name__)
 # Internal URL for the standalone predictor
 PREDICTOR_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/predict"
 CATEGORY_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/list"
+CACHE_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/context"
 
 def get_params():
     try:
@@ -153,3 +154,40 @@ def proxy_list_metadata(category):
         return (response.content, response.status_code, response.headers.items())
     except Exception as e:
         return jsonify({"error": f"Predictor server unreachable: {e}"}), 502
+
+@predictor_bp.route('/predict-with-history', methods=['GET'])
+def predict_with_history():
+    """Returns the prediction PLUS the 49-step history used for the LSTM."""
+    p = get_params()
+    if not all([p['n'], p['v'], p['l'], p['s']]):
+        return jsonify({"error": "Missing params"}), 400
+    
+    # Get the Prediction
+    result, status_code = call_internal_predictor(p)
+    if status_code != 200:
+        return jsonify(result), status_code
+        
+    # Get the Context Cache from the internal server
+    try:
+        cache_resp = requests.get(CACHE_URL, params=p, timeout=5)
+        history = cache_resp.json().get('history', []) if cache_resp.status_code == 200 else []
+    except Exception as e:
+        logger.error(f"Failed to fetch history: {e}")
+        history = []
+
+    return jsonify({
+        "success_probability": result.get("probability"), 
+        "history_length": len(history),
+        "history": history,
+        "params": p
+    }), 200
+
+@predictor_bp.route('/context', methods=['GET'])
+def get_system_context():
+    """Directly retrieves the current cache for a specific test configuration."""
+    p = get_params()
+    try:
+        response = requests.get(CACHE_URL, params=p, timeout=5)
+        return (response.content, response.status_code, response.headers.items())
+    except Exception as e:
+        return jsonify({"error": f"Internal predictor unreachable: {e}"})

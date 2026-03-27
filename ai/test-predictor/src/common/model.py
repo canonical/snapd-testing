@@ -36,6 +36,37 @@ class ModelManager:
             pickle.dump((encoders, scaler), f)
 
     def _preprocess_dataframe(self, df, encoders, scaler):
+        """
+        Normalizes and encodes raw test data into a format suitable for LSTM input.
+        
+        This method performs three critical transformations:
+        1. Incremental Label Encoding: Maps strings to integers but ensures 
+           existing IDs never change (prevents 'ID Shifting').
+        2. Categorical Scaling: Divides all integer IDs by the max class count 
+           to keep them in a [0, 1] range.
+        3. Duration Scaling: Uses a global MinMaxScaler to normalize test 
+           timing consistently across all training sessions.
+
+        Args:
+            df (pd.DataFrame): Raw dataframe containing 'name', 'verb', etc.
+            encoders (dict): Dictionary of LabelEncoder objects per category.
+            scaler (MinMaxScaler): The global scaler for 'duration_ms'.
+
+        Returns:
+            pd.DataFrame: A dataframe where all values are float32 in range [0, 1].
+
+        Example:
+            Input Data:
+            Name: 'apt-test' (Encoded ID: 100), Success: 1.0, Duration: 5000ms
+            
+            If total unique Names known is 201:
+            1. Encoding: 'apt-test' -> 100.0
+            2. Scaling: 100 / (201 - 1) -> 0.5
+            3. Final Feature Vector: [..., 0.5, 1.0, ...]
+            
+            This ensures that 'Success' (1.0) and 'Name' (0.5) have comparable 
+            mathematical weight during the LSTM's Matrix Multiplication.
+        """
         cat_cols = ['verb', 'level', 'backend', 'system', 'name', 'scenario']
         
         for col in cat_cols:
@@ -83,9 +114,34 @@ class ModelManager:
 
     def _prepare_sequences(self, df):
         """
-        Generates sliding window sequences for all rows (Preparing, Executing, Restoring)
-        to capture the full test lifecycle.
+        Transforms a DataFrame of test results into 3D sequences for LSTM training.
+        
+        This method uses a sliding window approach to capture the chronological 'story' 
+        of a system. For every row, it looks back at the previous (N-1) events to 
+        provide context for the current result.
+
+        Args:
+            df (pd.DataFrame): Preprocessed dataframe containing 9 normalized 
+                features and a 'start' timestamp.
+
+        Returns:
+            tuple: (X, y) where X is a 3D NumPy array of shape 
+                (samples, SEQUENCE_LENGTH, 9) and y is a 1D array of results.
+
+        Example:
+            If SEQUENCE_LENGTH = 3 and a system has these events:
+            1. [Prep, apt, Pass]
+            2. [Exec, apt, Pass]
+            3. [Rest, apt, Pass]
+            4. [Prep, snap, Fail]
+
+            The sliding window produces these samples:
+            Sample 1: [[0,0,0], [0,0,0], [Prep,apt,Pass]] -> Target: Pass
+            Sample 2: [[0,0,0], [Prep,apt,Pass], [Exec,apt,Pass]] -> Target: Pass
+            Sample 3: [[Prep,apt,Pass], [Exec,apt,Pass], [Rest,apt,Pass]] -> Target: Pass
+            Sample 4: [[Exec,apt,Pass], [Rest,apt,Pass], [Prep,snap,Fail]] -> Target: Fail
         """
+
         # Ensure chronological order
         if 'start' in df.columns:
             df['start'] = pd.to_datetime(df['start'])
@@ -197,6 +253,33 @@ class ModelManager:
             return None
 
     def train(self, ts_files, processed_dir):
+        """
+        Orchestrates the batch training process using a subset of the most recent data.
+
+        This method performs the following lifecycle:
+        1. Identification: Indexes all pending .ts files for later cleanup.
+        2. Recency Capping: Selects the newest files (via TRAINING_MAX_FILES) to 
+           ensure the model learns from the most relevant system states.
+        3. Chunked Training: Processes sequences in blocks (via TRAINING_CHUNKS_SIZE) 
+           to prevent memory exhaustion (RAM) and process hangs.
+        4. Persistence: Saves the updated .keras model and .pkl metadata.
+        5. Cleanup: Moves all pending files to the processed directory regardless 
+           of whether they were used in the specific training subset.
+
+        Args:
+            ts_files (list): Paths to pending .ts files in the training queue.
+            processed_dir (str): Directory where files are archived after training.
+
+        Returns:
+            bool: True if training and persistence succeeded, False otherwise.
+
+        Example:
+            If you have 1000 files in the queue and TRAINING_MAX_FILES = 300:
+            - The model studies the 300 newest files to find patterns.
+            - Training is split into 50,000-sequence chunks to stay under RAM limits.
+            - After success, all 1000 files are moved to 'processed/' to clear the queue.
+        """
+
         if not ts_files:
             return False
 
@@ -268,7 +351,7 @@ class ModelManager:
                     
                     # Force garbage collection to free RAM after each chunk
                     del X_chunk, y_chunk
-                    import gc
+
                     gc.collect()
 
                 # Persist

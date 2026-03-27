@@ -110,6 +110,50 @@ def handle_list(args):
     except Exception as e:
         print(f"Failed to fetch list: {e}")
 
+def handle_context(args):
+    """Fetches prediction PLUS the historical context used by the LSTM."""
+    url = f"{args.url.rstrip('/')}:{args.port}/predict-with-history"
+    params = {
+        "name": args.name, "verb": args.verb, "level": args.level,
+        "system": args.system, "attempt": args.attempt, "scenario": args.scenario,
+        "audit": args.audit
+    }
+    
+    try:
+        resp = requests.get(url, params=params, timeout=15)
+        if resp.status_code == 200:
+            data = resp.json()
+            prob = data.get("success_probability", 0)
+            history = data.get("history", [])
+            
+            print(f"\nEXPLORE: {args.name} on {args.system}")
+            print(f"Prediction: {prob * 100:.2f}% Success")
+            print(f"Context: {len(history)} historical steps found in cache.")
+            
+            if history:
+                # Format history for the table
+                # history items contain: start, duration_ms, attempt, success
+                rows = []
+                for i, entry in enumerate(history):
+                    if entry.get('success') == 1:
+                        res = "PASS"
+                    else:
+                        res = "FAIL"
+
+                    rows.append([
+                        f"Step -{len(history)-i}",
+                        entry.get('start', 'N/A')[:19], # Truncate timestamp
+                        f"{entry.get('duration_ms', 0):.0f}ms",
+                        f"Atmt {entry.get('attempt', 1)}",
+                        res
+                    ])
+                print_table(["OFFSET", "START TIME", "DURATION", "TRY", "RESULT"], rows)
+            else:
+                print("No history available for this specific test/system/verb.")
+        else:
+            print(f"Error ({resp.status_code}): {resp.text}")
+    except Exception as e:
+        print(f"Connection Failed: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Predictor API Client")
@@ -152,6 +196,16 @@ if __name__ == "__main__":
     l_parser = subparsers.add_parser("list", help="List metadata (names, systems, verbs, levels)")
     l_parser.add_argument("category", help="Category to list")
 
+    # Context Command
+    c_parser = subparsers.add_parser("context", help="See prediction with historical context")
+    c_parser.add_argument("--name", required=True)
+    c_parser.add_argument("--system", required=True)
+    c_parser.add_argument("--verb", default="executing")
+    c_parser.add_argument("--level", default="task")
+    c_parser.add_argument("--attempt", type=int, default=1)
+    c_parser.add_argument("--scenario", default="generic")
+    c_parser.add_argument("--audit", action="store_true")
+
     args = parser.parse_args()
 
     if args.command == "predict": 
@@ -162,3 +216,5 @@ if __name__ == "__main__":
         handle_worst_systems(args)
     elif args.command == "list":
         handle_list(args)
+    elif args.command == "context":
+        handle_context(args)
