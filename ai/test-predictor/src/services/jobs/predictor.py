@@ -178,7 +178,7 @@ def predict():
     system = data.get('s') or data.get('system')
     name = data.get('n') or data.get('name')
     verb = data.get('v') or data.get('verb')
-    attempt = data.get('attempt') or data.get('a', config.DEFAULT_ATTEMPT)
+    attempt = data.get('attempt', config.DEFAULT_ATTEMPT)
     scenario = data.get('scenario', config.DEFAULT_SCENARIO)
     
     model, encoders, _ = app.model_manager.get_state()
