@@ -81,16 +81,43 @@ class ModelManager:
         logger.info(f"Preprocessed {len(df)} rows. All features normalized to [0, 1].")
         return df
 
-
     def _prepare_sequences(self, df):
+        """
+        Modified to include 'success' as a feature and ensure 
+        chronological sliding windows for LSTM memory.
+        """
+        # Ensure chronological order before grouping
+        if 'start' in df.columns:
+            df['start'] = pd.to_datetime(df['start'])
+            df = df.sort_values(by='start')
+
         sequences, targets = [], []
-        for _, group in df.groupby('instance'):
-            features = group[['duration_ms', 'attempt', 'verb', 'level', 'backend', 'system', 'name', 'scenario']].values
-            target = group['success'].iloc[-1] 
-            sequences.append(features)
-            targets.append(target)
         
-        X = pad_sequences(sequences, maxlen=config.SEQUENCE_LENGTH, padding='post', dtype='float32')
+        # Group by 'instance' or 'system' depending on your dependency needs
+        # For cross-test dependencies, grouping by 'system' is better
+        for _, group in df.groupby('system'):
+            # MUST match config.NUM_FEATURES (now 9)
+            feature_cols = [
+                'duration_ms', 'attempt', 'verb', 'level', 
+                'backend', 'system', 'name', 'scenario', 'success'
+            ]
+            
+            # Extract values for the whole group
+            group_features = group[feature_cols].values
+            group_targets = group['success'].values
+            
+            # Create Sliding Windows
+            # This allows the LSTM to learn from the context of previous tests
+            for i in range(len(group_features)):
+                start_idx = max(0, i - config.SEQUENCE_LENGTH + 1)
+                window = group_features[start_idx : i + 1]
+                
+                sequences.append(window)
+                targets.append(group_targets[i])
+        
+        # Pad sequences (Pre-padding is best for LSTMs)
+        X = pad_sequences(sequences, maxlen=config.SEQUENCE_LENGTH, padding='pre', dtype='float32')
+        
         logger.info(f"Prepared {len(X)} sequences with {X.shape[2]} features")
         return X, np.array(targets)
 
