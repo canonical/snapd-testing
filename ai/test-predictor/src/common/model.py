@@ -362,6 +362,7 @@ class ModelManager:
                         y_chunk, 
                         epochs=config.EPOCHS, 
                         batch_size=config.BATCH_SIZE, 
+                        class_weight=class_weight_dict,
                         verbose=1,
                         shuffle=True 
                     )
