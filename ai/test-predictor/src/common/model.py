@@ -78,7 +78,7 @@ class ModelManager:
         else:
             df[['duration_ms']] = scaler.transform(df[['duration_ms']])
 
-        logger.info(f"Preprocessed {len(df)} rows. All features normalized to [0, 1].")
+        logger.info(f"Preprocessed {len(df)} rows.")
         return df
 
     def _prepare_sequences(self, df):
