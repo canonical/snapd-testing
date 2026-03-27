@@ -47,7 +47,7 @@ PREDICTION_DEFAULT_DURATION = 0.0
 # The trainer looks at every single failed and successful test in your history 10 times.
 # If you only do 1 epoch, the model is "distracted" and misses patterns. If you do 100,
 # the model might "over-memorize" (Overfitting) and stop being able to predict new, unseen tests.
-EPOCHS = 20
+EPOCHS = 10
 # This is how many test results the AI looks at simultaneously before updating its internal math.
 # Large (e.g., 32 or 64): Learning is "smooth" and much faster, but requires more RAM.
 BATCH_SIZE = 32
@@ -56,6 +56,8 @@ TRAINING_VERBOSE = 0
 
 # To prevent the trainer from getting overwhelmed, we can set a cap on how many files it processes in one go.
 TRAINING_MAX_FILES = 200
+# To prevent the trainer from getting overwhelmed, we can also set a cap on how many rows it processes in one go.
+TRAINING_CHUNKS_SIZE = 30000
 
 # Prediction Settings
 # Verbose (0): No output. 1: Progress bar. 2: One line per epoch.

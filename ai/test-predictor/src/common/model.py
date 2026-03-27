@@ -241,7 +241,35 @@ class ModelManager:
                 # Training
                 X_train = np.concatenate(all_X, axis=0)
                 y_train = np.concatenate(all_y, axis=0)
+                
                 model = self.load_or_build_model(input_shape=(X_train.shape[1], X_train.shape[2]))
+                
+                total_samples = len(X_train)
+                chunk_size = config.TRAINING_CHUNKS_SIZE
+                
+                logger.info(f"Starting chunked training on {total_samples} sequences...")
+                # Loop through data in chunks
+                for i in range(0, total_samples, chunk_size):
+                    end = min(i + chunk_size, total_samples)
+                    X_chunk = X_train[i:end]
+                    y_chunk = y_train[i:end]
+                    
+                    logger.info(f"Training on chunk {i//chunk_size + 1}: samples {i} to {end}")
+                    
+                    # Use a smaller number of epochs per chunk to keep it moving
+                    model.fit(
+                        X_chunk, 
+                        y_chunk, 
+                        epochs=config.EPOCHS, 
+                        batch_size=config.BATCH_SIZE, 
+                        verbose=1,
+                        shuffle=True 
+                    )
+                    
+                    # Force garbage collection to free RAM after each chunk
+                    del X_chunk, y_chunk
+                    import gc
+                    gc.collect()
 
                 logger.info(f"Training on {len(X_train)} sequences...")
                 model.fit(
