@@ -19,7 +19,7 @@ LSTM_UNITS = 64
 # Units (32): The number of memory cells in the second LSTM layer, if used.
 SECOND_LSTM_UNITS = 32
 # Dropout (0.2): Percentage of neurons to ignore during training to prevent overfitting.
-DROPOUT_RATE = 0.2
+DROPOUT_RATE = 0.4
 # Neurons (32): The size of the decision-making Dense layer.
 DENSE_UNITS = 32
 # 'relu' is the industry standard for hidden layers.
@@ -28,6 +28,8 @@ HIDDEN_ACTIVATION = 'relu'
 OUTPUT_ACTIVATION = 'sigmoid' 
 # For binary classification (Success/Failure), this MUST be 1.
 OUTPUT_UNITS = 1
+# Adam Learning Rate (0.0001): A smaller learning rate can lead to more stable training.
+ADAM_LEARNING_RATE = 0.0001
 
 # Data Settings
 

@@ -8,6 +8,7 @@ from sklearn.utils import class_weight
 from keras import backend as K
 from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Dropout, Input
+from keras.optimizers import Adam
 from keras.utils import pad_sequences
 
 from common import config
@@ -244,7 +245,10 @@ class ModelManager:
                 return None
 
             # Re-compile so it's ready for .fit() or .predict()
-            model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+            model.compile(optimizer=Adam(learning_rate=config.ADAM_LEARNING_RATE),
+                          loss='binary_crossentropy',
+                          metrics=['accuracy']
+                          )
             
             self.model = model
             self.last_updated = time.time()
@@ -335,7 +339,7 @@ class ModelManager:
                 # CALCULATE CLASS WEIGHTS
                 # This makes the model 'fear' missing a failure (0)
                 # Force the model to pay 50x more attention to Failures
-                class_weight_dict = {0: 50.0, 1: 1.0}
+                class_weight_dict = {0: 5.0, 1: 1.0}
                 if len(unique) > 1:
                     weights = class_weight.compute_class_weight(
                         class_weight='balanced',
