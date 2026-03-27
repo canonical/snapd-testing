@@ -160,7 +160,10 @@ def audit_history(history, model_manager):
 @app.route('/internal/predict', methods=['POST'])
 def predict():
     data = request.json
-    system = data.get('s')
+    system = data.get('s') or data.get('system')
+    name = data.get('n') or data.get('name')
+    verb = data.get('v') or data.get('verb')
+    scenario = data.get('scenario', config.DEFAULT_SCENARIO)
     
     model, encoders, _ = app.model_manager.get_state()
     if encoders is None:
@@ -177,7 +180,12 @@ def predict():
 
     try:
         # GET CONTEXT: Last tests for this system
-        history = app.state_cache.get_context(system)
+        history = app.state_cache.get_context(
+            system=system, 
+            name=name, 
+            verb=verb, 
+            scenario=scenario
+        )
 
         if data.get('audit', config.DEFAULT_AUDIT):
             audit_history(history, app.model_manager)

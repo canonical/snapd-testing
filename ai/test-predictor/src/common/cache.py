@@ -72,7 +72,8 @@ class SystemStateCache:
         """Reconstructs the specific histories from all .ts files."""
         logger.info("Scanning .ts files to prime specific test histories...")
         ts_files = glob.glob(os.path.join(processed_dir, "*.ts"))
-        
+        logger.info(f"Found {len(ts_files)} .ts files to process.")
+
         if not ts_files:
             return
 
@@ -86,13 +87,20 @@ class SystemStateCache:
         if not all_chunks:
             return
 
+        logger.info("Concatenating data and sorting by start time...")
         master_df = pd.concat(all_chunks, ignore_index=True)
         if 'start' in master_df.columns:
             master_df['start'] = pd.to_datetime(master_df['start'])
             master_df = master_df.sort_values('start')
 
+        logger.info("Updating cache with historical data...")
         # Populate the multi-level cache
-        for _, row in master_df.iterrows():
-            self.update(row.to_dict())
+        for (sys, name, verb, sce), group in groups:
+            # Normalize and store the last N items for this specific bucket
+            # We use _normalize_entry to handle the 'NaN' name logic
+            history = [self._normalize_entry(r) for r in group.tail(self.history_size).to_dict('records')]
+            
+            # Ensure the nested structure exists and set the history
+            self.cache.setdefault(sys, {}).setdefault(name, {}).setdefault(verb, {})[sce] = history
             
         logger.info("Cache primed successfully.")
