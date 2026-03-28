@@ -26,8 +26,7 @@ def get_audit(args):
         "name": args.name,
         "attempt": args.attempt,
         "scenario": args.scenario,
-        "verb": args.verb,
-        "level": args.level
+        "verb": args.verb
     }
     
     # Select endpoint based on whether we want one system or all
@@ -91,14 +90,13 @@ if __name__ == "__main__":
     # Filters
     parser.add_argument("--scenario", default="generic")
     parser.add_argument("--verb", default="executing")
-    parser.add_argument("--level", default="task")
     parser.add_argument("--attempt", type=int, default=1)
     parser.add_argument("--system", help="System name or 'all' for breakdown")
     parser.add_argument("--name", help="Test name")
     
     args = parser.parse_args()
 
-    if not any([args.system, args.name, args.attempt, args.scenario, args.verb, args.level]):
+    if not any([args.system, args.name, args.attempt, args.scenario, args.verb]):
         parser.error("At least one filter (e.g., --system all or --name) must be provided.")
 
     get_audit(args)

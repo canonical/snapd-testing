@@ -82,8 +82,7 @@ def get_filtered_stats():
         "system": request.args.get('system'),
         "attempt": request.args.get('attempt'),
         "scenario": request.args.get('scenario'),
-        "verb": request.args.get('verb'),
-        "level": request.args.get('level')
+        "verb": request.args.get('verb')
     }
 
     # Validate that at least some filters were provided
@@ -108,8 +107,7 @@ def get_all_systems_audit():
         "name": request.args.get('name'),
         "attempt": request.args.get('attempt'),
         "scenario": request.args.get('scenario'),
-        "verb": request.args.get('verb'),
-        "level": request.args.get('level')
+        "verb": request.args.get('verb')
     }
     
     stats = get_all_systems_stats(config.PROCESSED_DIR, filters)

@@ -50,7 +50,7 @@ class ModelManager:
 
         # CATEGORICAL ENCODING
         # Note: 'success' and 'attempt' are excluded from cat_cols as they are handled above
-        cat_cols = ['verb', 'level', 'backend', 'system', 'name', 'scenario']
+        cat_cols = ['verb', 'backend', 'system', 'name', 'scenario']
         
         for col in cat_cols:
             if col in df.columns:

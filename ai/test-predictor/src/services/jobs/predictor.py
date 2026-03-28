@@ -44,7 +44,6 @@ def encode_to_vector(data, encoders):
     # Extract and Normalize Strings/Values
     n = data.get('name')
     v = data.get('verb')
-    l = data.get('level')
     s = data.get('system')
     scenario = data.get('scenario', config.DEFAULT_SCENARIO)
     
@@ -64,7 +63,6 @@ def encode_to_vector(data, encoders):
 
     n_enc = scale_val('name', n)
     v_enc = scale_val('verb', v)
-    l_enc = scale_val('level', l)
     s_enc = scale_val('system', s)
     
     b_val = data.get('backend', encoders['backend'].classes_[0])
@@ -77,7 +75,6 @@ def encode_to_vector(data, encoders):
     return np.array([
         attempt, 
         v_enc, 
-        l_enc, 
         b_enc, 
         s_enc, 
         n_enc, 
@@ -98,7 +95,7 @@ def audit_prediction(X_input, probability, params, model_manager):
     current_features = X_input[0, -1, :].tolist() 
     
     # Map features back to names for readability
-    feature_names = ['attempt', 'verb', 'level', 'backend', 'system', 'name', 'scenario']
+    feature_names = ['attempt', 'verb', 'backend', 'system', 'name', 'scenario', 'success']
     feature_map = dict(zip(feature_names, current_features))
 
     # Build the audit record
@@ -189,7 +186,7 @@ def predict():
     normalized_target = app.state_cache._normalize_entry(data)
 
     # Validate: use the long names that exist in both normalized_target and encoders
-    keys_to_validate = ['name', 'verb', 'level', 'system', 'scenario']
+    keys_to_validate = ['name', 'verb', 'system', 'scenario']
     unknowns = validate_labels(normalized_target, keys_to_validate, encoders)
 
     if unknowns:
@@ -280,7 +277,6 @@ def list_metadata(category):
     mapping = {
         'names': 'name', 
         'verbs': 'verb', 
-        'levels': 'level', 
         'systems': 'system',
         'scenarios': 'scenario' 
     }

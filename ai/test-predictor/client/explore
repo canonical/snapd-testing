@@ -25,7 +25,7 @@ def print_table(headers, rows):
 def handle_predict(args):
     url = f"{args.url.rstrip('/')}:{args.port}/predict"
     params = {
-        "name": args.name, "verb": args.verb, "level": args.level,
+        "name": args.name, "verb": args.verb,
         "system": args.system, "attempt": args.attempt, "scenario": args.scenario,
         "audit": args.audit
     }
@@ -44,11 +44,10 @@ def handle_predict(args):
 def handle_risk(args):
     url = f"{args.url.rstrip('/')}:{args.port}/rank-risk"
     params = {
-        "verb": args.verb, "level": args.level, "system": args.system,
+        "verb": args.verb, "system": args.system,
         "attempt": args.attempt, "scenario": args.scenario, "audit": args.audit
     }
     
-    # Add limit to params only if specified by user
     if args.limit is not None:
         params["limit"] = args.limit
         print(f"Analyzing top {args.limit} riskiest items for {args.system}...")
@@ -56,7 +55,6 @@ def handle_risk(args):
         print(f"Analyzing all riskiest items for {args.system}...")
     
     try:
-        # High timeout as this is a heavy operation on the server side
         resp = requests.get(url, params=params, timeout=300)
         if resp.status_code == 200:
             data = resp.json().get("top_high_risk", [])
@@ -71,7 +69,7 @@ def handle_risk(args):
 def handle_worst_systems(args):
     url = f"{args.url.rstrip('/')}:{args.port}/worst-systems"
     params = {
-        "name": args.name, "verb": args.verb, "level": args.level,
+        "name": args.name, "verb": args.verb,
         "attempt": args.attempt, "scenario": args.scenario, "audit": args.audit
     }
     
@@ -88,14 +86,12 @@ def handle_worst_systems(args):
         print(f"Failed: {e}")
 
 def handle_list(args):
-    """Fetches metadata via the proxy list endpoint."""
     url = f"{args.url.rstrip('/')}:{args.port}/list/{args.category}"
     
     try:
         resp = requests.get(url, timeout=15)
         if resp.status_code == 200:
             data = resp.json()
-            # Handle both raw lists and {"values": [...]} structures
             items = data.get("values", data) if isinstance(data, dict) else data
             
             print(f"\nAvailable {args.category.upper()}:")
@@ -111,10 +107,9 @@ def handle_list(args):
         print(f"Failed to fetch list: {e}")
 
 def handle_context(args):
-    """Fetches prediction PLUS context"""
     url = f"{args.url.rstrip('/')}:{args.port}/predict-with-history"
     params = {
-        "name": args.name, "verb": args.verb, "level": args.level,
+        "name": args.name, "verb": args.verb,
         "system": args.system, "attempt": args.attempt, "scenario": args.scenario,
         "audit": args.audit
     }
@@ -137,7 +132,7 @@ def handle_context(args):
 
                     rows.append([
                         f"Step -{len(history)-i}",
-                        entry.get('start', 'N/A')[:19], # Truncate timestamp
+                        entry.get('start', 'N/A')[:19],
                         f"Atmt {entry.get('attempt', 1)}",
                         res
                     ])
@@ -159,18 +154,15 @@ if __name__ == "__main__":
     # Predict Command
     p_parser = subparsers.add_parser("predict", help="Predict single item probability")
     p_parser.add_argument("--verb", default="executing")
-    p_parser.add_argument("--level", default="task")
     p_parser.add_argument("--attempt", type=int)
     p_parser.add_argument("--scenario")
     p_parser.add_argument("--audit", action="store_true", help="Enable prediction auditing")
     p_parser.add_argument("--name", required=True)
     p_parser.add_argument("--system", required=True)
-    
 
     # Risk Command
     r_parser = subparsers.add_parser("risk", help="List riskiest tests for a system")
     r_parser.add_argument("--verb", default="executing")
-    r_parser.add_argument("--level", default="task")
     r_parser.add_argument("--limit", type=int, default=10, help="Number of tests to show (omit for all)")
     r_parser.add_argument("--audit", action="store_true", help="Enable prediction auditing")
     r_parser.add_argument("--attempt", type=int)
@@ -180,14 +172,13 @@ if __name__ == "__main__":
     # Worst Systems Command
     s_parser = subparsers.add_parser("compare", help="Compare test across all systems")
     s_parser.add_argument("--verb", default="executing")
-    s_parser.add_argument("--level", default="task")
     s_parser.add_argument("--attempt", type=int)
     s_parser.add_argument("--audit", action="store_true", help="Enable prediction auditing")
     s_parser.add_argument("--scenario")
     s_parser.add_argument("--name", required=True)
 
     # List Command
-    l_parser = subparsers.add_parser("list", help="List metadata (names, systems, verbs, levels)")
+    l_parser = subparsers.add_parser("list", help="List metadata (names, systems, verbs)")
     l_parser.add_argument("category", help="Category to list")
 
     # Context Command
@@ -195,20 +186,20 @@ if __name__ == "__main__":
     c_parser.add_argument("--name", required=True)
     c_parser.add_argument("--system", required=True)
     c_parser.add_argument("--verb", default="executing")
-    c_parser.add_argument("--level", default="task")
     c_parser.add_argument("--attempt", type=int)
     c_parser.add_argument("--scenario")
     c_parser.add_argument("--audit", action="store_true")
 
     args = parser.parse_args()
 
-    if args.command == "predict": 
-        handle_predict(args)
-    elif args.command == "risk": 
-        handle_risk(args)
-    elif args.command == "compare": 
-        handle_worst_systems(args)
-    elif args.command == "list":
-        handle_list(args)
-    elif args.command == "context":
-        handle_context(args)
+    # Mapping commands to functions
+    commands = {
+        "predict": handle_predict,
+        "risk": handle_risk,
+        "compare": handle_worst_systems,
+        "list": handle_list,
+        "context": handle_context
+    }
+    
+    if args.command in commands:
+        commands[args.command](args)

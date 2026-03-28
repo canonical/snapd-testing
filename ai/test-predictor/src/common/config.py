@@ -41,14 +41,13 @@ FEATURE_COLUMNS = [
     'scenario', 
     'attempt', 
     'verb', 
-    'level', 
     'backend', 
     'system', 
     'name', 
     'success'
 ]
 # The "width" of the data. It tells the AI exactly how many different pieces of information it gets for every single run.
-# Attempt number, Verb (encoded), Level (encoded), Backend (encoded), System (encoded), Name (encoded) and Scenario (encoded).
+# Attempt number, Verb (encoded), Backend (encoded), System (encoded), Name (encoded) and Scenario (encoded).
 NUM_FEATURES = len(FEATURE_COLUMNS)
 # Validation Split (0.2): 20% of data is hidden from the trainer to test accuracy.
 VALIDATION_SPLIT = 0.2

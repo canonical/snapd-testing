@@ -4,7 +4,7 @@ import json
 import requests
 import argparse
 
-def analyze_results(file_path, base_url, port, attempt=None, compare=False):
+def analyze_results(file_path, base_url, port, attempt=None):
     predict_url = f"{base_url}:{port}/predict"
 
     try:
@@ -16,10 +16,10 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
         # Track if we actually have failures to display
         found_failures = False
 
-        # Dynamic width calculation for NAME based only on items that will be shown
+        # Dynamic width calculation for NAME based only on failing items
         max_name_len = 30 
         for item in items:
-            if not item.get("success") and not item.get("skipped") and item.get("level") in ["task", "suite"]:
+            if not item.get("success") and not item.get("skipped"):
                 name = str(item.get("name", "")).strip()
                 variant = str(item.get("variant", "")).strip()
                 full_name = f"{name}:{variant}" if variant else name
@@ -38,44 +38,41 @@ def analyze_results(file_path, base_url, port, attempt=None, compare=False):
                 continue
 
             if not item.get("success") and not item.get("skipped"):
-                level = item.get("level")
-                if level in ["task", "suite"]:
-                    # Print header once if we find at least one failure
-                    if not found_failures:
-                        print(f"{'NAME':<{name_width}} | {'VERB':<{verb_width}} | {'SYSTEM':<25} | {'SUCCESS PROB'}")
-                        print("-" * (name_width + verb_width + 45))
-                        found_failures = True
+                # Print header once if we find at least one failure
+                if not found_failures:
+                    print(f"{'NAME':<{name_width}} | {'VERB':<{verb_width}} | {'SYSTEM':<25} | {'SUCCESS PROB'}")
+                    print("-" * (name_width + verb_width + 45))
+                    found_failures = True
 
-                    name = str(item.get("name", "")).strip()
-                    variant = str(item.get("variant", "")).strip()
-                    full_name = f"{name}:{variant}" if variant else name
-                    scenario = str(item.get("scenario", "generic")).strip()
+                name = str(item.get("name", "")).strip()
+                variant = str(item.get("variant", "")).strip()
+                full_name = f"{name}:{variant}" if variant else name
+                scenario = str(item.get("scenario", "generic")).strip()
 
-                    params = {"name": full_name, "verb": verb, "level": level, "scenario": scenario}
-                    if attempt is not None:
-                        params["attempt"] = attempt
+                # Removed 'level' from params
+                params = {"name": full_name, "verb": verb, "scenario": scenario}
+                if attempt is not None:
+                    params["attempt"] = attempt
 
-                    current_system = item.get("system")
-                    predict_params = params.copy()
-                    predict_params["system"] = current_system
+                current_system = item.get("system")
+                predict_params = params.copy()
+                predict_params["system"] = current_system
 
-                    try:
-                        resp = requests.get(predict_url, params=predict_params, timeout=5)
-                        resp.raise_for_status()
-                        
-                        prob_raw = resp.json().get("success_probability", 0.0)
-                        prob_val = float(prob_raw)
-                        prob_str = f"{prob_val * 100:6.2f}%"
-                        
-                        # Reordered columns: NAME, VERB, SYSTEM, PROB
-                        print(f"{full_name:<{name_width}} | {verb:<{verb_width}} | {current_system:<25} | {prob_str}")
+                try:
+                    resp = requests.get(predict_url, params=predict_params, timeout=5)
+                    resp.raise_for_status()
+                    
+                    prob_raw = resp.json().get("success_probability", 0.0)
+                    prob_val = float(prob_raw)
+                    prob_str = f"{prob_val * 100:6.2f}%"
+                    
+                    print(f"{full_name:<{name_width}} | {verb:<{verb_width}} | {current_system:<25} | {prob_str}")
 
-                    except Exception as e:
-                        print(f"Error for {full_name}: {e}")
+                except Exception as e:
+                    print(f"Error for {full_name}: {e}")
 
-        # If no items were processed, show a success message instead of an empty table
         if not found_failures:
-            print("\n No failing tests/suites found.")
+            print("\n No failing tests found.")
 
     except Exception as e:
         print(f"FATAL: {e}")
@@ -89,4 +86,5 @@ if __name__ == "__main__":
     parser.add_argument("--attempt", type=int, help="Optional attempt number")
     
     args = parser.parse_args()
-    analyze_results(args.file, args.url.rstrip('/'), args.port, args.attempt, args.compare)
+    # Removed args.compare as it wasn't defined in the parser or used in logic
+    analyze_results(args.file, args.url.rstrip('/'), args.port, args.attempt)

@@ -16,21 +16,14 @@ class SystemStateCache:
         """Standardizes the raw dictionary and handles NaNs in names."""
         # Force everything to string and strip to prevent 'fedora ' != 'fedora'
         name = str(data.get('name') or '').strip()
-        level = str(data.get('level') or 'task').strip()
         
         # Handle the NaN Name issue from pandas or empty API strings
         if not name or name.lower() == 'nan':
-            if level == 'project':
-                name = 'project:setup'
-            elif level == 'suite':
-                name = 'suite:setup'
-            else:
-                name = 'unknown_step'
+            name = 'unknown_step'
         
         return {
             'name': name,
             'verb': str(data.get('verb') or 'unknown'),
-            'level': level,
             'system': str(data.get('system') or 'unknown'),
             'scenario': str(data.get('scenario') or config.DEFAULT_SCENARIO),
             'success': int(data.get('success', 1)),
