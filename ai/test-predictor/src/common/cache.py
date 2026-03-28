@@ -14,8 +14,8 @@ class SystemStateCache:
 
     def _normalize_entry(self, data):
         """Standardizes the raw dictionary and handles NaNs in names."""
-        name = data.get('n') or data.get('name')
-        level = data.get('l') or data.get('level')
+        name = data.get('name')
+        level = data.get('level')
         
         if not name or str(name).lower() == 'nan':
             if level == 'project':
@@ -26,14 +26,14 @@ class SystemStateCache:
                 name = 'unknown_step'
         
         return {
-            'name': str(name),
-            'verb': str(data.get('v') or data.get('verb', 'unknown')),
+            'name': name,
+            'verb': data.get('verb', 'unknown'),
             'level': str(level or 'task'),
-            'system': str(data.get('s') or data.get('system', 'unknown')),
-            'scenario': str(data.get('scenario', 'generic')),
-            'success': int(data.get('success', 1)),
-            'attempt': int(data.get('attempt', 1)),
-            'start': str(data.get('start', ''))
+            'system': data.get('system', 'unknown'),
+            'scenario': data.get('scenario', 'generic'),
+            'success': data.get('success', 1),
+            'attempt': data.get('attempt', 1),
+            'start': data.get('start', '')
         }
 
     def update(self, raw_data):

@@ -12,22 +12,14 @@ CATEGORY_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/li
 CACHE_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/context"
 
 def get_params():
-    try:
-        attempt = int(request.args.get('attempt', config.DEFAULT_ATTEMPT))
-        scenario = request.args.get('scenario', config.DEFAULT_SCENARIO)
-        audit = request.args.get('audit', config.DEFAULT_AUDIT)
-    except ValueError:
-        attempt = config.DEFAULT_ATTEMPT
-        scenario = config.DEFAULT_SCENARIO
-        audit = config.DEFAULT_AUDIT
     return {
-        "n": request.args.get('name'),
-        "v": request.args.get('verb'),
-        "l": request.args.get('level'),
-        "s": request.args.get('system'),
-        "attempt": attempt,
-        "scenario": scenario,
-        "audit": audit
+        "name": request.args.get('name'),
+        "verb": request.args.get('verb'),
+        "level": request.args.get('level'),
+        "system": request.args.get('system'),
+        "attempt": int(request.args.get('attempt', config.DEFAULT_ATTEMPT)),
+        "scenario": request.args.get('scenario', config.DEFAULT_SCENARIO),
+        "audit": request.args.get('audit', config.DEFAULT_AUDIT)
     }
 
 def call_internal_predictor(payload):
@@ -53,7 +45,7 @@ def call_internal_predictor(payload):
 @predictor_bp.route('/predict', methods=['GET'])
 def predict_scenario():
     p = get_params()
-    if not all([p['n'], p['v'], p['l'], p['s']]):
+    if not all([p['name'], p['verb'], p['level'], p['system']]):
         return jsonify({"error": "Missing params"}), 400
     
     # Unpack the tuple: (data_dict, status_code)
@@ -80,7 +72,7 @@ def rank_risk():
     except ValueError:
         limit = None
 
-    if not all([p['v'], p['l'], p['s']]):
+    if not all([p['verb'], p['level'], p['system']]):
         return jsonify({"error": "Missing verb, level, and system"}), 400
 
     try:
@@ -95,7 +87,7 @@ def rank_risk():
     results = []
     for n in names:
         p = {
-            "n": n, "v": p['v'], "l": p['l'], "s": p['s'], 
+            "name": n, "verb": p['verb'], "level": p['level'], "system": p['system'], 
             "attempt": p['attempt'], "scenario": p['scenario']
         }
         result, status_code = call_internal_predictor(p)
@@ -119,7 +111,7 @@ def rank_risk():
 def worst_systems():
     p = get_params()
 
-    if not all([p['n'], p['v'], p['l']]):
+    if not all([p['name'], p['verb'], p['level']]):
         return jsonify({"error": "Missing name, verb, and level"}), 400
 
     # Fetch the systems list from the Predictor Server
@@ -139,7 +131,7 @@ def worst_systems():
     results = []
     # Predict for the given name, verb and level across all systems to find the riskiest ones
     for s in systems:
-        payload = {"n": p['n'], "v": p['v'], "l": p['l'], "s": s, "attempt": p['attempt'], "scenario": p['scenario']}
+        payload = {"name": p['name'], "verb": p['verb'], "level": p['level'], "system": s, "attempt": p['attempt'], "scenario": p['scenario']}
         result, status_code = call_internal_predictor(payload)
         if status_code != 200:
             return jsonify(result), status_code
@@ -159,7 +151,7 @@ def proxy_list_metadata(category):
 def predict_with_history():
     """Returns the prediction PLUS the 49-step history used for the LSTM."""
     p = get_params()
-    if not all([p['n'], p['v'], p['l'], p['s']]):
+    if not all([p['name'], p['verb'], p['level'], p['system']]):
         return jsonify({"error": "Missing params"}), 400
     
     # Get the Prediction
