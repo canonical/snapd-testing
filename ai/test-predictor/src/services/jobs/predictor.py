@@ -175,10 +175,10 @@ def audit_history(history, model_manager):
 @app.route('/internal/predict', methods=['POST'])
 def predict():
     data = request.json
-    system = data.get('s') or data.get('system')
-    name = data.get('n') or data.get('name')
-    verb = data.get('v') or data.get('verb')
-    attempt = data.get('attempt', config.DEFAULT_ATTEMPT)
+    system = data.get('system')
+    name = data.get('name')
+    verb = data.get('verb')
+    attempt = data.get('attempt')
     scenario = data.get('scenario', config.DEFAULT_SCENARIO)
     
     model, encoders, _ = app.model_manager.get_state()

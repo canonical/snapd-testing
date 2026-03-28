@@ -17,8 +17,8 @@ def get_params():
         "verb": request.args.get('verb'),
         "level": request.args.get('level'),
         "system": request.args.get('system'),
-        "attempt": int(request.args.get('attempt', config.DEFAULT_ATTEMPT)),
-        "scenario": request.args.get('scenario', config.DEFAULT_SCENARIO),
+        "attempt": request.args.get('attempt', None),
+        "scenario": request.args.get('scenario', None),
         "audit": request.args.get('audit', config.DEFAULT_AUDIT)
     }
 
