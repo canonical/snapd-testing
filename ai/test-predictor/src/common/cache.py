@@ -14,10 +14,12 @@ class SystemStateCache:
 
     def _normalize_entry(self, data):
         """Standardizes the raw dictionary and handles NaNs in names."""
-        name = data.get('name')
-        level = data.get('level')
+        # Force everything to string and strip to prevent 'fedora ' != 'fedora'
+        name = str(data.get('name') or '').strip()
+        level = str(data.get('level') or 'task').strip()
         
-        if not name or str(name).lower() == 'nan':
+        # Handle the NaN Name issue from pandas or empty API strings
+        if not name or name.lower() == 'nan':
             if level == 'project':
                 name = 'project:setup'
             elif level == 'suite':
@@ -27,13 +29,13 @@ class SystemStateCache:
         
         return {
             'name': name,
-            'verb': data.get('verb', 'unknown'),
-            'level': str(level or 'task'),
-            'system': data.get('system', 'unknown'),
-            'scenario': data.get('scenario', 'generic'),
-            'success': data.get('success', 1),
-            'attempt': data.get('attempt', 1),
-            'start': data.get('start', '')
+            'verb': str(data.get('verb') or 'unknown').strip(),
+            'level': level,
+            'system': str(data.get('system') or 'unknown').strip(),
+            'scenario': str(data.get('scenario') or 'generic').strip(),
+            'success': int(data.get('success', 1)),
+            'attempt': int(data.get('attempt', 1)),
+            'start': str(data.get('start') or '')
         }
 
     def update(self, raw_data):
@@ -87,7 +89,9 @@ class SystemStateCache:
         all_chunks = []
         for f in ts_files:
             try:
-                all_chunks.append(pd.read_csv(f))
+                # Force types on read to prevent pandas from guessing 'system' is a number
+                df = pd.read_csv(f, dtype={'system': str, 'name': str, 'verb': str})
+                all_chunks.append(df)
             except Exception as e:
                 logger.error(f"Error reading {f}: {e}")
 
@@ -95,17 +99,27 @@ class SystemStateCache:
             return
 
         master_df = pd.concat(all_chunks, ignore_index=True)
+        
+        # IMPORTANT: Clean the dataframe before grouping
+        # Fill actual NaNs with empty strings so _normalize_entry works consistently
+        master_df = master_df.fillna('')
+
         if 'start' in master_df.columns:
             master_df['start'] = pd.to_datetime(master_df['start'])
             master_df = master_df.sort_values('start')
 
-        # Group by core identifiers only
-        groups = master_df.groupby(['system', 'name', 'verb'])
-
+        # Now group based on cleaned, normalized keys
         logger.info("Populating flattened cache...")
-        for (sys, name, verb), group in groups:
-            # Store the last N items for this test configuration
-            history = [self._normalize_entry(r) for r in group.tail(self.history_size).to_dict('records')]
-            self.cache.setdefault(sys, {}).setdefault(name, {})[verb] = history
+        for _, row in master_df.iterrows():
+            # Use the same normalization for disk data as for API data
+            item = self._normalize_entry(row.to_dict())
+            s, n, v = item['system'], item['name'], item['verb']
             
-        logger.info(f"Cache primed with {len(groups)} unique test buckets.")
+            self.cache.setdefault(s, {}).setdefault(n, {}).setdefault(v, [])
+            history = self.cache[s][n][v]
+            history.append(item)
+            
+            if len(history) > self.history_size:
+                self.cache[s][n][v] = history[-self.history_size:]
+            
+        logger.info(f"Cache primed successfully.")
