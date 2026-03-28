@@ -42,10 +42,10 @@ def validate_labels(params, keys_to_check, encoders):
 
 def encode_to_vector(data, encoders):
     # Extract and Normalize Strings/Values
-    n = data.get('n') or data.get('name')
-    v = data.get('v') or data.get('verb')
-    l = data.get('l') or data.get('level')
-    s = data.get('s') or data.get('system')
+    n = data.get('name')
+    v = data.get('verb')
+    l = data.get('level')
+    s = data.get('system')
     scenario = data.get('scenario', config.DEFAULT_SCENARIO)
     
     # attempt is usually small (1, 2, 3), but you can divide by 10 for safety
@@ -178,7 +178,7 @@ def predict():
     system = data.get('system')
     name = data.get('name')
     verb = data.get('verb')
-    attempt = data.get('attempt')
+    attempt = data.get('attempt', config.DEFAULT_ATTEMPT)
     scenario = data.get('scenario', config.DEFAULT_SCENARIO)
     
     model, encoders, _ = app.model_manager.get_state()
@@ -201,7 +201,7 @@ def predict():
             system=system, 
             name=name, 
             verb=verb,
-            attempt=attempt, 
+            attempt=None, 
             scenario=scenario
         )
 
@@ -312,7 +312,7 @@ def get_internal_context():
     if not system:
         return jsonify({"error": "System required"}), 400
         
-    history = app.state_cache.get_context(system, name, verb, attempt, scenario)
+    history = app.state_cache.get_context(system, name, verb, None, scenario)
     return jsonify({
         "system": system,
         "name": name,
