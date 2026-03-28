@@ -82,7 +82,8 @@ class SystemStateCache:
         """Reconstructs histories grouped by system/name/verb."""
         logger.info("Scanning .ts files to prime test histories...")
         ts_files = glob.glob(os.path.join(processed_dir, "*.ts"))
-        
+        logger.info(f"Found {len(ts_files)} .ts files to process for cache priming.")
+
         if not ts_files:
             return
 

@@ -303,15 +303,16 @@ def list_metadata(category):
 def get_internal_context():
     """Exposes the internal SystemStateCache to the external API."""
     # Extract keys from query params
-    system = request.args.get('s') or request.args.get('system')
-    name = request.args.get('n') or request.args.get('name')
-    verb = request.args.get('v') or request.args.get('verb')
+    system = request.args.get('system')
+    name = request.args.get('name')
+    verb = request.args.get('verb')
     scenario = request.args.get('scenario', config.DEFAULT_SCENARIO)
+    attempt = request.args.get('attempt', config.DEFAULT_ATTEMPT)
     
     if not system:
         return jsonify({"error": "System required"}), 400
         
-    history = app.state_cache.get_context(system, name, verb, scenario)
+    history = app.state_cache.get_context(system, name, verb, attempt, scenario)
     return jsonify({
         "system": system,
         "name": name,
