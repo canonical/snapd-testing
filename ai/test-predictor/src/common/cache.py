@@ -29,12 +29,12 @@ class SystemStateCache:
         
         return {
             'name': name,
-            'verb': str(data.get('verb') or 'unknown').strip(),
+            'verb': str(data.get('verb') or 'unknown'),
             'level': level,
-            'system': str(data.get('system') or 'unknown').strip(),
-            'scenario': str(data.get('scenario') or 'generic').strip(),
+            'system': str(data.get('system') or 'unknown'),
+            'scenario': str(data.get('scenario') or config.DEFAULT_SCENARIO),
             'success': int(data.get('success', 1)),
-            'attempt': int(data.get('attempt', 1)),
+            'attempt': int(data.get('attempt') or config.DEFAULT_ATTEMPT),
             'start': str(data.get('start') or '')
         }
 
