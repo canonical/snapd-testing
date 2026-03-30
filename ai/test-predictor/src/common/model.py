@@ -38,7 +38,7 @@ class ModelManager:
         with open(self.metadata_path, 'wb') as f:
             pickle.dump((encoders, scaler), f)
 
-    def _focal_loss(self, gamma=2.0, alpha=0.75):
+    def _focal_loss(self, gamma=4.0, alpha=0.75):
         """
         Focuses on difficult/misclassified examples.
         gamma: balance between easy/hard (2.0 is standard).
@@ -153,7 +153,7 @@ class ModelManager:
             
             K.clear_session()
             # Register custom loss so Keras can load the model if it was compiled with it
-            custom_objects = {'loss': self._focal_loss(gamma=2.0, alpha=0.25)}
+            custom_objects = {'loss': self._focal_loss()}
             self.model = load_model(self.model_path, custom_objects=custom_objects, compile=False)
             self.last_updated = time.time()
             gc.collect()
