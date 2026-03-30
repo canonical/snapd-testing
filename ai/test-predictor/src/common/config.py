@@ -28,8 +28,8 @@ HIDDEN_ACTIVATION = 'relu'
 OUTPUT_ACTIVATION = 'sigmoid' 
 # For binary classification (Success/Failure), this MUST be 1.
 OUTPUT_UNITS = 1
-# Adam Learning Rate (0.0001): A smaller learning rate can lead to more stable training.
-ADAM_LEARNING_RATE = 0.0001
+# Adam Learning Rate: A smaller learning rate can lead to more stable training.
+ADAM_LEARNING_RATE = 0.0005
 
 # Data Settings
 
@@ -49,8 +49,6 @@ FEATURE_COLUMNS = [
 # The "width" of the data. It tells the AI exactly how many different pieces of information it gets for every single run.
 # Attempt number, Verb (encoded), Backend (encoded), System (encoded), Name (encoded) and Scenario (encoded).
 NUM_FEATURES = len(FEATURE_COLUMNS)
-# Validation Split (0.2): 20% of data is hidden from the trainer to test accuracy.
-VALIDATION_SPLIT = 0.2
 
 # Training Settings
 
@@ -58,7 +56,7 @@ VALIDATION_SPLIT = 0.2
 # The trainer looks at every single failed and successful test in your history 10 times.
 # If you only do 1 epoch, the model is "distracted" and misses patterns. If you do 100,
 # the model might "over-memorize" (Overfitting) and stop being able to predict new, unseen tests.
-EPOCHS = 5
+EPOCHS = 10
 # This is how many test results the AI looks at simultaneously before updating its internal math.
 # Large (e.g., 32 or 64): Learning is "smooth" and much faster, but requires more RAM.
 BATCH_SIZE = 32

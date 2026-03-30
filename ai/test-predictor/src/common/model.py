@@ -304,7 +304,7 @@ class ModelManager:
                         batch_size=config.BATCH_SIZE, 
                         class_weight=class_weight_dict,
                         verbose=1,
-                        shuffle=True 
+                        shuffle=False 
                     )
                     
                     # Force garbage collection to free RAM after each chunk
