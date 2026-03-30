@@ -56,7 +56,7 @@ NUM_FEATURES = len(FEATURE_COLUMNS)
 # The trainer looks at every single failed and successful test in your history 10 times.
 # If you only do 1 epoch, the model is "distracted" and misses patterns. If you do 100,
 # the model might "over-memorize" (Overfitting) and stop being able to predict new, unseen tests.
-EPOCHS = 10
+EPOCHS = 15
 # This is how many test results the AI looks at simultaneously before updating its internal math.
 # Large (e.g., 32 or 64): Learning is "smooth" and much faster, but requires more RAM.
 BATCH_SIZE = 32
