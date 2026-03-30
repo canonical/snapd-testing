@@ -38,11 +38,11 @@ class ModelManager:
         with open(self.metadata_path, 'wb') as f:
             pickle.dump((encoders, scaler), f)
 
-    def _focal_loss(self, gamma=2., alpha=0.25):
+    def _focal_loss(self, gamma=2.0, alpha=0.75):
         """
         Focuses on difficult/misclassified examples.
         gamma: balance between easy/hard (2.0 is standard).
-        alpha: balance between classes (0.25 prioritizes failures in binary).
+        alpha: balance between classes (0.75 prioritizes failures in binary).
         """
         def loss(y_true, y_pred):
             # Clip to prevent log(0)
