@@ -26,7 +26,7 @@ class SystemStateCache:
             'verb': str(data.get('verb') or 'unknown'),
             'system': str(data.get('system') or 'unknown'),
             'scenario': str(data.get('scenario') or config.DEFAULT_SCENARIO),
-            'success': int(data.get('success', 1)),
+            'success': int(data.get('success', 0)), # Default to 0 (Failure) or a neutral 0.5
             'attempt': int(data.get('attempt') or config.DEFAULT_ATTEMPT),
             'start': str(data.get('start') or '')
         }
