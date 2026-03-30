@@ -11,6 +11,8 @@ from keras.layers import LSTM, Dense, Dropout, Input
 from keras.optimizers import Adam
 from keras.utils import pad_sequences
 
+import tensorflow as tf
+
 from common import config
 from common.utils import setup_logging
 
@@ -35,6 +37,20 @@ class ModelManager:
     def _save_metadata(self, encoders, scaler):
         with open(self.metadata_path, 'wb') as f:
             pickle.dump((encoders, scaler), f)
+
+    def _focal_loss(self, gamma=2., alpha=0.25):
+        """
+        Focuses on difficult/misclassified examples.
+        gamma: balance between easy/hard (2.0 is standard).
+        alpha: balance between classes (0.25 prioritizes failures in binary).
+        """
+        def loss(y_true, y_pred):
+            # Clip to prevent log(0)
+            y_pred = tf.clip_by_value(y_pred, tf.keras.backend.epsilon(), 1 - tf.keras.backend.epsilon())
+            bce = tf.keras.losses.binary_crossentropy(y_true, y_pred)
+            pt = tf.exp(-bce)
+            return alpha * (1 - pt) ** gamma * bce
+        return loss
 
     def _preprocess_dataframe(self, df, encoders, scaler):
         # HANDLE SUCCESS (Binary Force)
@@ -123,7 +139,9 @@ class ModelManager:
                 self.encoders, _ = pickle.load(f)
             
             K.clear_session()
-            self.model = load_model(self.model_path, compile=False)
+            # Register custom loss so Keras can load the model if it was compiled with it
+            custom_objects = {'loss': self._focal_loss(gamma=2.0, alpha=0.25)}
+            self.model = load_model(self.model_path, custom_objects=custom_objects, compile=False)
             self.last_updated = time.time()
             gc.collect()
             return True
@@ -178,10 +196,15 @@ class ModelManager:
                 return None
 
             # Re-compile so it's ready for .fit() or .predict()
-            model.compile(optimizer=Adam(learning_rate=config.ADAM_LEARNING_RATE),
-                          loss='binary_crossentropy',
-                          metrics=['accuracy']
-                          )
+            model.compile(
+                optimizer=Adam(learning_rate=config.ADAM_LEARNING_RATE),
+                loss=self._focal_loss(gamma=2.0, alpha=0.25),
+                metrics=[
+                    'accuracy', 
+                    tf.keras.metrics.Precision(name='precision'), 
+                    tf.keras.metrics.Recall(name='recall')
+                ]
+            )
             
             self.model = model
             self.last_updated = time.time()
@@ -304,7 +327,7 @@ class ModelManager:
                         batch_size=config.BATCH_SIZE, 
                         class_weight=class_weight_dict,
                         verbose=1,
-                        shuffle=False 
+                        shuffle=False  # Don't shuffle to preserve sequence order 
                     )
                     
                     # Force garbage collection to free RAM after each chunk
