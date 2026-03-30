@@ -97,17 +97,23 @@ class ModelManager:
         """
         Transforms DataFrame into 3D sequences using global FEATURE_COLUMNS.
         Ensures chronological order and pads to SEQUENCE_LENGTH.
+        Blinds the target step's success value to prevent data leakage.
         """
         if 'start' in df.columns:
             df['start'] = pd.to_datetime(df['start'])
             df = df.sort_values(by='start')
 
-        # Single Source of Truth from config.py
         feature_cols = config.FEATURE_COLUMNS
+        # Find the index of 'success' to blind it correctly
+        try:
+            success_idx = feature_cols.index('success')
+        except ValueError:
+            logger.error(" 'success' not found in FEATURE_COLUMNS. Training will fail.")
+            return np.array([]), np.array([])
+
         sequences, targets = [], []
         
         for _, group in df.groupby('system'):
-            # Ensure all required features exist
             available_cols = [c for c in feature_cols if c in group.columns]
             if len(available_cols) < len(feature_cols):
                 continue
@@ -117,7 +123,13 @@ class ModelManager:
             
             for i in range(len(group_features)):
                 start_idx = max(0, i - config.SEQUENCE_LENGTH + 1)
-                window = group_features[start_idx : i + 1]
+                # .copy() is essential so we don't modify the source data
+                window = group_features[start_idx : i + 1].copy()
+                
+                # BLIND THE TARGET: Set the success of the CURRENT step to 0.0
+                # This forces the model to use the PREVIOUS rows to predict.
+                window[-1, success_idx] = 0.0
+                
                 sequences.append(window)
                 targets.append(group_targets[i])
         
@@ -126,8 +138,9 @@ class ModelManager:
 
         X = pad_sequences(sequences, maxlen=config.SEQUENCE_LENGTH, padding='pre', dtype='float32')
         
-        logger.info(f"Prepared {len(X)} sequences with {X.shape[2]} features.")
+        logger.info(f"Prepared {len(X)} sequences. Blinding applied to column index {success_idx}.")
         return X, np.array(targets)
+
 
     def exists(self):
         return os.path.exists(self.model_path) and os.path.exists(self.metadata_path)
