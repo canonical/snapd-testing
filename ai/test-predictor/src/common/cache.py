@@ -12,7 +12,7 @@ class SystemStateCache:
         # Flattened structure: self.cache[system][name][verb] = [list of result_dicts]
         self.cache = {}
         self.history_size = history_size
-        self.snapshot_path = os.path.join(config.MODEL_DIR, config)
+        self.snapshot_path = os.path.join(config.MODEL_DIR, config.CACHE_SNAPSHOT)
 
     def _normalize_entry(self, data):
         """Standardizes the raw dictionary and handles NaNs in names."""
@@ -188,18 +188,3 @@ class SystemStateCache:
                 self.cache[s][n][v] = history[-self.history_size:]
             
         logger.info(f"Cache primed successfully.")
-
-    def restore_cache_from_disk(filename=config.CACHE_SNAPSHOT):
-        cache_path = os.path.join(config.PROCESSED_DIR, filename)
-        if not os.path.exists(cache_path):
-            logger.warning("No cache file found to restore")
-            return None
-        
-        try:
-            with open(cache_path, 'rb') as f:
-                data = pickle.load(f)
-            logger.info("Cache restored successfully.")
-            return data
-        except Exception as e:
-            logger.error(f"Failed to restore cache: {e}")
-            return None
