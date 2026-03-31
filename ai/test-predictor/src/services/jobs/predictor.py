@@ -359,7 +359,7 @@ def test_scenarios():
     results = {}
     # Use a dummy target for metadata encoding
     base_data = {
-        "name": "tests/main/test-scenario",
+        "name": "tests/main/abort",
         "verb": "executing",
         "system": "ubuntu-core-22-64",
         "attempt": 1,
