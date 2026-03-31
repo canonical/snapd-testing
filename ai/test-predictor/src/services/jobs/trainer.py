@@ -1,4 +1,7 @@
+import datetime
+import gc
 import glob
+import shutil
 import requests
 import os
 
@@ -9,6 +12,7 @@ from common import config
 from common.cleaner import cleanup_and_restore
 from common.utils import setup_logging
 from common.model import ModelManager
+from common.cache import SystemStateCache
 from common.processor import process_results
 
 logger = setup_logging("trainer-server")
@@ -20,79 +24,93 @@ metadata_full_path = os.path.join(config.MODEL_DIR, config.METADATA_NAME)
 app.model_manager = ModelManager(model_full_path, metadata_full_path)
 
 def perform_training_cycle():
-
-    """Logic to find files, train, and update the global ModelManager."""
-    app.model_manager.load_or_build_model()
+    """Main orchestration: Prepares data, trains in shadow, and swaps to live."""
     
-    # Use the manager's lock to prevent concurrent training runs
+    # Prevent concurrent runs
     if app.model_manager.training_lock.locked():
         logger.warning("Training already in progress, skipping cycle.")
         return False
 
     try:
-        logger.info("Starting training cycle: Scanning for new result files...")
-        
-        # Find json files and process
-        pattern = os.path.join(config.RESULTS_DIR, "*.json")
-        files = glob.glob(pattern)
-        
-        if not files:
-            logger.info("No new results json files found. Processing skipped.")
-        else:
-            logger.info(f"Found {len(files)} results json files. Processing...")
-            process_results(files, config.TS_DIR)
+        # Process raw JSON results into .ts files
+        json_pattern = os.path.join(config.RESULTS_DIR, "*.json")
+        json_files = glob.glob(json_pattern)
+        if json_files:
+            logger.info(f"Processing {len(json_files)} new JSON results...")
+            process_results(json_files, config.TS_DIR)
 
-        # Find ts files and train
-        pattern = os.path.join(config.TS_DIR, "*.ts")
-        files = glob.glob(pattern)
-
-        if not files:
-            logger.info("No new ts files found. Training skipped.")
+        # Check for .ts training data
+        ts_pattern = os.path.join(config.TS_DIR, "*.ts")
+        ts_files = glob.glob(ts_pattern)
+        if not ts_files:
+            logger.info("No new .ts files found. Training skipped.")
             return True
 
-        logger.info(f"Found {len(files)} ts files. Training...")
-        success = app.model_manager.train(files, config.PROCESSED_DIR)
+        # Create Shadow Directory for this run
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        shadow_dir = os.path.join(config.SHADOW_MODELS_DIR, f"{timestamp}")
+        os.makedirs(shadow_dir, exist_ok=True)
+
+        logger.info(f"Starting Shadow Training in: {shadow_dir}")
+        
+        # Train model directly into the shadow directory
+        # This creates model.h5 and metadata.pkl inside shadow_dir
+        success = app.model_manager.train(ts_files, config.TS_DIR, output_dir=shadow_dir)
 
         if success:
-            if app.model_manager.encoders:
-                count = len(app.model_manager.encoders['system'].classes_)
-                logger.info(f"Training and reload successful. Systems now known: {count}")
+            # Re-prime the cache in the shadow environment
+            # We use a fresh instance to scan the newly processed files
+            logger.info("Generating shadow cache snapshot...")
+            shadow_cache = SystemStateCache()
+            shadow_cache.prime_from_disk(config.TS_DIR)
+            shadow_cache.save_snapshot(backup_dir=shadow_dir)
+            # Also save a backup to allow a quick reinitialization 
+            shadow_cache.save_snapshot(backup_dir=config.MODEL_DIR)
 
-            # Save the new model version with a timestamped folder for traceability
-            backup_dir = app.model_manager.backup_model(app.model_manager.encoders, app.model_manager.scaler)    
+            # THE ATOMIC SWAP: Promote shadow assets to root model dir
+            logger.info("Promoting shadow assets to LIVE...")
+            promote_shadow_to_live(shadow_dir)
 
-            app.model_manager.unload_model()
-            logger.info("Notifying Predictor...")
-            try:
-                predictor_url = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/reload"
-                resp = requests.post(predictor_url, json={"backup_dir": backup_dir}, timeout=(5, 600))
-                if resp.status_code == 200:
-                    logger.info("Predictor successfully reloaded the new model.")
-                else:
-                    logger.warning("Predictor acknowledged but failed to reload.")
-            except Exception as e:
-                logger.error(f"Could not reach Predictor to trigger reload: {e}")
+            # Notify Predictor to reload from the root (where we just swapped files)
+            notify_predictor(shadow_dir)
 
+            # Local Cleanup
+            gc.collect()
             return True
         else:
-            logger.error("Training finished but ModelManager failed to reload files.")
+            logger.error("Training failed in shadow directory.")
             return False
             
     except Exception as e:
         logger.error(f"Training cycle failed: {e}", exc_info=True)
         return False
 
+def notify_predictor(shadow_dir):
+    logger.info("Notifying Predictor...")
+    try:
+        predictor_url = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/reload"
+        resp = requests.post(predictor_url, json={"backup_dir": shadow_dir}, timeout=(5, 600))
+        if resp.status_code == 200:
+            logger.info("Predictor successfully reloaded the new model.")
+        else:
+            logger.warning("Predictor acknowledged but failed to reload.")
+    except Exception as e:
+        logger.error(f"Could not reach Predictor to trigger reload: {e}")
+
+
+def promote_shadow_to_live(shadow_dir):
+    """Moves the finalized assets from shadow folder to the main model folder."""
+    files = [config.MODEL_NAME, config.METADATA_NAME, config.CACHE_SNAPSHOT]
+    for f in files:
+        src = os.path.join(shadow_dir, f)
+        dst = os.path.join(config.MODEL_DIR, f)
+        if os.path.exists(src):
+            shutil.copy2(src, dst)
+            logger.info(f"Promoted: {f}")
+
 
 @app.route('/internal/train', methods=['POST'])
 def trigger_train():
-    success = perform_training_cycle()
-    if success:
-        return jsonify({"status": "success"}), 200
-    return jsonify({"status": "busy_or_failed"}), 429
-
-@app.route('/internal/retrain', methods=['POST'])
-def trigger_retrain():
-    cleanup_and_restore()
     success = perform_training_cycle()
     if success:
         return jsonify({"status": "success"}), 200
@@ -107,10 +125,9 @@ def get_internal_status():
         "last_train_timestamp": last_updated
     })
 
-
 scheduler = BackgroundScheduler(daemon=True)
-# Adjust 'minutes=60' or use config.TRAIN_INTERVAL_MINUTES
-scheduler.add_job(func=perform_training_cycle, trigger="interval", minutes=config.TRAIN_INTERVAL_MINUTES)
+# Adjust 'hours=6' or use config.TRAIN_INTERVAL_HOURS
+scheduler.add_job(func=perform_training_cycle, trigger="interval", hours=config.TRAIN_INTERVAL_HOURS)
 scheduler.start()
 
 if __name__ == "__main__":

@@ -1,20 +1,11 @@
 # Directories
 RESULTS_DIR = 'data/results'
-PROCESSED_DIR = 'data/processed'
 TS_DIR = 'data/ts'
 LOGS_DIR = 'logs'
 MODEL_DIR = 'model'
-OLD_MODELS_DIR = 'model/old'
+SHADOW_MODELS_DIR = 'model/shadow_backups'
 
 # Model Settings
-#This file stores the "Brain" (the weights/math). It tells the AI how to predict.
-MODEL_NAME = 'test_predictor_lstm.keras'
-# This file stores the "Translation Dictionary" (Encoders)
-METADATA_NAME = 'metadata.pkl'
-# This file stores the "Memory" of all predictions for auditing and future analysis.
-PREDICTION_LOG = 'prediction_audit.jsonl'
-# This file stores the "Memory" of all historical contexts for auditing and future analysis.
-HISTORY_LOG = 'history_audit.jsonl'
 # Units (64 or 128): The number of memory cells in the LSTM layer.
 LSTM_UNITS = 64
 # Units (32): The number of memory cells in the second LSTM layer, if used.
@@ -76,7 +67,7 @@ WEIGHT_NEGATIVE_CLASS = 1.0
 PREDICTION_VERBOSE = 1
 
 # API Settings
-TRAIN_INTERVAL_MINUTES = 180
+TRAIN_INTERVAL_HOURS = 6
 DEFAULT_SCENARIO = "generic"
 DEFAULT_ATTEMPT = 1
 DEFAULT_AUDIT = False
@@ -84,6 +75,7 @@ DEFAULT_AUDIT = False
 # Cleaner Settings
 CLEANER_INTERVAL_HOURS = 24
 FILE_RETENTION_DAYS = 7
+BACKUPS_RETENTION_DAYS = 7
 
 # Server Settings
 API_HOST = '127.0.0.1'
@@ -94,5 +86,15 @@ TRAINER_PORT = 5002
 CLEANER_PORT = 5003
 
 
-# Cache Settings
+# Filenames Settings
+#This file stores the "Brain" (the weights/math). It tells the AI how to predict.
+MODEL_NAME = 'test_predictor_lstm.keras'
+# This file stores the "Translation Dictionary" (Encoders)
+METADATA_NAME = 'metadata.pkl'
+# This file stores the "Memory" of all predictions for auditing and future analysis.
+PREDICTION_LOG = 'prediction_audit.jsonl'
+# This file stores the "Memory" of all historical contexts for auditing and future analysis.
+HISTORY_LOG = 'history_audit.jsonl'
+# These files store snapshots of the cache and config for traceability and debugging.
 CACHE_SNAPSHOT = "cache_snapshot.pkl"
+CONFIG_SNAPSHOT = "config_snapshot.pkl"

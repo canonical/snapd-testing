@@ -70,6 +70,25 @@ class SystemStateCache:
             f"{total_verb_buckets} Total Verb Buckets loaded."
         )
 
+    def restore_backup(self, backup_dir):
+        """Restores the cache snapshot from a specified backup directory."""
+        backup_path = os.path.join(backup_dir, config.CACHE_SNAPSHOT)
+        if not os.path.exists(backup_path):
+            logger.error(f"Backup snapshot not found at {backup_path}")
+            return False
+        try:
+            with open(backup_path, 'rb') as f:
+                self.cache = pickle.load(f)
+            logger.info(f"Cache successfully restored from backup: {backup_path}")
+
+            # Persist this restored state as the new local default snapshot
+            self.save_snapshot()
+            logger.info("Local snapshot updated with restored backup data.")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to restore cache from backup: {e}")
+            return False
+
     def save_snapshot(self, backup_dir=None):
         """
         Saves the current in-memory cache to a binary file.
@@ -155,10 +174,10 @@ class SystemStateCache:
         except (KeyError, ValueError):
             return []
 
-    def prime_from_disk(self, processed_dir=config.PROCESSED_DIR):
+    def prime_from_disk(self, ts_dir=config.TS_DIR):
         """Reconstructs histories grouped by system/name/verb."""
         logger.info("Scanning .ts files to prime test histories...")
-        ts_files = glob.glob(os.path.join(processed_dir, "*.ts"))
+        ts_files = glob.glob(os.path.join(ts_dir, "*.ts"))
         logger.info(f"Found {len(ts_files)} .ts files to process for cache priming.")
 
         if not ts_files:

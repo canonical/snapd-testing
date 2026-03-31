@@ -8,26 +8,21 @@ from common.utils import setup_logging
 
 logger = setup_logging("cleaner-job")
 
-def cleanup_processed_files():
-    # Construct the path to the processed directory
-    processed_dir = os.path.join(config.PROCESSED_DIR, "processed")
+def cleanup_ts_files():
+    ts_dir = config.TS_DIR
     
-    if not os.path.exists(processed_dir):
-        logger.warning(f"Directory not found: {processed_dir}")
-        return
-
     # Calculate retention threshold in seconds
     # 86400 seconds in a day
     now = time.time()
     retention_seconds = config.FILE_RETENTION_DAYS * 86400
     threshold = now - retention_seconds
 
-    logger.info(f"Starting cleanup in {processed_dir} (Retention: {config.FILE_RETENTION_DAYS} days)")
+    logger.info(f"Starting cleanup in {ts_dir} (Retention: {config.FILE_RETENTION_DAYS} days)")
 
     files_deleted = 0
     try:
-        for filename in os.listdir(processed_dir):
-            file_path = os.path.join(processed_dir, filename)
+        for filename in os.listdir(ts_dir):
+            file_path = os.path.join(ts_dir, filename)
             
             # Skip directories, only process files
             if os.path.isfile(file_path):
@@ -45,47 +40,55 @@ def cleanup_processed_files():
         logger.info(f"Cleanup finished. Total files deleted: {files_deleted}")
         
     except Exception as e:
-        logger.error(f"Error accessing directory {processed_dir}: {e}")
+        logger.error(f"Error accessing directory {ts_dir}: {e}")
 
+def cleanup_backups():
+    old_models_dir = config.SHADOW_MODELS_DIR
+    
+    # Calculate retention threshold (86400 seconds = 1 day)
+    now = time.time()
+    retention_seconds = config.BACKUPS_RETENTION_DAYS * 86400
+    threshold = now - retention_seconds
+
+    logger.info(f"Starting backup cleanup in {old_models_dir} (Retention: {config.BACKUPS_RETENTION_DAYS} days)")
+
+    backups_deleted = 0
+    try:
+        if not os.path.exists(old_models_dir):
+            logger.warning(f"Directory not found: {old_models_dir}")
+            return
+
+        # Iterate through items in the shadow directory
+        for item in os.listdir(old_models_dir):
+            item_path = os.path.join(old_models_dir, item)
+            
+            # Check if it's a directory (timestamped backup folder)
+            if os.path.isdir(item_path):
+                # Get the last modification time of the folder
+                folder_mtime = os.path.getmtime(item_path)
+                
+                if folder_mtime < threshold:
+                    try:
+                        # Recursively delete the entire backup directory
+                        shutil.rmtree(item_path)
+                        logger.info(f"Deleted old backup folder: {item}")
+                        backups_deleted += 1
+                    except Exception as e:
+                        logger.error(f"Failed to delete backup folder {item}: {e}")
+        
+        logger.info(f"Backup cleanup finished. Total folders deleted: {backups_deleted}")
+        
+    except Exception as e:
+        logger.error(f"Error accessing backup directory {old_models_dir}: {e}")
 
 def cleanup_and_restore():
     # Run the existing cleanup logic first
     # Ensure this points to the correct directory defined in your config
-    processed_dir = config.PROCESSED_DIR 
     ts_dir = config.TS_DIR
-
-    if not os.path.exists(processed_dir):
-        logger.warning(f"Directory not found: {processed_dir}")
-        return
 
     if not os.path.exists(ts_dir):
         os.makedirs(ts_dir)
         logger.info(f"Created TS directory: {ts_dir}")
 
     # Run the deletion part
-    cleanup_processed_files()
-
-    # Restore remaining files to TS_DIR
-    logger.info(f"Restoring remaining files from {processed_dir} to {ts_dir}...")
-    
-    files_restored = 0
-    try:
-        # Get list of files left after cleanup
-        remaining_files = [f for f in os.listdir(processed_dir) 
-                          if os.path.isfile(os.path.join(processed_dir, f))]
-
-        for filename in remaining_files:
-            src_path = os.path.join(processed_dir, filename)
-            dest_path = os.path.join(ts_dir, filename)
-
-            try:
-                # Use move to transfer the file back to the training queue
-                shutil.move(src_path, dest_path)
-                files_restored += 1
-            except Exception as e:
-                logger.error(f"Failed to move {filename}: {e}")
-
-        logger.info(f"Restore finished. Total files moved back to TS: {files_restored}")
-
-    except Exception as e:
-        logger.error(f"Error during restoration: {e}")
+    cleanup_ts_files()

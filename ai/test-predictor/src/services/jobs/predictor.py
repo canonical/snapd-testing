@@ -248,16 +248,23 @@ def reload_model():
     logger.info("Reload signal received from Trainer. Refreshing model...")
     
     data = request.json
-    backup_dir = data.get('backup_dir')
+    backup_dir = data.get('backup_dir') 
+
+    if not backup_dir or not os.path.isdir(backup_dir):
+        logger.error(f"Invalid or missing backup directory: {backup_dir}")
+        return jsonify({"status": "error", "message": "Invalid backup_dir"}), 400
 
     # Use your existing ModelManager logic to reload
     success = app.model_manager.reload_model()
     
     if success:
         # This ensures Step -1 matches the data just trained
-        app.state_cache.reinitialize()
+        cache_restored = app.state_cache.restore_backup(backup_dir)
 
-        logger.info("Model refreshed successfully.")
+        if not cache_restored:
+            logger.warning("Model reloaded, but cache restoration failed.")
+
+        logger.info(f"Model and cache refreshed successfully from {backup_dir}")
         return jsonify({"status": "success", "message": "Model reloaded"}), 200
     else:
         logger.error("Failed to reload model from disk.")

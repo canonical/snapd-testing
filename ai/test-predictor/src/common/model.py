@@ -274,7 +274,7 @@ class ModelManager:
             logger.error(f"load_or_build_model failed: {e}")
             return None
 
-    def train(self, ts_files, processed_dir):
+    def train(self, ts_files):
         """
         Orchestrates the batch training process using a subset of the most recent data.
 
@@ -285,12 +285,6 @@ class ModelManager:
         3. Chunked Training: Processes sequences in blocks (via TRAINING_CHUNKS_SIZE) 
            to prevent memory exhaustion (RAM) and process hangs.
         4. Persistence: Saves the updated .keras model and .pkl metadata.
-        5. Cleanup: Moves all pending files to the processed directory regardless 
-           of whether they were used in the specific training subset.
-
-        Args:
-            ts_files (list): Paths to pending .ts files in the training queue.
-            processed_dir (str): Directory where files are archived after training.
 
         Returns:
             bool: True if training and persistence succeeded, False otherwise.
@@ -299,7 +293,6 @@ class ModelManager:
             If you have 1000 files in the queue and TRAINING_MAX_FILES = 300:
             - The model studies the 300 newest files to find patterns.
             - Training is split into 50,000-sequence chunks to stay under RAM limits.
-            - After success, all 1000 files are moved to 'processed/' to clear the queue.
         """
 
         if not ts_files:
@@ -399,17 +392,6 @@ class ModelManager:
                 model.save(self.model_path)
                 self._save_metadata(enc, scal)
                 
-                # Finalize: Move ALL files originally in the directory
-                files_moved = 0
-                for path in all_ts_files_to_move:
-                    if not os.path.exists(path): continue
-                    dest = os.path.join(processed_dir, os.path.basename(path))
-                    if os.path.exists(dest):
-                        os.remove(dest)
-                    shutil.move(path, dest)
-                    files_moved += 1
-
-                logger.info(f"Training complete. Moved {files_moved} files to processed.")
                 self._load_from_disk()
                 return True
 

@@ -90,7 +90,7 @@ def get_filtered_stats():
         return jsonify({"error": "Provide at least one filter (name, system, etc.)"}), 400
 
     # Process both directories
-    proc_p, proc_f = count_filtered_success(config.PROCESSED_DIR, filters)
+    proc_p, proc_f = count_filtered_success(config.TS_DIR, filters)
 
     return jsonify({
         "filters_applied": {k: v for k, v in filters.items() if v is not None},
@@ -110,5 +110,5 @@ def get_all_systems_audit():
         "verb": request.args.get('verb')
     }
     
-    stats = get_all_systems_stats(config.PROCESSED_DIR, filters)
+    stats = get_all_systems_stats(config.TS_DIR, filters)
     return jsonify({"filters": filters, "systems": stats}), 200
