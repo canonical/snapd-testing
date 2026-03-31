@@ -176,9 +176,21 @@ class ModelManager:
     def exists(self):
         return os.path.exists(self.model_path) and os.path.exists(self.metadata_path)
 
-    def save_model_version(self, encoders, scaler):
+    def backup_model(self, encoders, scaler):
         """Saves current model and metadata to a new timestamped directory."""
         version_dir = self._get_timestamped_path()
+
+        #Capture All Config Constants (e.g., SEQUENCE_LENGTH, LSTM_UNITS)
+        config_snapshot = {
+            key: getattr(config, key) 
+            for key in dir(config) 
+            if key.isupper() and not key.startswith("_")
+        }
+
+        # Save the standalone CONFIG_SNAPSHOT file
+        config_snap_path = os.path.join(version_dir, config.CONFIG_SNAPSHOT)
+        with open(config_snap_path, 'wb') as f:
+            pickle.dump(config_snapshot, f)
 
         # Save Metadata to the new version folder
         ver_metadata_path = os.path.join(version_dir, config.METADATA_NAME)
@@ -384,7 +396,7 @@ class ModelManager:
                     gc.collect()
 
                 # Save the new model version with a timestamped folder for traceability
-                self.save_model_version(enc, scal)
+                self.backup_model(enc, scal)
 
                 # Persist
                 model.save(self.model_path)
