@@ -4,6 +4,7 @@ PROCESSED_DIR = 'data/processed'
 TS_DIR = 'data/ts'
 LOGS_DIR = 'logs'
 MODEL_DIR = 'model'
+OLD_MODELS_DIR = 'model/old'
 
 # Model Settings
 #This file stores the "Brain" (the weights/math). It tells the AI how to predict.

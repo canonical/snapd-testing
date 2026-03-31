@@ -1,4 +1,11 @@
-import gc, pickle, os, time, threading, shutil
+import datetime
+import gc
+import pickle
+import os
+import shutil
+import time
+import threading
+import shutil
 import numpy as np
 import pandas as pd
 
@@ -141,10 +148,6 @@ class ModelManager:
         logger.info(f"Prepared {len(X)} sequences. Blinding applied to column index {success_idx}.")
         return X, np.array(targets)
 
-
-    def exists(self):
-        return os.path.exists(self.model_path) and os.path.exists(self.metadata_path)
-
     def _load_from_disk(self):
         try:
             if not self.exists(): return False
@@ -161,6 +164,38 @@ class ModelManager:
         except Exception as e:
             logger.error(f"Reload failed: {e}")
             return False
+
+    def _get_timestamped_path(self):
+        """Creates and returns a path like model/2023-10-27_14-30-05/"""
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        # Assuming model_path is something like 'model/model.h5'
+        new_dir = os.path.join(config.OLD_MODELS_DIR, timestamp)
+        os.makedirs(new_dir, exist_ok=True)
+        return new_dir
+
+    def exists(self):
+        return os.path.exists(self.model_path) and os.path.exists(self.metadata_path)
+
+    def save_model_version(self, encoders, scaler):
+        """Saves current model and metadata to a new timestamped directory."""
+        version_dir = self._get_timestamped_path()
+
+        # Save Metadata to the new version folder
+        ver_metadata_path = os.path.join(version_dir, config.METADATA_NAME)
+        with open(ver_metadata_path, 'wb') as f:
+            pickle.dump((encoders, scaler), f)
+
+        # Save Model to the new version folder
+        ver_model_path = os.path.join(version_dir, config.MODEL_NAME)
+        self.model.save(ver_model_path)
+
+        # Update 'latest' (copy files to the root model directory)
+        # This ensures your API always loads the most recent one by default
+        shutil.copy2(ver_metadata_path, self.metadata_path)
+        shutil.copy2(ver_model_path, self.model_path)
+
+        logger.info(f"Model version saved to {version_dir} and promoted to latest.")
+        return version_dir
 
     def load_or_build_model(self, input_shape=None):
         """
@@ -347,6 +382,9 @@ class ModelManager:
                     del X_chunk, y_chunk
 
                     gc.collect()
+
+                # Save the new model version with a timestamped folder for traceability
+                self.save_model_version(enc, scal)
 
                 # Persist
                 model.save(self.model_path)
