@@ -65,9 +65,7 @@ class SystemStateCache:
                 total_verb_buckets += len(verbs)
 
         logger.info(
-            f"Cache Stats: {total_systems} Systems, "
-            f"{total_unique_tests} Unique Test Names, "
-            f"{total_verb_buckets} Total Verb Buckets loaded."
+            f"Cache Stats: {total_unique_tests} Tests"
         )
 
     def restore_backup(self, backup_dir):
