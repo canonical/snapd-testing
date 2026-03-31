@@ -1,6 +1,7 @@
 import glob
 import os
 import pandas as pd
+import pickle
 from common import config
 from common.utils import setup_logging
 
@@ -11,6 +12,7 @@ class SystemStateCache:
         # Flattened structure: self.cache[system][name][verb] = [list of result_dicts]
         self.cache = {}
         self.history_size = history_size
+        self.snapshot_path = os.path.join(config.MODEL_DIR, config)
 
     def _normalize_entry(self, data):
         """Standardizes the raw dictionary and handles NaNs in names."""
@@ -30,6 +32,75 @@ class SystemStateCache:
             'attempt': int(data.get('attempt') or config.DEFAULT_ATTEMPT),
             'start': str(data.get('start') or '')
         }
+
+    def _restore_from_snapshot(self):
+        """Internal helper to load the pickle file."""
+        if not os.path.exists(self.snapshot_path):
+            return None
+        try:
+            with open(self.snapshot_path, 'rb') as f:
+                return pickle.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load snapshot: {e}")
+            return None
+
+    def _force_prime_and_save(self):
+        """Internal helper to consolidate the 'Prime -> Save' workflow."""
+        try:
+            self.prime_from_disk()
+            self.save_snapshot()
+            logger.info("Cache successfully rebuilt and snapshot updated.")
+        except Exception as e:
+            logger.error(f"Failed during force reinitialization: {e}")
+
+    def _log_stats(self):
+        """Calculates and logs the density of the current cache."""
+        total_systems = len(self.cache)
+        total_unique_tests = 0
+        total_verb_buckets = 0
+
+        for _, names in self.cache.items():
+            total_unique_tests += len(names)
+            for _, verbs in names.items():
+                total_verb_buckets += len(verbs)
+
+        logger.info(
+            f"Cache Stats: {total_systems} Systems, "
+            f"{total_unique_tests} Unique Test Names, "
+            f"{total_verb_buckets} Total Verb Buckets loaded."
+        )
+
+    def save_snapshot(self):
+        """Saves the current in-memory cache to a binary file."""
+        try:
+            os.makedirs(os.path.dirname(self.snapshot_path), exist_ok=True)
+            with open(self.snapshot_path, 'wb') as f:
+                pickle.dump(self.cache, f)
+            logger.info(f"Cache snapshot saved to {self.snapshot_path}")
+        except Exception as e:
+            logger.error(f"Failed to save snapshot: {e}")
+
+    def reinitialize(self):
+        """
+        Forces a full scan of .ts files, rebuilding the cache from 
+        scratch and overwriting the existing snapshot.
+        """
+        logger.info("Manual reinitialization triggered. Clearing current cache...")
+        self.cache = {}
+        self._force_prime_and_save()
+
+    def initialize(self):
+        """Standard entry point: Restore if possible, otherwise prime."""
+        restored_data = self._restore_from_snapshot()
+        
+        if restored_data is not None:
+            self.cache = restored_data
+            logger.info("SystemStateCache initialized from disk snapshot.")
+        else:
+            logger.info("No snapshot found. Starting first-time priming...")
+            self._force_prime_and_save()
+        
+        self._log_stats()
 
     def update(self, raw_data):
         """Updates the [system][name][verb] bucket with a chronological list."""
@@ -117,3 +188,18 @@ class SystemStateCache:
                 self.cache[s][n][v] = history[-self.history_size:]
             
         logger.info(f"Cache primed successfully.")
+
+    def restore_cache_from_disk(filename=config.CACHE_SNAPSHOT):
+        cache_path = os.path.join(config.PROCESSED_DIR, filename)
+        if not os.path.exists(cache_path):
+            logger.warning("No cache file found to restore")
+            return None
+        
+        try:
+            with open(cache_path, 'rb') as f:
+                data = pickle.load(f)
+            logger.info("Cache restored successfully.")
+            return data
+        except Exception as e:
+            logger.error(f"Failed to restore cache: {e}")
+            return None

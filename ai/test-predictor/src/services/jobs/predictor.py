@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 # Initialize the cache
 app.state_cache = SystemStateCache(history_size=config.SEQUENCE_LENGTH - 1)
-app.state_cache.prime_from_disk(config.PROCESSED_DIR)
+app.state_cache.initialize()
 
 # Initialize the manager once
 model_full_path = os.path.join(config.MODEL_DIR, config.MODEL_NAME)
@@ -38,7 +38,6 @@ def validate_labels(params, keys_to_check, encoders):
         else:
             logger.warning(f"No encoder found for key: {k}")
     return unknowns
-
 
 def encode_to_vector(data, encoders):
     # Extract and Normalize Strings/Values
@@ -81,8 +80,6 @@ def encode_to_vector(data, encoders):
         sce_enc, 
         success
     ], dtype='float32')
-
-
 
 def audit_prediction(X_input, probability, params, model_manager):
     """
@@ -255,7 +252,7 @@ def reload_model():
     
     if success:
         # This ensures Step -1 matches the data just trained
-        app.state_cache.prime_from_disk(config.PROCESSED_DIR)
+        app.state_cache.reinitialize()
 
         logger.info("Model refreshed successfully.")
         return jsonify({"status": "success", "message": "Model reloaded"}), 200
@@ -342,7 +339,7 @@ def test_scenarios():
 
         # 6. NEW TEST / NO HISTORY: All zeros in history (or empty).
         # EXPECTED: Global Average (~80-90% depending on your data)
-        "new_test_no_history": [0] * 14, 
+        "new_test_no_history": [], 
 
         # 7. THE IMPROVING FLAKE: Failing a lot at the start, but stable for the last 8.
         # EXPECTED: > 85%
@@ -352,7 +349,7 @@ def test_scenarios():
     results = {}
     # Use a dummy target for metadata encoding
     base_data = {
-        "name": "tests/main/abort",
+        "name": "tests/main/test-scenario",
         "verb": "executing",
         "system": "ubuntu-core-22-64",
         "attempt": 1,

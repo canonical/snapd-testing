@@ -91,3 +91,7 @@ API_PORT = 5000
 PREDICTOR_PORT = 5001
 TRAINER_PORT = 5002
 CLEANER_PORT = 5003
+
+
+# Cache Settings
+CACHE_SNAPSHOT = "cache_snapshot.pkl"
