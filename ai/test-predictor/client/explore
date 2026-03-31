@@ -144,6 +144,21 @@ def handle_context(args):
     except Exception as e:
         print(f"Connection Failed: {e}")
 
+def handle_test_scenarios(args):
+    """Calls the internal testing endpoint to verify model logic."""
+    url = f"{args.url.rstrip('/')}:{args.port}/internal/test-scenarios"
+    try:
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            print("\nMODEL SCENARIO VERIFICATION:")
+            rows = [[k.upper().replace("_", " "), v] for k, v in data.items()]
+            print_table(["SCENARIO", "PREDICTION"], rows)
+        else:
+            print(f"Error: {resp.text}")
+    except Exception as e:
+        print(f"Connection Failed: {e}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Predictor API Client")
     parser.add_argument("--url", default="http://test-predictor.canonical.com", help="Base URL")
@@ -190,6 +205,8 @@ if __name__ == "__main__":
     c_parser.add_argument("--scenario")
     c_parser.add_argument("--audit", action="store_true")
 
+    t_parser = subparsers.add_parser("test", help="Verify model against synthetic scenarios")
+
     args = parser.parse_args()
 
     # Mapping commands to functions
@@ -198,7 +215,8 @@ if __name__ == "__main__":
         "risk": handle_risk,
         "compare": handle_worst_systems,
         "list": handle_list,
-        "context": handle_context
+        "context": handle_context,
+        "test": handle_test_scenarios        
     }
     
     if args.command in commands:

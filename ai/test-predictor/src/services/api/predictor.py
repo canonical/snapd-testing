@@ -10,6 +10,7 @@ predictor_bp = Blueprint('predictor', __name__)
 PREDICTOR_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/predict"
 CATEGORY_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/list"
 CACHE_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/context"
+TEST_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/test"
 
 def get_params():
     return {
@@ -179,6 +180,15 @@ def get_system_context():
     p = get_params()
     try:
         response = requests.get(CACHE_URL, params=p, timeout=5)
+        return (response.content, response.status_code, response.headers.items())
+    except Exception as e:
+        return jsonify({"error": f"Internal predictor unreachable: {e}"})
+    
+@predictor_bp.route('/test', methods=['GET'])
+def get_system_test():
+    """Directly retrieves the current test configuration."""
+    try:
+        response = requests.get(TEST_URL, params=None, timeout=5)
         return (response.content, response.status_code, response.headers.items())
     except Exception as e:
         return jsonify({"error": f"Internal predictor unreachable: {e}"})
