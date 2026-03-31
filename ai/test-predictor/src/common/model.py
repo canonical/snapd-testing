@@ -395,9 +395,6 @@ class ModelManager:
 
                     gc.collect()
 
-                # Save the new model version with a timestamped folder for traceability
-                self.backup_model(enc, scal)
-
                 # Persist
                 model.save(self.model_path)
                 self._save_metadata(enc, scal)

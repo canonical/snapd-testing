@@ -235,7 +235,7 @@ def predict():
 def update_context():
     """Called by Trainer Service when a real result is known."""
     data = request.json
-    system = data.get('s') or data.get('system')
+    system = data.get('system')
     if system:
         app.state_cache.update(system, data)
         return jsonify({"status": "updated"}), 200
@@ -247,6 +247,9 @@ def reload_model():
     """Triggered by the Trainer to refresh the model from disk."""
     logger.info("Reload signal received from Trainer. Refreshing model...")
     
+    data = request.json
+    backup_dir = data.get('backup_dir')
+
     # Use your existing ModelManager logic to reload
     success = app.model_manager.reload_model()
     

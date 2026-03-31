@@ -70,15 +70,28 @@ class SystemStateCache:
             f"{total_verb_buckets} Total Verb Buckets loaded."
         )
 
-    def save_snapshot(self):
-        """Saves the current in-memory cache to a binary file."""
+    def save_snapshot(self, backup_dir=None):
+        """
+        Saves the current in-memory cache to a binary file.
+        If backup_dir is provided, saves to that directory as CACHE_SNAPSHOT.pkl.
+        """
+        # Determine the target path
+        if backup_dir:
+            target_path = os.path.join(backup_dir, config.CACHE_SNAPSHOT)
+        else:
+            target_path = self.snapshot_path
+
         try:
-            os.makedirs(os.path.dirname(self.snapshot_path), exist_ok=True)
-            with open(self.snapshot_path, 'wb') as f:
+            # Ensure the parent directory exists
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            
+            with open(target_path, 'wb') as f:
                 pickle.dump(self.cache, f)
-            logger.info(f"Cache snapshot saved to {self.snapshot_path}")
+            
+            logger.info(f"Cache snapshot saved to {target_path}")
         except Exception as e:
-            logger.error(f"Failed to save snapshot: {e}")
+            logger.error(f"Failed to save snapshot to {target_path}: {e}")
+
 
     def reinitialize(self):
         """

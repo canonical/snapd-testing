@@ -51,19 +51,21 @@ def perform_training_cycle():
             return True
 
         logger.info(f"Found {len(files)} ts files. Training...")
-        success = app.model_manager.train(files, config.PROCESSED_DIR)        
+        success = app.model_manager.train(files, config.PROCESSED_DIR)
 
         if success:
             if app.model_manager.encoders:
                 count = len(app.model_manager.encoders['system'].classes_)
                 logger.info(f"Training and reload successful. Systems now known: {count}")
-    
-            app.model_manager.unload_model()
 
+            # Save the new model version with a timestamped folder for traceability
+            backup_dir = app.model_manager.backup_model(app.model_manager.encoders, app.model_manager.scaler)    
+
+            app.model_manager.unload_model()
             logger.info("Notifying Predictor...")
             try:
                 predictor_url = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/reload"
-                resp = requests.post(predictor_url, timeout=300)
+                resp = requests.post(predictor_url, json={"backup_dir": backup_dir}, timeout=(5, 600))
                 if resp.status_code == 200:
                     logger.info("Predictor successfully reloaded the new model.")
                 else:
