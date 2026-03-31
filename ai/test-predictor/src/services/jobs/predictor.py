@@ -276,7 +276,7 @@ def reload_model():
 @app.route('/internal/list/<category>', methods=['GET'])
 def list_metadata(category):
     # Access the manager directly from the app instance
-    model, encoders, _ = app.model_manager.get_state()
+    _, encoders, _ = app.model_manager.get_state()
     
     if encoders is None:
         return jsonify({"error": "Metadata not loaded on server"}), 503
@@ -325,74 +325,75 @@ def get_internal_context():
 
 @app.route('/internal/test', methods=['GET'])
 def test_scenarios():
-    """Tests the model against synthetic historical patterns."""
+    """Tests the model against synthetic patterns and includes expected ranges."""
     scenarios = {
-        # 1. THE DEATH SPIRAL: 12 consecutive failures after a stable start.
-        # EXPECTED: < 5%
-        "death_spiral": [1, 1] + [0] * 12,
-
-        # 2. STABLE PASS: Perfect history.
-        # EXPECTED: > 95%
-        "stable_pass": [1] * 14,
-
-        # 3. THE FLAKY RECOVERY: Fails frequently but just passed the last 3 times.
-        # EXPECTED: ~60-70% (Cautious optimism)
-        "flaky_recovery": [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1],
-
-        # 4. RECENT DETERIORATION: Was perfect, but failed the last 2 times.
-        # EXPECTED: ~30-50% (Sharp drop from 99%)
-        "recent_deterioration": [1] * 12 + [0, 0],
-
-        # 5. THE "ZOMBIE": Failed for a long time, passed once, then failed again.
-        # EXPECTED: < 10%
-        "zombie_test": [0] * 10 + [1] + [0] * 3,
-
-        # 6. NEW TEST / NO HISTORY: All zeros in history (or empty).
-        # EXPECTED: Global Average (~80-90% depending on your data)
-        "new_test_no_history": [], 
-
-        # 7. THE IMPROVING FLAKE: Failing a lot at the start, but stable for the last 8.
-        # EXPECTED: > 85%
-        "improving_trend": [0] * 6 + [1] * 8
+        "death_spiral": {
+            "pattern": [1, 1] + [0] * 12,
+            "expected": "< 5%"
+        },
+        "stable_pass": {
+            "pattern": [1] * 14,
+            "expected": "> 95%"
+        },
+        "flaky_recovery": {
+            "pattern": [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1],
+            "expected": "60-70%"
+        },
+        "recent_deterioration": {
+            "pattern": [1] * 12 + [0, 0],
+            "expected": "30-50%"
+        },
+        "zombie_test": {
+            "pattern": [0] * 10 + [1] + [0] * 3,
+            "expected": "< 10%"
+        },
+        "new_test_no_history": {
+            "pattern": [], 
+            "expected": "80-90%"
+        },
+        "improving_trend": {
+            "pattern": [0] * 6 + [1] * 8,
+            "expected": "> 85%"
+        }
     }
     
-    results = {}
-    # Use a dummy target for metadata encoding
+    data = request.json    
     base_data = {
-        "name": "tests/main/abort",
-        "verb": "executing",
-        "system": "ubuntu-core-22-64",
-        "attempt": 1,
-        "scenario": "generic"
+        "name": data.get('name'),
+        "verb": data.get('verb'),
+        "system": data.get('system'),
+        "attempt": data.get('attempt', config.DEFAULT_ATTEMPT),
+        "scenario": data.get('scenario', config.DEFAULT_SCENARIO)
     }
-    
-    for label, pattern in scenarios.items():
-        # Build fake history objects
+    results = {}
+
+    encoders, _ = app.model_manager._get_metadata()
+
+    for label, info in scenarios.items():
+        pattern = info["pattern"]
         fake_history = []
         for val in pattern:
             entry = base_data.copy()
             entry['success'] = val
             fake_history.append(app.state_cache._normalize_entry(entry))
             
-        # Build the X_input (Sequence)
-        # Blind the target step by setting success to 0.0 as we do in production
         target = app.state_cache._normalize_entry(base_data)
         target['success'] = 0.0 
         
         full_seq = fake_history + [target]
         X_input = np.zeros((1, config.SEQUENCE_LENGTH, config.NUM_FEATURES), dtype='float32')
         
-        # Encode items into the sequence window
-        encoders, _ = app.model_manager._get_metadata()
         for i, item in enumerate(reversed(full_seq)):
             if i >= config.SEQUENCE_LENGTH: break
-            # Note: Ensure encode_to_vector is available in your scope
             vector = encode_to_vector(item, encoders)
             X_input[0, -1 - i, :] = vector
 
-        # Predict
-        prob = app.model_manager.model.predict(X_input, verbose=0)[0][0]
-        results[label] = f"{float(prob) * 100:.2f}%"
+        prob = float(app.model_manager.model.predict(X_input, verbose=0)[0][0])
+        
+        results[label] = {
+            "prediction": f"{prob * 100:.2f}%",
+            "expected_range": info["expected"],
+        }
 
     return jsonify(results)
 

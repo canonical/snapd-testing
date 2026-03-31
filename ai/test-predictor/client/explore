@@ -145,15 +145,26 @@ def handle_context(args):
         print(f"Connection Failed: {e}")
 
 def handle_test_scenarios(args):
-    """Calls the internal testing endpoint to verify model logic."""
     url = f"{args.url.rstrip('/')}:{args.port}/test"
+    params = {
+        "name": args.name,
+        "system": args.system,
+        "verb": args.verb,
+        "attempt": args.attempt,
+        "scenario": args.scenario
+    }
     try:
-        resp = requests.get(url, timeout=10)
+        resp = requests.get(url, params=params, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
             print("\nMODEL SCENARIO VERIFICATION:")
-            rows = [[k.upper().replace("_", " "), v] for k, v in data.items()]
-            print_table(["SCENARIO", "PREDICTION"], rows)
+            rows = []
+            for label, info in data.items():
+                name = label.upper().replace("_", " ")
+                rows.append([name, info["prediction"], info["expected_range"]])
+            
+            # Now includes the Expected column
+            print_table(["SCENARIO", "PREDICTION", "EXPECTED"], rows)
         else:
             print(f"Error: {resp.text}")
     except Exception as e:
@@ -206,6 +217,11 @@ if __name__ == "__main__":
     c_parser.add_argument("--audit", action="store_true")
 
     t_parser = subparsers.add_parser("test", help="Verify model against synthetic scenarios")
+    t_parser.add_argument("--name", default="tests/main/abort")
+    t_parser.add_argument("--system", default="ubuntu-24.04-64")
+    t_parser.add_argument("--verb", default="executing")
+    t_parser.add_argument("--attempt", type=int, default=1)
+    t_parser.add_argument("--scenario", default="generic")
 
     args = parser.parse_args()
 

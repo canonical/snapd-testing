@@ -187,8 +187,11 @@ def get_system_context():
 @predictor_bp.route('/test', methods=['GET'])
 def get_system_test():
     """Directly retrieves the current test configuration."""
+    p = get_params()
+    if not all([p['name'], p['verb'], p['system']]):
+        return jsonify({"error": "Missing params"}), 400
     try:
-        response = requests.get(TEST_URL, params=None, timeout=5)
+        response = requests.get(TEST_URL, params=p, timeout=10)
         return (response.content, response.status_code, response.headers.items())
     except Exception as e:
         return jsonify({"error": f"Internal predictor unreachable: {e}"})
