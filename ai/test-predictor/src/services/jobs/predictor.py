@@ -316,7 +316,7 @@ def get_internal_context():
     }), 200
 
 
-@app.route('/internal/test-scenarios', methods=['GET'])
+@app.route('/internal/test', methods=['GET'])
 def test_scenarios():
     """Tests the model against synthetic historical patterns."""
     scenarios = {
