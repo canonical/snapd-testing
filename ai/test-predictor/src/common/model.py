@@ -48,7 +48,7 @@ class ModelManager:
         with open(metadata_path, 'wb') as f:
             pickle.dump((encoders, scaler), f)
 
-    def _focal_loss(self, gamma=4.0, alpha=0.75):
+    def _focal_loss(self, gamma=config.FOCAL_LOSS_GAMMA, alpha=config.FOCAL_LOSS_ALPHA):
         """
         Focuses on difficult/misclassified examples.
         gamma: balance between easy/hard (2.0 is standard).
