@@ -56,7 +56,7 @@ def perform_training_cycle():
         
         # Train model directly into the shadow directory
         # This creates model.h5 and metadata.pkl inside shadow_dir
-        success = app.model_manager.train(ts_files, config.TS_DIR, output_dir=shadow_dir)
+        success = app.model_manager.train(ts_files, output_dir=shadow_dir)
 
         if success:
             # Re-prime the cache in the shadow environment

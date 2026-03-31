@@ -41,8 +41,11 @@ class ModelManager:
                 return pickle.load(f)
         return {}, MinMaxScaler()
 
-    def _save_metadata(self, encoders, scaler):
-        with open(self.metadata_path, 'wb') as f:
+    def _save_metadata(self, encoders, scaler, metadata_path=None):
+        if metadata_path is None:
+            metadata_path = self.metadata_path
+
+        with open(metadata_path, 'wb') as f:
             pickle.dump((encoders, scaler), f)
 
     def _focal_loss(self, gamma=4.0, alpha=0.75):
@@ -274,7 +277,7 @@ class ModelManager:
             logger.error(f"load_or_build_model failed: {e}")
             return None
 
-    def train(self, ts_files):
+    def train(self, ts_files, output_dir=None):
         """
         Orchestrates the batch training process using a subset of the most recent data.
 
@@ -389,8 +392,13 @@ class ModelManager:
                     gc.collect()
 
                 # Persist
-                model.save(self.model_path)
-                self._save_metadata(enc, scal)
+                model_path = self.model_path
+                metadata_path = self.metadata_path
+                if output_dir:
+                    model_path = os.path.join(output_dir, config.MODEL_NAME)
+                    metadata_path = os.path.join(output_dir, config.METADATA_NAME)
+                model.save(model_path)
+                self._save_metadata(enc, scal, metadata_path)
                 
                 self._load_from_disk()
                 return True
