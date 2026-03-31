@@ -357,13 +357,12 @@ def test_scenarios():
         }
     }
     
-    data = request.json    
     base_data = {
-        "name": data.get('name'),
-        "verb": data.get('verb'),
-        "system": data.get('system'),
-        "attempt": data.get('attempt', config.DEFAULT_ATTEMPT),
-        "scenario": data.get('scenario', config.DEFAULT_SCENARIO)
+        "name": request.args.get('name'),
+        "verb": request.args.get('verb'),
+        "system": request.args.get('system'),
+        "attempt": request.args.get('attempt', config.DEFAULT_ATTEMPT),
+        "scenario": request.args.get('scenario', config.DEFAULT_SCENARIO)
     }
     results = {}
 
