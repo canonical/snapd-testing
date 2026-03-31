@@ -22,24 +22,6 @@ def handle_train(base_url, port):
     except requests.exceptions.RequestException as e:
         print(f"Failed to reach the trainer API: {e}")
 
-def handle_retrain(base_url, port):
-    url = f"{base_url.rstrip('/')}:{port}/retrain"
-    print(f"Triggering retraining at {url}...")
-    
-    try:
-        # We use a slightly longer timeout than the server's internal proxy
-        response = requests.post(url, timeout=10)
-        
-        if response.status_code in [200, 202]:
-            print(f"{response.json().get('message', 'Retraining started.')}")
-        elif response.status_code == 429:
-            print("Busy: A retraining session is already in progress.")
-        else:
-            print(f"error ({response.status_code}): {response.text}")
-            
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to reach the trainer API: {e}")
-
 def handle_status(base_url, port):
     url = f"{base_url.rstrip('/')}:{port}/status"
     
@@ -75,7 +57,5 @@ if __name__ == "__main__":
 
     if args.command == "start":
         handle_train(args.url, args.port)
-    elif args.command == "retrain":
-        handle_retrain(args.url, args.port)
     elif args.command == "status":
         handle_status(args.url, args.port)
