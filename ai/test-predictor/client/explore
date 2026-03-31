@@ -146,7 +146,7 @@ def handle_context(args):
 
 def handle_test_scenarios(args):
     """Calls the internal testing endpoint to verify model logic."""
-    url = f"{args.url.rstrip('/')}:{args.port}/internal/test-scenarios"
+    url = f"{args.url.rstrip('/')}:{args.port}/test"
     try:
         resp = requests.get(url, timeout=10)
         if resp.status_code == 200:
