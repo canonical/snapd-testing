@@ -66,8 +66,18 @@ def _clean_and_transform_data(raw_data, scenario, attempt):
     df['start_dt'] = start_dt 
     df = df.sort_values(by=['instance', 'start_dt'])
 
+    # MANDATORY COLUMN VALIDATION
+    missing_cols = [col for col in config.MANDATORY_TS_COLUMNS if col not in df.columns]
+    if missing_cols:
+        logger.error(f"Missing mandatory columns: {missing_cols}")
+        raise ValueError(f"DataFrame is missing required columns: {missing_cols}")
+
     # FINAL COLUMN ORDER
     final_cols = [c for c in config.FEATURE_COLUMNS if c in df.columns]
+    df = df[final_cols]
+
+    # DROP ANY ROWS WITH MISSING VALUES IN FINAL COLUMNS (after all transformations)
+    df = df.dropna()
 
     logger.info(f"Transformed data for run_id={run_id} with {len(df)} items and columns: {final_cols}")
     return df[final_cols], run_id
@@ -88,11 +98,17 @@ def process_results(json_files, ts_dir):
             scenario = _extract_scenario(filename)
             with open(json_path, 'r') as f:
                 df, _ = _clean_and_transform_data(json.load(f), scenario, attempt)
-            df.to_csv(ts_path, index=False)
 
-            os.remove(json_path)
-            logger.info(f"Successfully processed and removed: {filename}")
-      
+            # Save the valid TS file
+            df.to_csv(ts_path, index=False)
             ts_batch_paths.append((json_path, ts_path))
+            logger.info(f"Successfully processed and removed: {filename}")
+
         except Exception as e:
             logger.warning(f"Skip {filename}: {e}")
+
+        finally:
+            # This runs regardless of success or exception
+            if os.path.exists(json_path):
+                os.remove(json_path)
+                logger.debug(f"Removed source file: {filename}")

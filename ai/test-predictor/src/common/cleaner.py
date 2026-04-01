@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import pandas as pd
 import shutil
 import time
 from common import config
@@ -41,6 +42,47 @@ def cleanup_ts_files():
         
     except Exception as e:
         logger.error(f"Error accessing directory {ts_dir}: {e}")
+
+
+def clean_ts_directory():
+    """
+    Iterates through .ts files, removing rows with any missing values
+    or incorrect formatting to ensure model-ready data.
+    """
+    ts_dir = config.TS_DIR
+    if not os.path.exists(ts_dir):
+        print(f"Error: Directory '{ts_dir}' not found.")
+        return
+
+    ts_files = [f for f in os.listdir(ts_dir) if f.endswith('.ts')]
+    
+    if not ts_files:
+        print("No .ts files found in the directory.")
+        return
+
+    for filename in ts_files:
+        file_path = os.path.join(ts_dir, filename)
+        try:
+            # Load the TS file (CSV format)
+            df = pd.read_csv(file_path)
+            initial_row_count = len(df)
+
+            # 1. Convert whitespace/empty strings to NA so dropna() catches them
+            df = df.replace(r'^\s*$', pd.NA, regex=True)
+
+            # 2. Drop any row that contains at least one NaN/NA value
+            df_cleaned = df.dropna()
+
+            # 3. Only overwrite if invalid rows were actually found
+            if len(df_cleaned) < initial_row_count:
+                df_cleaned.to_csv(file_path, index=False)
+                removed = initial_row_count - len(df_cleaned)
+                print(f"Cleaned {filename}: Removed {removed} invalid rows.")
+            else:
+                print(f"Checked {filename}: Format is correct.")
+
+        except Exception as e:
+            print(f"Skipping {filename} due to error: {e}")
 
 def cleanup_backups():
     old_models_dir = config.SHADOW_MODELS_DIR
@@ -92,3 +134,4 @@ def cleanup_and_restore():
 
     # Run the deletion part
     cleanup_ts_files()
+    clean_ts_directory

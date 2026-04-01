@@ -40,6 +40,21 @@ FEATURE_COLUMNS = [
 # The "width" of the data. It tells the AI exactly how many different pieces of information it gets for every single run.
 # Attempt number, Verb (encoded), Backend (encoded), System (encoded), Name (encoded) and Scenario (encoded).
 NUM_FEATURES = len(FEATURE_COLUMNS)
+# This is the minimum set of columns that must be present in the .ts files for the model to train and predict correctly.
+MANDATORY_TS_COLUMNS = [ 
+    'runid',
+    'instance',
+    'start',
+    'duration_ms',
+    'scenario',
+    'attempt',
+    'verb',
+    'level',
+    'backend',
+    'system',
+    'name',
+    'success'
+]
 
 # Training Settings
 
