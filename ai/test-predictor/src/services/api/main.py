@@ -7,6 +7,7 @@ from src.services.api.ingestion import ingestion_bp
 from src.services.api.predictor import predictor_bp
 from src.services.api.trainer import trainer_bp
 from src.services.api.stats import stats_bp
+from src.services.api.cleaner import cleaner_bp
 
 from common.utils import setup_logging
 
@@ -20,3 +21,4 @@ app.register_blueprint(ingestion_bp)
 app.register_blueprint(trainer_bp)
 app.register_blueprint(predictor_bp)
 app.register_blueprint(stats_bp)
+app.register_blueprint(cleaner_bp)
