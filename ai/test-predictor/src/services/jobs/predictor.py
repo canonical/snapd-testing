@@ -373,7 +373,7 @@ def test_scenarios():
             fake_history.append(app.state_cache._normalize_entry(entry))
             
         target = app.state_cache._normalize_entry(base_data)
-        target['success'] = 0.0 
+        target['success'] = 1.0 
         
         full_seq = fake_history + [target]
         X_input = np.zeros((1, config.SEQUENCE_LENGTH, config.NUM_FEATURES), dtype='float32')
