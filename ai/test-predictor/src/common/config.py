@@ -116,3 +116,4 @@ HISTORY_LOG = 'history_audit.jsonl'
 # These files store snapshots of the cache and config for traceability and debugging.
 CACHE_SNAPSHOT = "cache_snapshot.pkl"
 CONFIG_SNAPSHOT = "config_snapshot.pkl"
+TRAINING_STATS = "training_stats.jsonl"

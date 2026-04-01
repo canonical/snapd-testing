@@ -1,5 +1,6 @@
 import datetime
 import gc
+import json
 import pickle
 import os
 import shutil
@@ -268,6 +269,17 @@ class ModelManager:
             Dense(config.OUTPUT_UNITS, activation=config.OUTPUT_ACTIVATION)
         ])
 
+    def _init_stats(self):
+        # Initialize stats dictionary
+        return {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "files_processed": 0,
+            "total_sequences": 0,
+            "distribution": {},
+            "final_loss": 0.0,
+            "final_accuracy": 0.0
+        }
+
     def train(self, ts_files, output_dir=None):
         """
         Orchestrates the batch training process using a subset of the most recent data.
@@ -292,15 +304,15 @@ class ModelManager:
         if not ts_files:
             return False
 
+        stats = self._init_stats()
+
         with self.training_lock:
             try:
-                #  Store a copy of ALL files to move later
-                all_ts_files_to_move = [f for f in ts_files if f.endswith(".ts")]
-                
                 # Sort and CAP the training set only
                 ts_files.sort(key=os.path.getmtime, reverse=True)
                 total_available = len(ts_files)
                 training_subset = ts_files[:config.TRAINING_MAX_FILES]
+                stats["files_processed"] = len(training_subset)
                 
                 logger.info(f"Cleanup: {total_available} files will be moved. "
                             f"Training: Using {len(training_subset)} most recent.")
@@ -337,6 +349,9 @@ class ModelManager:
                 # LOG DISTRIBUTION: If you see 0 failures here, the model can't learn!
                 unique, counts = np.unique(y_train, return_counts=True)
                 dist = dict(zip(unique, counts))
+                stats["distribution"] = dist
+                stats["total_sequences"] = len(y_train)
+
                 logger.info(f"Target distribution (0=Fail, 1=Pass): {dist}")
 
                 # CALCULATE CLASS WEIGHTS
@@ -357,9 +372,13 @@ class ModelManager:
                 
                 total_samples = len(X_train)
                 chunk_size = config.TRAINING_CHUNKS_SIZE
+
+                all_losses = []
+                all_accs = []
                 
                 logger.info(f"Starting chunked training on {total_samples} sequences...")
                 # Loop through data in chunks
+                history = None
                 for i in range(0, total_samples, chunk_size):
                     end = min(i + chunk_size, total_samples)
                     X_chunk = X_train[i:end]
@@ -368,7 +387,7 @@ class ModelManager:
                     logger.info(f"Training on chunk {i//chunk_size + 1}: samples {i} to {end}")
                     
                     # Use a smaller number of epochs per chunk to keep it moving
-                    model.fit(
+                    history = model.fit(
                         X_chunk, 
                         y_chunk, 
                         epochs=config.EPOCHS, 
@@ -378,20 +397,34 @@ class ModelManager:
                         shuffle=True  # Don't shuffle to preserve sequence order 
                     )
                     
+                    # Accumulate metrics from this chunk
+                    all_losses.append(history.history['loss'][-1])
+                    all_accs.append(history.history['accuracy'][-1])
+
                     # Force garbage collection to free RAM after each chunk
                     del X_chunk, y_chunk
 
                     gc.collect()
 
+                # Calculate averages for the entire training run
+                if all_losses:
+                    stats["final_loss"] = float(np.mean(all_losses))
+                    stats["final_accuracy"] = float(np.mean(all_accs))
+
                 # Persist
                 model_path = self.model_path
                 metadata_path = self.metadata_path
+                stats_path = os.path.join(config.MODEL_DIR, config.TRAINING_STATS)
                 if output_dir:
                     model_path = os.path.join(output_dir, config.MODEL_NAME)
                     metadata_path = os.path.join(output_dir, config.METADATA_NAME)
+                    stats_path = os.path.join(output_dir, config.TRAINING_STATS)
+
                 model.save(model_path)
                 self._save_metadata(enc, scal, metadata_path)
-                
+                with open(stats_path, 'w') as f:
+                    json.dump(stats, f, indent=4)
+
                 self._load_from_disk()
                 return True
 
