@@ -22,14 +22,25 @@ class SystemStateCache:
         # Handle the NaN Name issue from pandas or empty API strings
         if not name or name.lower() == 'nan':
             name = 'unknown_step'
-        
+
+        # Helper to safely convert strings/NaNs to integers
+        def safe_int(val, default):
+            try:
+                # If val is '' or None, use default. 
+                # float() handles cases like "1.0" which int() would reject.
+                if val == '' or val is None:
+                    return default
+                return int(float(val))
+            except (ValueError, TypeError):
+                return default
+
         return {
             'name': name,
             'verb': str(data.get('verb') or 'unknown'),
             'system': str(data.get('system') or 'unknown'),
             'scenario': str(data.get('scenario') or config.DEFAULT_SCENARIO),
-            'success': int(data.get('success', 0)), # Default to 0 (Failure) or a neutral 0.5
-            'attempt': int(data.get('attempt') or config.DEFAULT_ATTEMPT),
+            'success': safe_int(data.get('success'), 0),
+            'attempt': safe_int(data.get('attempt'), config.DEFAULT_ATTEMPT),
             'start': str(data.get('start') or '')
         }
 
