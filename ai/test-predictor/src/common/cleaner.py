@@ -51,13 +51,13 @@ def clean_ts_directory():
     """
     ts_dir = config.TS_DIR
     if not os.path.exists(ts_dir):
-        print(f"Error: Directory '{ts_dir}' not found.")
+        logger.error(f"Error: Directory '{ts_dir}' not found.")
         return
 
     ts_files = [f for f in os.listdir(ts_dir) if f.endswith('.ts')]
     
     if not ts_files:
-        print("No .ts files found in the directory.")
+        logger.info("No .ts files found in the directory.")
         return
 
     for filename in ts_files:
@@ -65,24 +65,32 @@ def clean_ts_directory():
         try:
             # Load the TS file (CSV format)
             df = pd.read_csv(file_path)
-            initial_row_count = len(df)
 
-            # 1. Convert whitespace/empty strings to NA so dropna() catches them
+            # Check if all mandatory fields exist
+            missing_cols = [c for c in config.MANDATORY_TS_COLUMNS if c not in df.columns]
+            if missing_cols:
+                logger.error(f"CRITICAL: {filename} is missing {missing_cols}. Deleting file.")
+                os.remove(file_path)
+                continue
+
+            # Convert whitespace/empty strings to NA so dropna() catches them
+            initial_count = len(df)
             df = df.replace(r'^\s*$', pd.NA, regex=True)
+            df_cleaned = df[config.MANDATORY_TS_COLUMNS].dropna()
 
-            # 2. Drop any row that contains at least one NaN/NA value
+            # Drop any row that contains at least one NaN/NA value
             df_cleaned = df.dropna()
 
-            # 3. Only overwrite if invalid rows were actually found
-            if len(df_cleaned) < initial_row_count:
+            # Only overwrite if invalid rows were actually found
+            if len(df_cleaned) < initial_count:
                 df_cleaned.to_csv(file_path, index=False)
-                removed = initial_row_count - len(df_cleaned)
-                print(f"Cleaned {filename}: Removed {removed} invalid rows.")
+                removed = initial_count - len(df_cleaned)
+                logger.info(f"Cleaned {filename}: Removed {removed} invalid rows.")
             else:
-                print(f"Checked {filename}: Format is correct.")
+                logger.info(f"Checked {filename}: Format is correct.")
 
         except Exception as e:
-            print(f"Skipping {filename} due to error: {e}")
+            logger.error(f"Skipping {filename} due to error: {e}")
 
 def cleanup_backups():
     old_models_dir = config.SHADOW_MODELS_DIR
