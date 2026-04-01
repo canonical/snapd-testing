@@ -111,22 +111,23 @@ class ModelManager:
         feature_cols = config.FEATURE_COLUMNS
         sequences, targets = [], []
         
-        for _, group in df.groupby('system'):
-            # Ensure this group actually has all the columns we need
+        for _, group in df.groupby(['system', 'name']):
             if not all(col in group.columns for col in feature_cols):
-                logger.warning(f"Skipping system group: missing required feature columns.")
                 continue
 
+            # Ensure chronological order within the specific test history
+            group = group.sort_values(by='start') 
+            
             group_features = group[feature_cols].values
-            # 'success' is the TARGET, so it must exist even if it's not a FEATURE
-            if 'success' not in group.columns:
-                continue
             group_targets = group['success'].values
             
             for i in range(len(group_features)):
                 start_idx = max(0, i - config.SEQUENCE_LENGTH + 1)
                 window = group_features[start_idx : i + 1].copy()
                 
+                # CRITICAL: If the window is shorter than SEQUENCE_LENGTH, 
+                # pad_sequences handles it later, but ensure the window 
+                # is actually relevant to this specific test's history.
                 sequences.append(window)
                 targets.append(group_targets[i])
         
