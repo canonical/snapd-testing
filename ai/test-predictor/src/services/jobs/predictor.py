@@ -49,6 +49,9 @@ def encode_to_vector(data, encoders):
     
     # Scale numeric values (matches _preprocess_dataframe logic)
     attempt = float(data.get('attempt', config.DEFAULT_ATTEMPT)) / 10.0
+
+    # Default to 1.0 (PASS) if not present
+    success = float(data.get('success', 1.0)) 
     
     # Helper to encode and scale categorical values
     def scale_val(key, value):
@@ -69,7 +72,8 @@ def encode_to_vector(data, encoders):
         scale_val('verb', v),
         scale_val('backend', b_val),
         scale_val('system', s),
-        scale_val('name', n)
+        scale_val('name', n),
+        success
     ], dtype='float32')
 
 

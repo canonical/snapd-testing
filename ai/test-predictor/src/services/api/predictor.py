@@ -176,14 +176,36 @@ def predict_with_history():
 
 @predictor_bp.route('/context', methods=['GET'])
 def get_system_context():
-    """Directly retrieves the current cache for a specific test configuration."""
+    """Fetches the history cache AND the real model prediction in one call."""
     p = get_params()
-    try:
-        response = requests.get(CACHE_URL, params=p, timeout=5)
-        return (response.content, response.status_code, response.headers.items())
-    except Exception as e:
-        return jsonify({"error": f"Internal predictor unreachable: {e}"})
     
+    try:
+        # Fetch History from the Cache Server
+        cache_response = requests.get(CACHE_URL, params=p, timeout=5)
+        if cache_response.status_code != 200:
+            return (cache_response.content, cache_response.status_code)
+        
+        context_data = cache_response.json()
+
+        # Fetch Prediction (Reusing your internal predictor logic)
+        # result is a dict, status_code is an int
+        result, status_code = call_internal_predictor(p)
+
+        if status_code == 200:
+            # Match the key 'probability' from your internal server
+            prob = result.get("probability", 0.0)
+            context_data['prediction'] = f"{prob * 100:.2f}%"
+        else:
+            context_data['prediction'] = "N/A (Prediction Error)"
+
+        # 3. Return the merged object
+        return jsonify(context_data), 200
+
+    except Exception as e:
+        logger.error(f"Context/Predict bridge failed: {e}")
+        return jsonify({"error": f"Internal predictor unreachable: {e}"}), 500
+
+
 @predictor_bp.route('/test', methods=['GET'])
 def get_system_test():
     """Directly retrieves the current test configuration."""

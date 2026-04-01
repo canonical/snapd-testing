@@ -160,28 +160,35 @@ class SystemStateCache:
 
     def get_context(self, system, name, verb, attempt=None, scenario=None):
         """
-        Retrieves history from the verb bucket and filters by attempt/scenario.
-        Falls back to full verb history if filtering results in 0 context.
+        Retrieves filtered history, falling back to general history if needed,
+        and caps the result to (SEQUENCE_LENGTH - 1) to fit the model window.
         """
         try:
+            # Access the base bucket
             full_history = self.cache[system][name][verb]
             
             # Apply Filters
             filtered = full_history
             if scenario:
-                filtered = [i for i in filtered if i['scenario'] == scenario]
+                filtered = [i for i in filtered if i.get('scenario') == scenario]
             if attempt is not None:
-                filtered = [i for i in filtered if i['attempt'] == int(attempt)]
+                filtered = [i for i in filtered if i.get('attempt') == int(attempt)]
             
-            # Return filtered if exists, otherwise fallback to full history for context
-            if filtered:
-                return filtered
+            # Determine the best history to use (filtered or fallback)
+            result = filtered if filtered else full_history
             
-            logger.debug(f"No specific match for {name} (Atmt {attempt}). Falling back to general history.")
-            return full_history
+            if not filtered and full_history:
+                logger.debug(f"No specific match for {name} (Scenario: {scenario}). Falling back to general history.")
+
+            # We need (Length - 1) because the 'predict' function adds the current test data.
+            max_history = max(0, config.SEQUENCE_LENGTH - 1)
             
-        except (KeyError, ValueError):
+            return result[-max_history:]
+            
+        except (KeyError, ValueError, TypeError):
+            # Returns empty list if system/test/verb doesn't exist in cache yet
             return []
+
 
     def prime_from_disk(self, ts_dir=config.TS_DIR):
         """Reconstructs histories grouped by system/name/verb."""

@@ -65,13 +65,11 @@ class ModelManager:
     def _preprocess_dataframe(self, df, encoders, scaler):
         # HANDLE SUCCESS (Binary Force)
         if 'success' in df.columns:
-            # Convert numeric/strings to float, force binary 0 or 1
             df['success'] = pd.to_numeric(df['success'], errors='coerce').fillna(0)
             df['success'] = (df['success'] >= 1).astype('float32')
 
         # HANDLE ATTEMPT (Simple scaling to 0-1)
         if 'attempt' in df.columns:
-            # Assume 10 as a reasonable max attempt to keep value small
             df['attempt'] = pd.to_numeric(df['attempt'], errors='coerce').fillna(1).astype('float32') / 10.0
 
         # CATEGORICAL ENCODING
@@ -377,7 +375,7 @@ class ModelManager:
                         batch_size=config.BATCH_SIZE, 
                         class_weight=class_weight_dict,
                         verbose=1,
-                        shuffle=False  # Don't shuffle to preserve sequence order 
+                        shuffle=True  # Don't shuffle to preserve sequence order 
                     )
                     
                     # Force garbage collection to free RAM after each chunk
