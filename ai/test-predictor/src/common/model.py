@@ -199,70 +199,75 @@ class ModelManager:
         logger.info(f"Model version saved to {version_dir} and promoted to latest.")
         return version_dir
 
-    def load_or_build_model(self, input_shape=None):
+    def load_or_build_model(self, input_shape=None, output_dir=None):
         """
-        Thread-safe: 
-        1. If already in memory, use it.
-        2. If on disk, load it (ignores input_shape).
-        3. If neither, build fresh using input_shape.
+        1. If output_dir is provided, build fresh (Shadow Training).
+        2. If in memory, use it.
+        3. If on disk, load it.
+        4. Otherwise, build fresh.
         """
-
-        # Use default input shape if not provided
         if input_shape is None:
             input_shape = (config.SEQUENCE_LENGTH, config.NUM_FEATURES)
 
         try:
-            # Case A: Already in memory
-            if self.model is not None:
+            model = None
+
+            # Shadow Training - Always build fresh to match current config
+            if output_dir is not None:
+                logger.info(f"Shadow Training: Building fresh model in {output_dir} with shape {input_shape}")
+                # We do NOT set self.model here yet to avoid affecting the LIVE predictor
+                model = self._build_new_model_structure(input_shape)
+            
+            # Already in memory
+            elif self.model is not None:
                 logger.info("Using in-memory model instance.")
                 model = self.model
             
-            # Case B: Not in memory, but exists on disk
+            # Not in memory, but exists on disk
             elif os.path.exists(self.model_path):                    
                 logger.info(f"Loading model from disk: {self.model_path}")
                 if self._load_from_disk():
                     model = self.model
-                    logger.info("Model loaded successfully from disk.")
                 else:
-                    logger.error("Failed to load model from disk. No fallback available.")
                     return None
 
-            # Case C: Brand new (Requires input_shape)
+            # Brand new model
             else:
-                logger.info(f"Building fresh model with input shape {input_shape}")
-                model = Sequential([
-                    Input(shape=input_shape),
-                    LSTM(config.LSTM_UNITS, return_sequences=True),
-                    Dropout(config.DROPOUT_RATE),
-                    LSTM(config.SECOND_LSTM_UNITS),
-                    Dropout(config.DROPOUT_RATE),
-                    Dense(config.DENSE_UNITS, activation=config.HIDDEN_ACTIVATION),
-                    Dense(config.OUTPUT_UNITS, activation=config.OUTPUT_ACTIVATION)
-                ])
+                logger.info(f"No model found. Building fresh with shape {input_shape}")
+                model = self._build_new_model_structure(input_shape)
 
-            # Step 2: Ensure we actually found or built a model
             if model is None:
-                logger.error("No model found on disk and no input_shape provided to build one.")
                 return None
 
-            # Re-compile so it's ready for .fit() or .predict()
+            # Re-compile
             model.compile(
                 optimizer=Adam(learning_rate=config.ADAM_LEARNING_RATE),
                 loss=self._focal_loss(gamma=2.0, alpha=0.25),
-                metrics=[
-                    'accuracy', 
-                    tf.keras.metrics.Precision(name='precision'), 
-                    tf.keras.metrics.Recall(name='recall')
-                ]
+                metrics=['accuracy', tf.keras.metrics.Precision(name='precision'), tf.keras.metrics.Recall(name='recall')]
             )
             
-            self.model = model
-            self.last_updated = time.time()
-            return self.model
+            # Only update the LIVE instance if we aren't in a shadow directory
+            if output_dir is None:
+                self.model = model
+                self.last_updated = time.time()
+                
+            return model
 
         except Exception as e:
             logger.error(f"load_or_build_model failed: {e}")
             return None
+
+    def _build_new_model_structure(self, input_shape):
+        """Helper to define the architecture."""
+        return Sequential([
+            Input(shape=input_shape),
+            LSTM(config.LSTM_UNITS, return_sequences=True),
+            Dropout(config.DROPOUT_RATE),
+            LSTM(config.SECOND_LSTM_UNITS),
+            Dropout(config.DROPOUT_RATE),
+            Dense(config.DENSE_UNITS, activation=config.HIDDEN_ACTIVATION),
+            Dense(config.OUTPUT_UNITS, activation=config.OUTPUT_ACTIVATION)
+        ])
 
     def train(self, ts_files, output_dir=None):
         """
@@ -348,7 +353,8 @@ class ModelManager:
                     class_weight_dict = dict(zip(unique, weights))
                     logger.info(f"Calculated Class Weights: {class_weight_dict}")
 
-                model = self.load_or_build_model(input_shape=(X_train.shape[1], X_train.shape[2]))
+                model = self.load_or_build_model(input_shape=(X_train.shape[1], X_train.shape[2]), 
+                                                 output_dir=output_dir)
                 
                 total_samples = len(X_train)
                 chunk_size = config.TRAINING_CHUNKS_SIZE

@@ -98,7 +98,6 @@ def notify_predictor(shadow_dir):
     except Exception as e:
         logger.error(f"Could not reach Predictor to trigger reload: {e}")
 
-
 def promote_shadow_to_live(shadow_dir):
     """Moves the finalized assets from shadow folder to the main model folder."""
     files = [config.MODEL_NAME, config.METADATA_NAME, config.CACHE_SNAPSHOT]
@@ -108,7 +107,6 @@ def promote_shadow_to_live(shadow_dir):
         if os.path.exists(src):
             shutil.copy2(src, dst)
             logger.info(f"Promoted: {f}")
-
 
 @app.route('/internal/train', methods=['POST'])
 def trigger_train():
