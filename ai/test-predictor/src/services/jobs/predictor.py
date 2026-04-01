@@ -41,45 +41,37 @@ def validate_labels(params, keys_to_check, encoders):
 
 def encode_to_vector(data, encoders):
     # Extract and Normalize Strings/Values
-    n = data.get('name')
-    v = data.get('verb')
-    s = data.get('system')
-    scenario = data.get('scenario', config.DEFAULT_SCENARIO)
+    n = data.get('name', 'unknown')
+    v = data.get('verb', 'unknown')
+    s = data.get('system', 'unknown')
+    sce = data.get('scenario', config.DEFAULT_SCENARIO)
+    b_val = data.get('backend', encoders['backend'].classes_[0])
     
-    # attempt is usually small (1, 2, 3), but you can divide by 10 for safety
-    attempt = float(data.get('attempt', config.DEFAULT_ATTEMPT))
+    # Scale numeric values (matches _preprocess_dataframe logic)
+    attempt = float(data.get('attempt', config.DEFAULT_ATTEMPT)) / 10.0
     
-    # We now include the success bit (1.0 or 0.0) in the features
-    # If it's a future prediction, we default to 1.0
-    success = float(data.get('success', 1.0)) 
-
-    # Encode and SCALE to 0.0 - 1.0 range
+    # Helper to encode and scale categorical values
     def scale_val(key, value):
         enc = encoders[key]
-        idx = enc.transform([value])[0]
+        # Use existing classes only; transform unknown to a default if needed
+        try:
+            idx = enc.transform([str(value)])[0]
+        except ValueError:
+            idx = 0 
         num_classes = len(enc.classes_)
         return float(idx) / (num_classes - 1) if num_classes > 1 else 0.0
 
-    n_enc = scale_val('name', n)
-    v_enc = scale_val('verb', v)
-    s_enc = scale_val('system', s)
-    
-    b_val = data.get('backend', encoders['backend'].classes_[0])
-    b_enc = scale_val('backend', b_val)
-    
-    sce_enc = scale_val('scenario', scenario)
-
-    # Return the feature vector (Added Success)
-    # Ensure config.NUM_FEATURES is updated to 9 in your config.py
+    # Build the vector in the EXACT order of config.FEATURE_COLUMNS
+    # Current order: [scenario, attempt, verb, backend, system, name]
     return np.array([
-        attempt, 
-        v_enc, 
-        b_enc, 
-        s_enc, 
-        n_enc, 
-        sce_enc, 
-        success
+        scale_val('scenario', sce),
+        attempt,
+        scale_val('verb', v),
+        scale_val('backend', b_val),
+        scale_val('system', s),
+        scale_val('name', n)
     ], dtype='float32')
+
 
 def audit_prediction(X_input, probability, params, model_manager):
     """

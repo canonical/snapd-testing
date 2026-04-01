@@ -104,41 +104,28 @@ class ModelManager:
         return df
 
     def _prepare_sequences(self, df):
-        """
-        Transforms DataFrame into 3D sequences using global FEATURE_COLUMNS.
-        Ensures chronological order and pads to SEQUENCE_LENGTH.
-        Blinds the target step's success value to prevent data leakage.
-        """
         if 'start' in df.columns:
             df['start'] = pd.to_datetime(df['start'])
             df = df.sort_values(by='start')
 
         feature_cols = config.FEATURE_COLUMNS
-        # Find the index of 'success' to blind it correctly
-        try:
-            success_idx = feature_cols.index('success')
-        except ValueError:
-            logger.error(" 'success' not found in FEATURE_COLUMNS. Training will fail.")
-            return np.array([]), np.array([])
-
         sequences, targets = [], []
         
         for _, group in df.groupby('system'):
-            available_cols = [c for c in feature_cols if c in group.columns]
-            if len(available_cols) < len(feature_cols):
+            # Ensure this group actually has all the columns we need
+            if not all(col in group.columns for col in feature_cols):
+                logger.warning(f"Skipping system group: missing required feature columns.")
                 continue
 
             group_features = group[feature_cols].values
+            # 'success' is the TARGET, so it must exist even if it's not a FEATURE
+            if 'success' not in group.columns:
+                continue
             group_targets = group['success'].values
             
             for i in range(len(group_features)):
                 start_idx = max(0, i - config.SEQUENCE_LENGTH + 1)
-                # .copy() is essential so we don't modify the source data
                 window = group_features[start_idx : i + 1].copy()
-                
-                # BLIND THE TARGET: Set the success of the CURRENT step to 0.0
-                # This forces the model to use the PREVIOUS rows to predict.
-                window[-1, success_idx] = 0.0
                 
                 sequences.append(window)
                 targets.append(group_targets[i])
@@ -148,7 +135,7 @@ class ModelManager:
 
         X = pad_sequences(sequences, maxlen=config.SEQUENCE_LENGTH, padding='pre', dtype='float32')
         
-        logger.info(f"Prepared {len(X)} sequences. Blinding applied to column index {success_idx}.")
+        logger.info(f"Prepared {len(X)} sequences.")
         return X, np.array(targets)
 
     def _load_from_disk(self):

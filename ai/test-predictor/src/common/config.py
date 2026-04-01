@@ -35,8 +35,7 @@ FEATURE_COLUMNS = [
     'verb', 
     'backend', 
     'system', 
-    'name', 
-    'success'
+    'name'
 ]
 # The "width" of the data. It tells the AI exactly how many different pieces of information it gets for every single run.
 # Attempt number, Verb (encoded), Backend (encoded), System (encoded), Name (encoded) and Scenario (encoded).
