@@ -46,8 +46,10 @@ def cleanup_ts_files():
 
 def clean_ts_directory():
     """
-    Iterates through .ts files, removing rows with any missing values
-    or incorrect formatting to ensure model-ready data.
+    Ensures .ts files are model-ready: 
+    - Deletes files missing mandatory columns.
+    - Removes rows with empty strings or NaNs (especially empty 'name').
+    - Enforces the correct column order.
     """
     ts_dir = config.TS_DIR
     if not os.path.exists(ts_dir):
@@ -56,41 +58,43 @@ def clean_ts_directory():
 
     ts_files = [f for f in os.listdir(ts_dir) if f.endswith('.ts')]
     
-    if not ts_files:
-        logger.info("No .ts files found in the directory.")
-        return
-
     for filename in ts_files:
         file_path = os.path.join(ts_dir, filename)
         try:
-            # Load the TS file (CSV format)
             df = pd.read_csv(file_path)
+            initial_count = len(df)
 
-            # Check if all mandatory fields exist
+            # VALIDATE: Delete file if a mandatory column is totally missing
             missing_cols = [c for c in config.MANDATORY_TS_COLUMNS if c not in df.columns]
             if missing_cols:
-                logger.error(f"CRITICAL: {filename} is missing {missing_cols}. Deleting file.")
+                logger.error(f"CRITICAL: {filename} missing {missing_cols}. Deleting.")
                 os.remove(file_path)
                 continue
 
-            # Convert whitespace/empty strings to NA so dropna() catches them
-            initial_count = len(df)
+            # CLEAN: Convert empty strings/whitespace to NA
             df = df.replace(r'^\s*$', pd.NA, regex=True)
-            df_cleaned = df[config.MANDATORY_TS_COLUMNS].dropna()
 
-            # Drop any row that contains at least one NaN/NA value
-            df_cleaned = df.dropna()
+            # FILTER: Drop rows with ANY missing mandatory value 
+            # (This catches the empty 'name' fields in your logs)
+            df_cleaned = df.dropna(subset=config.MANDATORY_TS_COLUMNS)
 
-            # Only overwrite if invalid rows were actually found
-            if len(df_cleaned) < initial_count:
+            # ENFORCE ORDER: Reorder columns to match MANDATORY_TS_COLUMNS exactly
+            df_cleaned = df_cleaned[config.MANDATORY_TS_COLUMNS]
+
+            # PERSIST: Save cleaned data or delete empty files
+            if df_cleaned.empty:
+                logger.warning(f"File {filename} is empty after cleaning. Deleting.")
+                os.remove(file_path)
+            elif len(df_cleaned) < initial_count:
                 df_cleaned.to_csv(file_path, index=False)
-                removed = initial_count - len(df_cleaned)
-                logger.info(f"Cleaned {filename}: Removed {removed} invalid rows.")
+                logger.info(f"Cleaned {filename}: Removed {initial_count - len(df_cleaned)} rows.")
             else:
-                logger.info(f"Checked {filename}: Format is correct.")
+                logger.info(f"Checked {filename}: OK.")
 
         except Exception as e:
-            logger.error(f"Skipping {filename} due to error: {e}")
+            logger.error(f"Error processing {filename}: {e}. Removing corrupt file.")
+            if os.path.exists(file_path):
+                os.remove(file_path)
 
 def cleanup_backups():
     old_models_dir = config.SHADOW_MODELS_DIR
