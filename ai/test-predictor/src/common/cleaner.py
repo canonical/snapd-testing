@@ -141,5 +141,6 @@ def cleanup_and_restore():
         logger.info(f"Created TS directory: {ts_dir}")
 
     # Run the deletion part
+    cleanup_backups()
     cleanup_ts_files()
-    clean_ts_directory
+    clean_ts_directory()
