@@ -65,7 +65,7 @@ def encode_to_vector(data, encoders):
         return float(idx) / (num_classes - 1) if num_classes > 1 else 0.0
 
     # Build the vector in the EXACT order of config.FEATURE_COLUMNS
-    # Current order: [scenario, attempt, verb, backend, system, name]
+    # Current order: [scenario, attempt, verb, backend, system, name, success]
     return np.array([
         scale_val('scenario', sce),
         attempt,
@@ -177,6 +177,7 @@ def predict():
 
     # This ensures the 'Target' matches the format used in training
     normalized_target = app.state_cache._normalize_entry(data)
+    normalized_target['success'] = 1.0 
 
     # Validate: use the long names that exist in both normalized_target and encoders
     keys_to_validate = ['name', 'verb', 'system', 'scenario']
@@ -317,7 +318,6 @@ def get_internal_context():
         "name": name,
         "history": history
     }), 200
-
 
 @app.route('/internal/test', methods=['GET'])
 def test_scenarios():
