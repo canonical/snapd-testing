@@ -348,7 +348,7 @@ class ModelManager:
 
                 # LOG DISTRIBUTION: If you see 0 failures here, the model can't learn!
                 unique, counts = np.unique(y_train, return_counts=True)
-                dist = dict(zip(unique, counts))
+                dist = {str(int(k)): int(v) for k, v in zip(unique, counts)}
                 stats["distribution"] = dist
                 stats["total_sequences"] = len(y_train)
 
