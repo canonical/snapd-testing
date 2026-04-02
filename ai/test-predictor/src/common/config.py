@@ -79,6 +79,8 @@ WEIGHT_NEGATIVE_CLASS = 2.0
 # Focal Loss Parameters: These parameters help the model focus on harder-to-classify examples, which can be especially useful in imbalanced datasets. Gamma controls the focus on hard examples, while Alpha balances the importance of positive vs negative examples.
 FOCAL_LOSS_GAMMA = 2.0
 FOCAL_LOSS_ALPHA = 0.75
+# Data Augmentation: The percentage of new, synthetic data to create based on existing data. This can help improve model performance, especially when the dataset is small or imbalanced.
+AUGMENT_PROB = 0.3
 
 # Prediction Settings
 # Verbose (0): No output. 1: Progress bar. 2: One line per epoch.

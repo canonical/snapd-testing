@@ -280,27 +280,168 @@ class ModelManager:
             "final_accuracy": 0.0
         }
 
+    def _select_training_subset(self, ts_files, stats):
+        ts_files.sort(key=os.path.getmtime, reverse=True)
+        subset = ts_files[:config.TRAINING_MAX_FILES]
+
+        stats["files_processed"] = len(subset)
+
+        logger.info(f"Training using {len(subset)} most recent files")
+        return subset
+    
+    def _load_training_data(self, files, enc, scal):
+        all_X, all_y = [], []
+
+        for ts_file in files:
+            try:
+                df = pd.read_csv(ts_file)
+                if df.empty:
+                    continue
+
+                proc_df = self._preprocess_dataframe(df, enc, scal)
+                X, y = self._prepare_sequences(proc_df)
+
+                if len(X) > 0:
+                    all_X.append(X)
+                    all_y.append(y)
+
+            except Exception as e:
+                logger.error(f"Error reading {ts_file}: {e}")
+
+        if not all_X:
+            logger.warning("No valid training data found.")
+            return None, None
+
+        return (
+            np.concatenate(all_X, axis=0),
+            np.concatenate(all_y, axis=0),
+        )
+    
+    def _augment_sequences(self, X, y):
+        if config.AUGMENT_PROB <= 0.0:
+            return X, y
+
+        aug_X, aug_y = [X], [y]
+
+        for i in range(len(X)):
+            if np.random.rand() > config.AUGMENT_PROB:
+                continue
+
+            seq = X[i].copy()
+
+            r = np.random.rand()
+            if r < 0.33:
+                seq = self._inject_failure_burst(seq)
+            elif r < 0.66:
+                seq = self._inject_deterioration(seq)
+            else:
+                seq = self._inject_recovery(seq)
+
+            # recompute label safely
+            new_target = int(np.mean(seq[-3:]) > 0.5)
+
+            aug_X.append(seq[np.newaxis, ...])
+            aug_y.append(np.array([new_target]))
+
+        return np.concatenate(aug_X), np.concatenate(aug_y)
+    
+    def _inject_failure_burst(self, seq, burst_len=3):
+        seq = seq.copy()
+        if len(seq) <= burst_len:
+            return seq
+
+        start = np.random.randint(0, len(seq) - burst_len)
+        seq[start:start+burst_len, :] *= 0
+        return seq
+
+
+    def _inject_deterioration(self, seq):
+        seq = seq.copy()
+        for i in range(len(seq)):
+            if np.random.rand() < (i / len(seq)) * 0.5:
+                seq[i, :] *= 0
+        return seq
+
+    def _inject_recovery(self, seq):
+        seq = seq.copy()
+        for i in range(len(seq)):
+            if np.random.rand() < (i / len(seq)):
+                seq[i, :] = 1
+        return seq
+
+    def _update_stats_distribution(self, stats, y):
+        unique, counts = np.unique(y, return_counts=True)
+        dist = {str(int(k)): int(v) for k, v in zip(unique, counts)}
+
+        stats["distribution"] = dist
+        stats["total_sequences"] = len(y)
+
+        logger.info(f"Target distribution: {dist}")
+
+    def _compute_class_weights(self, y):
+        unique = np.unique(y)
+
+        if len(unique) < 2:
+            return {0: 1.0, 1: 1.0}
+
+        weights = class_weight.compute_class_weight(
+            class_weight='balanced',
+            classes=unique,
+            y=y
+        )
+
+        cw = dict(zip(unique, weights))
+        logger.info(f"Class weights: {cw}")
+        return cw
+
+    def _train_in_chunks(self, model, X, y, class_weights=None):
+        total = len(X)
+        chunk_size = config.TRAINING_CHUNKS_SIZE
+
+        losses, accs = [], []
+
+        for i in range(0, total, chunk_size):
+            end = min(i + chunk_size, total)
+
+            logger.info(f"Chunk {i//chunk_size + 1}: {i}-{end}")
+
+            history = model.fit(
+                X[i:end],
+                y[i:end],
+                epochs=config.EPOCHS,
+                batch_size=config.BATCH_SIZE,
+                class_weight=class_weights,
+                shuffle=True,
+                verbose=1,
+            )
+
+            losses.append(history.history['loss'][-1])
+            accs.append(history.history['accuracy'][-1])
+
+            gc.collect()
+
+        return {
+            "final_loss": float(np.mean(losses)) if losses else None,
+            "final_accuracy": float(np.mean(accs)) if accs else None,
+        }
+
+    def _persist_artifacts(self, model, enc, scal, stats, output_dir):
+        model_path = self.model_path
+        metadata_path = self.metadata_path
+        stats_path = os.path.join(config.MODEL_DIR, config.TRAINING_STATS)
+
+        if output_dir:
+            model_path = os.path.join(output_dir, config.MODEL_NAME)
+            metadata_path = os.path.join(output_dir, config.METADATA_NAME)
+            stats_path = os.path.join(output_dir, config.TRAINING_STATS)
+
+        model.save(model_path)
+        self._save_metadata(enc, scal, metadata_path)
+
+        with open(stats_path, 'w') as f:
+            json.dump(stats, f, indent=4)
+
     def train(self, ts_files, output_dir=None):
-        """
-        Orchestrates the batch training process using a subset of the most recent data.
-
-        This method performs the following lifecycle:
-        1. Identification: Indexes all pending .ts files for later cleanup.
-        2. Recency Capping: Selects the newest files (via TRAINING_MAX_FILES) to 
-           ensure the model learns from the most relevant system states.
-        3. Chunked Training: Processes sequences in blocks (via TRAINING_CHUNKS_SIZE) 
-           to prevent memory exhaustion (RAM) and process hangs.
-        4. Persistence: Saves the updated .keras model and .pkl metadata.
-
-        Returns:
-            bool: True if training and persistence succeeded, False otherwise.
-
-        Example:
-            If you have 1000 files in the queue and TRAINING_MAX_FILES = 300:
-            - The model studies the 300 newest files to find patterns.
-            - Training is split into 50,000-sequence chunks to stay under RAM limits.
-        """
-
         if not ts_files:
             return False
 
@@ -308,122 +449,25 @@ class ModelManager:
 
         with self.training_lock:
             try:
-                # Sort and CAP the training set only
-                ts_files.sort(key=os.path.getmtime, reverse=True)
-                total_available = len(ts_files)
-                training_subset = ts_files[:config.TRAINING_MAX_FILES]
-                stats["files_processed"] = len(training_subset)
-                
-                logger.info(f"Cleanup: {total_available} files will be moved. "
-                            f"Training: Using {len(training_subset)} most recent.")
-
+                training_subset = self._select_training_subset(ts_files, stats)
                 enc, scal = self._get_metadata()
-                all_X, all_y = [], []
+                X_train, y_train = self._load_training_data(training_subset, enc, scal)
 
-                # Aggregation Loop (Only on the subset)
-                for ts_file in training_subset:
-                    try:
-                        df = pd.read_csv(ts_file)
-                        if df.empty:
-                            continue
-                        
-                        proc_df = self._preprocess_dataframe(df, enc, scal)
-                        X, y = self._prepare_sequences(proc_df)
-                        
-                        if len(X) > 0:
-                            all_X.append(X)
-                            all_y.append(y)
-                            
-                    except Exception as e:
-                        logger.error(f"Error reading {ts_file}: {e}")
-
-                if not all_X:
-                    logger.warning("No valid training data found in subset.")
-                    # Even if training fails, we don't move files to avoid losing data
+                if X_train is None:
                     return False
 
-                # Training
-                X_train = np.concatenate(all_X, axis=0)
-                y_train = np.concatenate(all_y, axis=0)
+                X_train, y_train = self._augment_sequences(X_train, y_train)
+                self._update_stats_distribution(stats, y_train)
+                class_weights = self._compute_class_weights(y_train)
 
-                # LOG DISTRIBUTION: If you see 0 failures here, the model can't learn!
-                unique, counts = np.unique(y_train, return_counts=True)
-                dist = {str(int(k)): int(v) for k, v in zip(unique, counts)}
-                stats["distribution"] = dist
-                stats["total_sequences"] = len(y_train)
+                model = self.load_or_build_model(
+                    input_shape=(X_train.shape[1], X_train.shape[2]),
+                    output_dir=output_dir
+                )
 
-                logger.info(f"Target distribution (0=Fail, 1=Pass): {dist}")
+                stats.update(self._train_in_chunks(model, X_train, y_train, class_weights=class_weights))
 
-                # CALCULATE CLASS WEIGHTS
-                # This makes the model 'fear' missing a failure (0)
-                # Force the model to pay 50x more attention to Failures
-                class_weight_dict = {0: config.WEIGHT_NEGATIVE_CLASS, 1: config.WEIGHT_POSITIVE_CLASS}
-                if len(unique) > 1:
-                    weights = class_weight.compute_class_weight(
-                        class_weight='balanced',
-                        classes=unique,
-                        y=y_train
-                    )
-                    class_weight_dict = dict(zip(unique, weights))
-                    logger.info(f"Calculated Class Weights: {class_weight_dict}")
-
-                model = self.load_or_build_model(input_shape=(X_train.shape[1], X_train.shape[2]), 
-                                                 output_dir=output_dir)
-                
-                total_samples = len(X_train)
-                chunk_size = config.TRAINING_CHUNKS_SIZE
-
-                all_losses = []
-                all_accs = []
-                
-                logger.info(f"Starting chunked training on {total_samples} sequences...")
-                # Loop through data in chunks
-                history = None
-                for i in range(0, total_samples, chunk_size):
-                    end = min(i + chunk_size, total_samples)
-                    X_chunk = X_train[i:end]
-                    y_chunk = y_train[i:end]
-                    
-                    logger.info(f"Training on chunk {i//chunk_size + 1}: samples {i} to {end}")
-                    
-                    # Use a smaller number of epochs per chunk to keep it moving
-                    history = model.fit(
-                        X_chunk, 
-                        y_chunk, 
-                        epochs=config.EPOCHS, 
-                        batch_size=config.BATCH_SIZE, 
-                        class_weight=class_weight_dict,
-                        verbose=1,
-                        shuffle=True  # Don't shuffle to preserve sequence order 
-                    )
-                    
-                    # Accumulate metrics from this chunk
-                    all_losses.append(history.history['loss'][-1])
-                    all_accs.append(history.history['accuracy'][-1])
-
-                    # Force garbage collection to free RAM after each chunk
-                    del X_chunk, y_chunk
-
-                    gc.collect()
-
-                # Calculate averages for the entire training run
-                if all_losses:
-                    stats["final_loss"] = float(np.mean(all_losses))
-                    stats["final_accuracy"] = float(np.mean(all_accs))
-
-                # Persist
-                model_path = self.model_path
-                metadata_path = self.metadata_path
-                stats_path = os.path.join(config.MODEL_DIR, config.TRAINING_STATS)
-                if output_dir:
-                    model_path = os.path.join(output_dir, config.MODEL_NAME)
-                    metadata_path = os.path.join(output_dir, config.METADATA_NAME)
-                    stats_path = os.path.join(output_dir, config.TRAINING_STATS)
-
-                model.save(model_path)
-                self._save_metadata(enc, scal, metadata_path)
-                with open(stats_path, 'w') as f:
-                    json.dump(stats, f, indent=4)
+                self._persist_artifacts(model, enc, scal, stats, output_dir)
 
                 self._load_from_disk()
                 return True
