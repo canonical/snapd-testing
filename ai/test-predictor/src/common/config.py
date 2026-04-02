@@ -11,7 +11,7 @@ LSTM_UNITS = 64
 # Units (32): The number of memory cells in the second LSTM layer, if used.
 SECOND_LSTM_UNITS = 32
 # Dropout (0.2): Percentage of neurons to ignore during training to prevent overfitting.
-DROPOUT_RATE = 0.4
+DROPOUT_RATE = 0.2
 # Neurons (32): The size of the decision-making Dense layer.
 DENSE_UNITS = 32
 # 'relu' is the industry standard for hidden layers.
@@ -75,10 +75,10 @@ TRAINING_MAX_FILES = 200
 TRAINING_CHUNKS_SIZE = 30000
 # Weights used during training to handle class imbalance. The model will "pay more attention" to the underrepresented class.
 WEIGHT_POSITIVE_CLASS = 1.0
-WEIGHT_NEGATIVE_CLASS = 2.0
+WEIGHT_NEGATIVE_CLASS = 1.0
 # Focal Loss Parameters: These parameters help the model focus on harder-to-classify examples, which can be especially useful in imbalanced datasets. Gamma controls the focus on hard examples, while Alpha balances the importance of positive vs negative examples.
 FOCAL_LOSS_GAMMA = 2.0
-FOCAL_LOSS_ALPHA = 0.75
+FOCAL_LOSS_ALPHA = 0.25
 # Data Augmentation: The percentage of new, synthetic data to create based on existing data. This can help improve model performance, especially when the dataset is small or imbalanced.
 AUGMENT_PROB = 0.3
 

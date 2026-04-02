@@ -290,6 +290,22 @@ class ModelManager:
         return subset
     
     def _load_training_data(self, files, enc, scal):
+        """
+        Loads, preprocesses, and aggregates training data from multiple CSV files.
+
+        This method iterates through a list of file paths, cleans each dataframe, 
+        generates sequences, and concatenates the results into final arrays for 
+        model training.
+
+        Args:
+            files (list[str]): List of paths to the time-series CSV files.
+            enc (OneHotEncoder): Fitted encoder for categorical feature transformation.
+            scal (StandardScaler): Fitted scaler for numerical feature normalization.
+
+        Returns:
+            tuple: (X, y) as concatenated np.ndarrays if data is found; 
+                   otherwise (None, None) if no valid sequences were processed.
+        """
         all_X, all_y = [], []
 
         for ts_file in files:
@@ -318,6 +334,21 @@ class ModelManager:
         )
     
     def _augment_sequences(self, X, y):
+        """
+        Performs data augmentation on input sequences by injecting synthetic patterns.
+
+        Iterates through the batch and applies random transformations (bursts, 
+        deterioration, or recovery) based on a configured probability. New 
+        samples are generated and appended to the original batch.
+
+        Args:
+            X (np.ndarray): Input feature sequences of shape (batch, steps, features).
+            y (np.ndarray): Corresponding binary labels for the sequences.
+
+        Returns:
+            tuple: (aug_X, aug_y) containing the original and augmented data 
+                   concatenated together.
+        """
         if config.AUGMENT_PROB <= 0.0:
             return X, y
 
