@@ -33,6 +33,7 @@ class ModelManager:
         self.model = None
         self.encoders = None
         self.last_updated = 0
+        self.feature_index = { name: i for i, name in enumerate(config.FEATURE_COLUMNS) }
         self._lock = threading.RLock() 
         self.training_lock = threading.Lock()
 
