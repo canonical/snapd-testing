@@ -1,3 +1,11 @@
 images/output/*
 *.snap
 *.log
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+*.ts
+test-predictor*.service

@@ -343,17 +343,15 @@ class ModelManager:
         label_window = config.LABEL_WINDOW
         label_threshold = config.LABEL_THRESHOLD
 
-        failure_ratio = config.AUGMENT_FAILURE_RATIO
-        deterioration_ratio = config.AUGMENT_DETERIORATION_RATIO
-        recovery_ratio = config.AUGMENT_RECOVERY_RATIO
+        # Get indexes
+        success_idx = self.feature_index["success"]
+        name_idx = self.feature_index.get("name")
+        system_idx = self.feature_index.get("system")
 
         # Validate ratios
-        total = failure_ratio + deterioration_ratio + recovery_ratio
+        total = config.AUGMENT_FAILURE_RATIO + config.AUGMENT_DETERIORATION_RATIO + config.AUGMENT_RECOVERY_RATIO
         if not 0.99 <= total <= 1.01:
             raise ValueError("Augment ratios must sum to 1")
-
-        # Get index of success feature
-        success_idx = self.feature_index["success"]
 
         for i in range(len(X)):
 
@@ -362,24 +360,29 @@ class ModelManager:
                 continue
 
             # Only augment stable sequences
-            recent_success = np.mean(X[i][-label_window:, success_idx])
-            if recent_success < label_threshold:
+            if np.mean(X[i][-label_window:, success_idx]) < label_threshold:
                 continue
 
             # Copy sequence
             seq = X[i].copy()
 
+            # Set name/system to 0 (or a dedicated 'synthetic' index) 
+            # so the model learns the PATTERN of failure, 
+            # not that "this specific test" is broken.
+            if name_idx is not None:
+                seq[:, name_idx] = 0 
+            if system_idx is not None:
+                seq[:, system_idx] = 0
+
             # Choose augmentation type
             r = np.random.rand()
-
-            if r < failure_ratio:
-                seq = self._inject_failure_burst(seq)
-
-            elif r < failure_ratio + deterioration_ratio:
-                seq = self._inject_deterioration(seq)
-
+            if r < config.AUGMENT_FAILURE_RATIO:
+                # pass success_idx to ONLY break the success signal
+                seq = self._inject_failure_burst(seq, success_idx=success_idx)
+            elif r < (config.AUGMENT_FAILURE_RATIO + config.AUGMENT_DETERIORATION_RATIO):
+                seq = self._inject_deterioration(seq, success_idx=success_idx)
             else:
-                seq = self._inject_recovery(seq)
+                seq = self._inject_recovery(seq, success_idx=success_idx)
 
             # Recompute label safely (ONLY success feature)
             recent_success_rate = np.mean(seq[-label_window:, success_idx])
@@ -390,28 +393,30 @@ class ModelManager:
 
         return np.concatenate(aug_X), np.concatenate(aug_y)
     
-    def _inject_failure_burst(self, seq, burst_len=3):
+    def _inject_failure_burst(self, seq, success_idx, burst_len=3):
         seq = seq.copy()
         if len(seq) <= burst_len:
             return seq
 
         start = np.random.randint(0, len(seq) - burst_len)
-        seq[start:start+burst_len, :] *= 0
+        # ONLY zero out the success column
+        seq[start:start+burst_len, success_idx] = 0
         return seq
 
-
-    def _inject_deterioration(self, seq):
+    def _inject_deterioration(self, seq, success_idx):
         seq = seq.copy()
         for i in range(len(seq)):
+            # Probability of success-drop increases over time
             if np.random.rand() < (i / len(seq)) * 0.5:
-                seq[i, :] *= 0
+                seq[i, success_idx] = 0
         return seq
 
-    def _inject_recovery(self, seq):
+    def _inject_recovery(self, seq, success_idx):
         seq = seq.copy()
         for i in range(len(seq)):
+            # Probability of forcing a '1' increases over time
             if np.random.rand() < (i / len(seq)):
-                seq[i, :] = 1
+                seq[i, success_idx] = 1
         return seq
 
     def _update_stats_distribution(self, stats, y):
