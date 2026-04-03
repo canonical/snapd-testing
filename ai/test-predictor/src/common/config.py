@@ -81,9 +81,9 @@ FOCAL_LOSS_GAMMA = 2.0
 FOCAL_LOSS_ALPHA = 0.25
 # Data Augmentation: These ratios control how much we "tweak" the data to create new training examples. By simulating failures, deteriorations, and recoveries, we can help the model learn more robust patterns. Adjusting these ratios can help the model better capture the variability in test results, especially if there are fluctuations in success rates.
 AUGMENT_PROB = 0.1
-AUGMENT_FAILURE_RATIO = 0.1
+AUGMENT_FAILURE_RATIO = 0.2
 AUGMENT_DETERIORATION_RATIO = 0.3
-AUGMENT_RECOVERY_RATIO = 0.4
+AUGMENT_RECOVERY_RATIO = 0.5
 # This is the minimum success rate in the recent history for a run to be considered successful. If the success rate in the last 5 runs is above 60%, we label it as a success (1), otherwise as a failure (0). Adjusting this threshold can help the model better capture patterns in the data, especially if there are fluctuations in test results.
 LABEL_THRESHOLD = 0.6
 LABEL_WINDOW = 5
