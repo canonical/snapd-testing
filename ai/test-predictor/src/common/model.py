@@ -334,45 +334,55 @@ class ModelManager:
         )
     
     def _augment_sequences(self, X, y):
-        """
-        Performs data augmentation on input sequences by injecting synthetic patterns.
-
-        Iterates through the batch and applies random transformations (bursts, 
-        deterioration, or recovery) based on a configured probability. New 
-        samples are generated and appended to the original batch.
-
-        Args:
-            X (np.ndarray): Input feature sequences of shape (batch, steps, features).
-            y (np.ndarray): Corresponding binary labels for the sequences.
-
-        Returns:
-            tuple: (aug_X, aug_y) containing the original and augmented data 
-                   concatenated together.
-        """
         if config.AUGMENT_PROB <= 0.0:
             return X, y
 
         aug_X, aug_y = [X], [y]
 
+        label_window = config.LABEL_WINDOW
+        label_threshold = config.LABEL_THRESHOLD
+
+        failure_ratio = config.AUGMENT_FAILURE_RATIO
+        deterioration_ratio = config.AUGMENT_DETERIORATION_RATIO
+        recovery_ratio = config.AUGMENT_RECOVERY_RATIO
+
+        # Validate ratios
+        total = failure_ratio + deterioration_ratio + recovery_ratio
+        if not 0.99 <= total <= 1.01:
+            raise ValueError("Augment ratios must sum to 1")
+
+        # Get index of success feature
+        success_idx = self.feature_index["success"]
+
         for i in range(len(X)):
+
+            # Decide whether to augment
             if np.random.rand() > config.AUGMENT_PROB:
                 continue
 
-            if np.mean(X[i][-5:]) < 0.95:
+            # Only augment stable sequences
+            recent_success = np.mean(X[i][-label_window:, success_idx])
+            if recent_success < label_threshold:
                 continue
 
+            # Copy sequence
             seq = X[i].copy()
 
+            # Choose augmentation type
             r = np.random.rand()
-            if r < 0.33:
+
+            if r < failure_ratio:
                 seq = self._inject_failure_burst(seq)
-            elif r < 0.66:
+
+            elif r < failure_ratio + deterioration_ratio:
                 seq = self._inject_deterioration(seq)
+
             else:
                 seq = self._inject_recovery(seq)
 
-            # recompute label safely
-            new_target = int(np.mean(seq[-5:]) > 0.8)
+            # Recompute label safely (ONLY success feature)
+            recent_success_rate = np.mean(seq[-label_window:, success_idx])
+            new_target = int(recent_success_rate > label_threshold)
 
             aug_X.append(seq[np.newaxis, ...])
             aug_y.append(np.array([new_target]))
