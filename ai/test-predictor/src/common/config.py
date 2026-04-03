@@ -75,10 +75,10 @@ TRAINING_MAX_FILES = 200
 TRAINING_CHUNKS_SIZE = 30000
 # Weights used during training to handle class imbalance. The model will "pay more attention" to the underrepresented class.
 WEIGHT_POSITIVE_CLASS = 1.0
-WEIGHT_NEGATIVE_CLASS = 1.0
+WEIGHT_NEGATIVE_CLASS = 1.2
 # Focal Loss Parameters: These parameters help the model focus on harder-to-classify examples, which can be especially useful in imbalanced datasets. Gamma controls the focus on hard examples, while Alpha balances the importance of positive vs negative examples.
-FOCAL_LOSS_GAMMA = 2.0
-FOCAL_LOSS_ALPHA = 0.25
+FOCAL_LOSS_GAMMA = 0.0
+FOCAL_LOSS_ALPHA = 0.5
 # Data Augmentation: The percentage of new, synthetic data to create based on existing data. This can help improve model performance, especially when the dataset is small or imbalanced.
 AUGMENT_PROB = 0.3
 
