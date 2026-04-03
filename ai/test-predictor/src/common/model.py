@@ -358,6 +358,9 @@ class ModelManager:
             if np.random.rand() > config.AUGMENT_PROB:
                 continue
 
+            if np.mean(X[i][-5:]) < 0.95:
+                continue
+
             seq = X[i].copy()
 
             r = np.random.rand()
@@ -369,7 +372,7 @@ class ModelManager:
                 seq = self._inject_recovery(seq)
 
             # recompute label safely
-            new_target = int(np.mean(seq[-3:]) > 0.5)
+            new_target = int(np.mean(seq[-5:]) > 0.8)
 
             aug_X.append(seq[np.newaxis, ...])
             aug_y.append(np.array([new_target]))
