@@ -301,7 +301,7 @@ def get_internal_context():
         "history": history
     }), 200
 
-@app.route('/internal/pattern', methods=['GET'])
+@app.route('/internal/predict-pattern', methods=['GET'])
 def get_internal_pattern():
     """Exposes the internal SystemStateCache to the external API."""
     pattern = request.args.get('pattern')
