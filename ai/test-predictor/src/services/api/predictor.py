@@ -220,7 +220,7 @@ def get_system_test():
         return jsonify({"error": f"Internal predictor unreachable: {e}"})
     
 @predictor_bp.route('/predict-pattern', methods=['GET'])
-def predict_scenario():
+def predict_pattern():
     p = get_params()
     if not all([p['name'], p['verb'], p['system'], p['pattern']]):
         return jsonify({"error": "Missing params"}), 400
