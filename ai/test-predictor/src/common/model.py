@@ -443,6 +443,8 @@ class ModelManager:
         start = np.random.randint(0, len(seq) - burst_len)
         # ONLY zero out the success column
         seq[start:start+burst_len, success_idx] = 0
+        # Force the tail end to be zeros to ensure the model sees the failure pattern at the prediction point
+        seq[-burst_len:, success_idx] = 0
 
     def _inject_deterioration(self, seq, success_idx):
         # Start healthy
