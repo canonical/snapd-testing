@@ -230,6 +230,9 @@ def predict_pattern():
     try:
         p['pattern'] = pattern
         response = requests.get(PATTERN_URL, params=p, timeout=10)
-        return (response.content, response.status_code, response.headers.items())
+        return jsonify({
+            "success_probability": response.json().get("probability"), 
+            "params": p
+        }), 200
     except Exception as e:
-        return jsonify({"error": f"Internal predictor unreachable: {e}"})
+        return jsonify({"error": f"Internal predictor unreachable: {e}"}), 502
