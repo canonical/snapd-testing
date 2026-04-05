@@ -1,1 +1,0 @@
-This directory is used to store old .keras models and metadata.pkl encoders

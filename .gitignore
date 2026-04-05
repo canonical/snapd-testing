@@ -9,3 +9,5 @@ __pycache__/
 *.pkl
 *.ts
 test-predictor*.service
+ai/test-predictor/model/*
+ai/test-predictor/logs/*
