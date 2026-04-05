@@ -236,14 +236,14 @@ if __name__ == "__main__":
     c_parser.add_argument("--audit", action="store_true")
 
     # Pattern Command
-    p_parser = subparsers.add_parser("pattern", help="See prediction with historical context")
-    p_parser.add_argument("--name", required=True)
-    p_parser.add_argument("--system", required=True)
-    p_parser.add_argument("--pattern", required=True, help="Comma-separated string of 0s and 1s")
-    p_parser.add_argument("--verb", default="executing")
-    p_parser.add_argument("--attempt", type=int)
-    p_parser.add_argument("--scenario", default="generic")
-    p_parser.add_argument("--audit", action="store_true")
+    pt_parser = subparsers.add_parser("pattern", help="See prediction with historical context")
+    pt_parser.add_argument("--name", required=True)
+    pt_parser.add_argument("--system", required=True)
+    pt_parser.add_argument("--pattern", required=True, help="Comma-separated string of 0s and 1s")
+    pt_parser.add_argument("--verb", default="executing")
+    pt_parser.add_argument("--attempt", type=int)
+    pt_parser.add_argument("--scenario", default="generic")
+    pt_parser.add_argument("--audit", action="store_true")
 
     t_parser = subparsers.add_parser("test", help="Verify model against synthetic scenarios")
     t_parser.add_argument("--name", default="tests/main/abort")
@@ -261,7 +261,7 @@ if __name__ == "__main__":
         "compare": handle_worst_systems,
         "list": handle_list,
         "context": handle_context,
-        "predict-pattern": handle_predict_pattern,
+        "pattern": handle_predict_pattern,
         "test": handle_test_scenarios        
     }
     
