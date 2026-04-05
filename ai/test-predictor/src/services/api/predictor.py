@@ -222,10 +222,13 @@ def get_system_test():
 @predictor_bp.route('/predict-pattern', methods=['GET'])
 def predict_pattern():
     p = get_params()
-    if not all([p['name'], p['verb'], p['system'], p['pattern']]):
+    pattern = request.args.get('pattern')
+
+    if not all([p['name'], p['verb'], p['system'], pattern]):
         return jsonify({"error": "Missing params"}), 400
     
     try:
+        p['pattern'] = pattern
         response = requests.get(PATTERN_URL, params=p, timeout=10)
         return (response.content, response.status_code, response.headers.items())
     except Exception as e:
