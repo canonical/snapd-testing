@@ -40,39 +40,36 @@ def validate_labels(params, keys_to_check, encoders):
     return unknowns
 
 def encode_to_vector(data, encoders):
-    # Extract and Normalize Strings/Values
+    # Extract Strings/Values
     n = data.get('name', 'unknown')
     v = data.get('verb', 'unknown')
     s = data.get('system', 'unknown')
     sce = data.get('scenario', config.DEFAULT_SCENARIO)
-    b_val = data.get('backend', encoders['backend'].classes_[0])
+    b_val = data.get('backend', 'unknown') # Default to unknown if missing
     
-    # Scale numeric values (matches _preprocess_dataframe logic)
+    # Scale numeric values (keep these as 0-1 range)
     attempt = float(data.get('attempt', config.DEFAULT_ATTEMPT)) / 10.0
-
-    # Default to 1.0 (PASS) if not present
     success = float(data.get('success', 1.0)) 
     
-    # Helper to encode and scale categorical values
-    def scale_val(key, value):
+    # Helper to get raw integer ID
+    def get_id(key, value):
         enc = encoders[key]
-        # Use existing classes only; transform unknown to a default if needed
         try:
-            idx = enc.transform([str(value)])[0]
-        except ValueError:
-            idx = 0 
-        num_classes = len(enc.classes_)
-        return float(idx) / (num_classes - 1) if num_classes > 1 else 0.0
+            # Transform returns the raw integer index
+            return float(enc.transform([str(value)])[0])
+        except (ValueError, KeyError):
+            # If label is new/unknown, default to 0 (usually 'unknown')
+            return 0.0
 
     # Build the vector in the EXACT order of config.FEATURE_COLUMNS
-    # Current order: [scenario, attempt, verb, backend, system, name, success]
+    # [scenario, attempt, verb, backend, system, name, success]
     return np.array([
-        scale_val('scenario', sce),
+        get_id('scenario', sce),
         attempt,
-        scale_val('verb', v),
-        scale_val('backend', b_val),
-        scale_val('system', s),
-        scale_val('name', n),
+        get_id('verb', v),
+        get_id('backend', b_val),
+        get_id('system', s),
+        get_id('name', n),
         success
     ], dtype='float32')
 
@@ -243,32 +240,17 @@ def update_context():
 def reload_model():
     """Triggered by the Trainer to refresh the model from disk."""
     logger.info("Reload signal received from Trainer. Refreshing model...")
-    
-    data = request.json
-    backup_dir = data.get('backup_dir') 
-
-    if not backup_dir or not os.path.isdir(backup_dir):
-        logger.error(f"Invalid or missing backup directory: {backup_dir}")
-        return jsonify({"status": "error", "message": "Invalid backup_dir"}), 400
 
     # Use your existing ModelManager logic to reload
     success = app.model_manager.reload_model()
     
     if success:
-        # This ensures Step -1 matches the data just trained
-        cache_restored = app.state_cache.restore_backup(backup_dir)
-
-        if not cache_restored:
-            logger.warning("Model reloaded, but cache restoration failed.")
-
-        logger.info(f"Model and cache refreshed successfully from {backup_dir}")
+        logger.info("Model and cache refreshed successfully.")
         return jsonify({"status": "success", "message": "Model reloaded"}), 200
     else:
         logger.error("Failed to reload model from disk.")
         return jsonify({"status": "error", "message": "Reload failed"}), 500
 
-
-# In your predictor_server.py (the one with app.model_manager)
 
 @app.route('/internal/list/<category>', methods=['GET'])
 def list_metadata(category):

@@ -98,14 +98,14 @@ class SystemStateCache:
             logger.error(f"Failed to restore cache from backup: {e}")
             return False
 
-    def save_snapshot(self, backup_dir=None):
+    def save_snapshot(self, output_dir=None):
         """
         Saves the current in-memory cache to a binary file.
-        If backup_dir is provided, saves to that directory as CACHE_SNAPSHOT.pkl.
+        If output_dir is provided, saves to that directory as CACHE_SNAPSHOT.pkl.
         """
         # Determine the target path
-        if backup_dir:
-            target_path = os.path.join(backup_dir, config.CACHE_SNAPSHOT)
+        if output_dir:
+            target_path = os.path.join(output_dir, config.CACHE_SNAPSHOT)
         else:
             target_path = self.snapshot_path
 

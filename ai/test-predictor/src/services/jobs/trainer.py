@@ -58,39 +58,44 @@ def perform_training_cycle():
         # This creates model.h5 and metadata.pkl inside shadow_dir
         success = app.model_manager.train(ts_files, output_dir=shadow_dir)
 
-        if success:
-            # Re-prime the cache in the shadow environment
-            # We use a fresh instance to scan the newly processed files
-            logger.info("Generating shadow cache snapshot...")
-            shadow_cache = SystemStateCache()
-            shadow_cache.prime_from_disk(config.TS_DIR)
-            shadow_cache.save_snapshot(backup_dir=shadow_dir)
-            # Also save a backup to allow a quick reinitialization 
-            shadow_cache.save_snapshot(backup_dir=config.MODEL_DIR)
-
-            # THE ATOMIC SWAP: Promote shadow assets to root model dir
-            logger.info("Promoting shadow assets to LIVE...")
-            promote_shadow_to_live(shadow_dir)
-
-            # Notify Predictor to reload from the root (where we just swapped files)
-            notify_predictor(shadow_dir)
-
-            # Local Cleanup
-            gc.collect()
-            return True
-        else:
+        if not success:
             logger.error("Training failed in shadow directory.")
             return False
+        
+        # Re-prime the cache in the shadow environment
+        # We use a fresh instance to scan the newly processed files
+        logger.info("Generating shadow cache snapshot...")
+        shadow_cache = SystemStateCache()
+        shadow_cache.prime_from_disk(config.TS_DIR)
+        # Save the shadow cache snapshot to the shadow directory
+        shadow_cache.save_snapshot(output_dir=shadow_dir)
+
+        # THE ATOMIC SWAP: Promote shadow assets to root model dir
+        logger.info("Promoting shadow assets to LIVE...")
+        promote_shadow_to_live(shadow_dir)
+
+        logger.info("Refreshing in-memory model manager...")
+        if app.model_manager._load_from_disk():
+            logger.info("Successfully reloaded new model into memory.")
+        else:
+            logger.error("Failed to reload model after promotion!")
+
+        # Notify Predictor to reload from the root (where we just swapped files)
+        notify_predictor()
+
+        # Local Cleanup
+        gc.collect()
+        return True
             
     except Exception as e:
         logger.error(f"Training cycle failed: {e}", exc_info=True)
         return False
 
-def notify_predictor(shadow_dir):
+def notify_predictor():
     logger.info("Notifying Predictor...")
     try:
         predictor_url = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/reload"
-        resp = requests.post(predictor_url, json={"backup_dir": shadow_dir}, timeout=(5, 600))
+        resp = requests.post(predictor_url, json=None, timeout=(5, 600))
         if resp.status_code == 200:
             logger.info("Predictor successfully reloaded the new model.")
         else:

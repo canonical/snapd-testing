@@ -75,18 +75,15 @@ TRAINING_MAX_FILES = 200
 TRAINING_CHUNKS_SIZE = 30000
 # Weights used during training to handle class imbalance. The model will "pay more attention" to the underrepresented class.
 WEIGHT_POSITIVE_CLASS = 1.0
-WEIGHT_NEGATIVE_CLASS = 1.0
+WEIGHT_NEGATIVE_CLASS = 10.0
 # Focal Loss Parameters: These parameters help the model focus on harder-to-classify examples, which can be especially useful in imbalanced datasets. Gamma controls the focus on hard examples, while Alpha balances the importance of positive vs negative examples.
 FOCAL_LOSS_GAMMA = 2.0
-FOCAL_LOSS_ALPHA = 0.25
+FOCAL_LOSS_ALPHA = 0.75
 # Data Augmentation: These ratios control how much we "tweak" the data to create new training examples. By simulating failures, deteriorations, and recoveries, we can help the model learn more robust patterns. Adjusting these ratios can help the model better capture the variability in test results, especially if there are fluctuations in success rates.
-AUGMENT_PROB = 0.1
-AUGMENT_FAILURE_RATIO = 0.2
-AUGMENT_DETERIORATION_RATIO = 0.3
-AUGMENT_RECOVERY_RATIO = 0.5
-# This is the minimum success rate in the recent history for a run to be considered successful. If the success rate in the last 5 runs is above 60%, we label it as a success (1), otherwise as a failure (0). Adjusting this threshold can help the model better capture patterns in the data, especially if there are fluctuations in test results.
-LABEL_THRESHOLD = 0.6
-LABEL_WINDOW = 5
+AUGMENT_PROB = 0.5
+AUGMENT_FAILURE_RATIO = 0.5
+AUGMENT_DETERIORATION_RATIO = 0.5
+AUGMENT_RECOVERY_RATIO = 0.0
 
 # Prediction Settings
 # Verbose (0): No output. 1: Progress bar. 2: One line per epoch.

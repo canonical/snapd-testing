@@ -43,12 +43,29 @@ class ModelManager:
                 return pickle.load(f)
         return {}, MinMaxScaler()
 
+    def _save_model(self, model, model_path=None):
+        if model_path is None:
+            model_path = self.model_path
+        model.save(model_path)
+        logger.info(f"Model saved to {model_path}")
+
     def _save_metadata(self, encoders, scaler, metadata_path=None):
         if metadata_path is None:
             metadata_path = self.metadata_path
 
         with open(metadata_path, 'wb') as f:
             pickle.dump((encoders, scaler), f)
+
+        logger.info(f"Metadata saved to {metadata_path}")
+
+    def _save_stats(self, stats, stats_path=None):
+        if stats_path is None:
+            stats_path = os.path.join(config.MODEL_DIR, config.TRAINING_STATS)
+
+        with open(stats_path, 'w') as f:
+            json.dump(stats, f, indent=4)
+
+        logger.info(f"Training stats saved to {stats_path}")
 
     def _focal_loss(self, gamma=config.FOCAL_LOSS_GAMMA, alpha=config.FOCAL_LOSS_ALPHA):
         """
@@ -84,21 +101,14 @@ class ModelManager:
                 
                 if col not in encoders:
                     encoders[col] = LabelEncoder()
-                    base_labels = sorted(col_data.unique())
-                    encoders[col].classes_ = np.array(base_labels)
+                    encoders[col].fit(col_data.unique())
                 else:
                     existing_classes = encoders[col].classes_
                     new_labels = sorted([l for l in col_data.unique() if l not in existing_classes])
                     if new_labels:
                         encoders[col].classes_ = np.concatenate([existing_classes, new_labels])
                 
-                # Transform to IDs and Scale 0.0 - 1.0
-                df[col] = encoders[col].transform(col_data).astype('float32')
-                num_classes = len(encoders[col].classes_)
-                if num_classes > 1:
-                    df[col] = df[col] / (num_classes - 1)
-                else:
-                    df[col] = 0.0
+                df[col] = encoders[col].transform(col_data).astype('int32')
 
         logger.info(f"Preprocessed {len(df)} rows.")
         return df
@@ -116,7 +126,7 @@ class ModelManager:
                 continue
 
             # Ensure chronological order within the specific test history
-            group = group.sort_values(by='start') 
+            group = group.sort_values(by='start')
             
             group_features = group[feature_cols].values
             group_targets = group['success'].values
@@ -141,7 +151,8 @@ class ModelManager:
 
     def _load_from_disk(self):
         try:
-            if not self.exists(): return False
+            if not self.exists(): 
+                return False
             with open(self.metadata_path, 'rb') as f:
                 self.encoders, _ = pickle.load(f)
             
@@ -227,10 +238,12 @@ class ModelManager:
             # Not in memory, but exists on disk
             elif os.path.exists(self.model_path):                    
                 logger.info(f"Loading model from disk: {self.model_path}")
-                if self._load_from_disk():
-                    model = self.model
+                # Try to load; if it fails, don't return None, just build fresh!
+                if not self._load_from_disk():
+                    logger.warning("Disk load failed (metadata mismatch?). Falling back to building fresh.")
+                    model = self._build_new_model_structure(input_shape)
                 else:
-                    return None
+                    model = self.model
 
             # Brand new model
             else:
@@ -333,91 +346,125 @@ class ModelManager:
             np.concatenate(all_X, axis=0),
             np.concatenate(all_y, axis=0),
         )
-    
-    def _augment_sequences(self, X, y):
+
+    def _augment_sequences(self, X, y, stats):
+        """
+        Performs synthetic data augmentation to balance class distribution and 
+        teach the model specific failure patterns (Death Spirals, Deterioration).
+        
+        STRATEGY: "Only Augment Successes"
+        To combat the 80%+ success bias in real-world data, this method targets 
+        original 'Success' sequences (y=1) and transforms them into 'Failure' 
+        sequences (y=0) by injecting synthetic noise into the tail of the features.
+        
+        Args:
+            X (np.array): Input sequences of shape (Samples, 15, Features).
+            y (np.array): Target labels (0 or 1).
+            stats (dict): Dictionary to track augmentation counts and distributions.
+            
+        Returns:
+            tuple: (final_X, final_y) The augmented dataset.
+        """
         if config.AUGMENT_PROB <= 0.0:
             return X, y
 
         aug_X, aug_y = [X], [y]
-
-        label_window = config.LABEL_WINDOW
-        label_threshold = config.LABEL_THRESHOLD
-
-        # Get indexes
-        success_idx = self.feature_index["success"]
-        name_idx = self.feature_index.get("name")
-        system_idx = self.feature_index.get("system")
-
-        # Validate ratios
-        total = config.AUGMENT_FAILURE_RATIO + config.AUGMENT_DETERIORATION_RATIO + config.AUGMENT_RECOVERY_RATIO
-        if not 0.99 <= total <= 1.01:
-            raise ValueError("Augment ratios must sum to 1")
+        
+        pattern_counts = {
+            "failure_burst": 0,
+            "deterioration": 0,
+            "recovery": 0
+        }
 
         for i in range(len(X)):
-
-            # Decide whether to augment
-            if np.random.rand() > config.AUGMENT_PROB:
+            if y[i] == 0 or np.random.rand() > config.AUGMENT_PROB:
                 continue
 
-            # Only augment stable sequences
-            if np.mean(X[i][-label_window:, success_idx]) < label_threshold:
-                continue
-
-            # Copy sequence
             seq = X[i].copy()
 
-            # Set name/system to 0 (or a dedicated 'synthetic' index) 
-            # so the model learns the PATTERN of failure, 
-            # not that "this specific test" is broken.
-            if name_idx is not None:
-                seq[:, name_idx] = 0 
-            if system_idx is not None:
-                seq[:, system_idx] = 0
+            # Reset identifiers so the model learns the PATTERN, not the SPECIFIC test/system
+            for feature in ["name", "system"]:
+                idx = self.feature_index.get(feature)
+                seq[:, idx] = np.random.randint(10000, 99999)
 
-            # Choose augmentation type
             r = np.random.rand()
-            if r < config.AUGMENT_FAILURE_RATIO:
-                # pass success_idx to ONLY break the success signal
-                seq = self._inject_failure_burst(seq, success_idx=success_idx)
-            elif r < (config.AUGMENT_FAILURE_RATIO + config.AUGMENT_DETERIORATION_RATIO):
-                seq = self._inject_deterioration(seq, success_idx=success_idx)
-            else:
-                seq = self._inject_recovery(seq, success_idx=success_idx)
+            success_idx = self.feature_index["success"]
 
-            # Recompute label safely (ONLY success feature)
-            recent_success_rate = np.mean(seq[-label_window:, success_idx])
-            new_target = int(recent_success_rate > label_threshold)
+            if r < config.AUGMENT_FAILURE_RATIO:
+                # Scenario: Sudden Death. 
+                # Features show some success, but FUTURE is all zeros.
+                self._inject_failure_burst(seq, success_idx)
+                new_target = 0
+                pattern_counts["failure_burst"] += 1
+                
+            elif r < (config.AUGMENT_FAILURE_RATIO + config.AUGMENT_DETERIORATION_RATIO):
+                # Scenario: Deterioration.
+                # Features show declining success, FUTURE is likely 0.
+                self._inject_deterioration(seq, success_idx)
+                # If the very end of the sequence is failing, the future label is 0
+                new_target = 0 if seq[-1, success_idx] == 0 else 1
+                pattern_counts["deterioration"] += 1
+                
+            else:
+                # Scenario: Recovery.
+                # Features show messiness, but FUTURE is stable.
+                self._inject_recovery(seq, success_idx)
+                new_target = 1
+                pattern_counts["recovery"] += 1
 
             aug_X.append(seq[np.newaxis, ...])
             aug_y.append(np.array([new_target]))
 
-        return np.concatenate(aug_X), np.concatenate(aug_y)
-    
-    def _inject_failure_burst(self, seq, success_idx, burst_len=3):
-        seq = seq.copy()
+        final_X = np.concatenate(aug_X)
+        final_y = np.concatenate(aug_y)
+
+        # Calculate distribution statistics
+        unique, counts = np.unique(final_y, return_counts=True)
+        dist = dict(zip(unique, counts))
+        total = len(final_y)
+
+        stats["augmentation"] = {
+            "total_samples": total,
+            "original_samples": len(X),
+            "synthetic_samples": total - len(X),
+            "patterns": pattern_counts,
+            "class_distribution": {
+                int(k): {"count": int(v), "percent": round(float(v)/total * 100, 2)} 
+                for k, v in dist.items()
+            }
+        }
+
+        return final_X, final_y
+ 
+    def _inject_failure_burst(self, seq, success_idx, burst_len=5):
         if len(seq) <= burst_len:
             return seq
 
         start = np.random.randint(0, len(seq) - burst_len)
         # ONLY zero out the success column
         seq[start:start+burst_len, success_idx] = 0
-        return seq
 
     def _inject_deterioration(self, seq, success_idx):
-        seq = seq.copy()
+        # Start healthy
+        seq[:, success_idx] = 1
+
+        # Apply the probabilistic drop
         for i in range(len(seq)):
-            # Probability of success-drop increases over time
-            if np.random.rand() < (i / len(seq)) * 0.5:
+            if np.random.rand() < (i / len(seq)):
                 seq[i, success_idx] = 0
-        return seq
+        
+        # Force the last steps to 0
+        # This ensures the model sees the deterioration at the prediction point
+        seq[-3:, success_idx] = 0
 
     def _inject_recovery(self, seq, success_idx):
-        seq = seq.copy()
+        # Start by making the whole sequence a failure
+        seq[:, success_idx] = 0 
+
         for i in range(len(seq)):
             # Probability of forcing a '1' increases over time
             if np.random.rand() < (i / len(seq)):
                 seq[i, success_idx] = 1
-        return seq
 
     def _update_stats_distribution(self, stats, y):
         unique, counts = np.unique(y, return_counts=True)
@@ -485,11 +532,9 @@ class ModelManager:
             metadata_path = os.path.join(output_dir, config.METADATA_NAME)
             stats_path = os.path.join(output_dir, config.TRAINING_STATS)
 
-        model.save(model_path)
+        self._save_model(model, model_path)                
         self._save_metadata(enc, scal, metadata_path)
-
-        with open(stats_path, 'w') as f:
-            json.dump(stats, f, indent=4)
+        self._save_stats(stats, stats_path)
 
     def train(self, ts_files, output_dir=None):
         if not ts_files:
@@ -506,7 +551,7 @@ class ModelManager:
                 if X_train is None:
                     return False
 
-                X_train, y_train = self._augment_sequences(X_train, y_train)
+                X_train, y_train = self._augment_sequences(X_train, y_train, stats)
                 self._update_stats_distribution(stats, y_train)
                 class_weights = self._compute_class_weights(y_train)
 
@@ -519,8 +564,16 @@ class ModelManager:
 
                 self._persist_artifacts(model, enc, scal, stats, output_dir)
 
-                self._load_from_disk()
-                return True
+                # Reload the LIVE model if we just did a live training (not shadow)
+                if output_dir is None:
+                    logger.info("Live training complete. Reloading model into memory...")
+                    if not self._load_from_disk():
+                        logger.error("Failed to reload model from disk after live training.")
+                        return False
+                else:
+                    logger.info(f"Shadow training complete. Artifacts stored in {output_dir}. Skipping live reload.")
+
+                return True 
 
             except Exception as e:
                 logger.error(f"Training failed: {e}", exc_info=True)
