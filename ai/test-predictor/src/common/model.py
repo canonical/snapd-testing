@@ -373,6 +373,7 @@ class ModelManager:
         pattern_counts = {
             "failure_burst": 0,
             "deterioration": 0,
+            "zombie": 0,
             "recovery": 0
         }
 
@@ -404,7 +405,14 @@ class ModelManager:
                 # If the very end of the sequence is failing, the future label is 0
                 new_target = 0 if seq[-1, success_idx] == 0 else 1
                 pattern_counts["deterioration"] += 1
-                
+
+            elif r < (config.AUGMENT_FAILURE_RATIO + config.AUGMENT_DETERIORATION_RATIO + config.AUGMENT_ZOMBIE_RATIO):
+                # Scenario: Zombie.
+                # Features show a brief recovery, but FUTURE is likely 0.
+                self._inject_zombie(seq, success_idx)
+                new_target = 0 if seq[-1, success_idx] == 0 else 1
+                pattern_counts["zombie"] += 1
+
             else:
                 # Scenario: Recovery.
                 # Features show messiness, but FUTURE is stable.
@@ -459,6 +467,14 @@ class ModelManager:
         # This ensures the model sees the deterioration at the prediction point
         seq[-3:, success_idx] = 0
 
+    def _inject_zombie(self, seq, success_idx):
+        # Scenario: Mostly dead, one "gasp" of life, then dead again
+        seq[:, success_idx] = 0
+        gasp_idx = np.random.randint(len(seq) - 6, len(seq) - 3)
+        seq[gasp_idx, success_idx] = 1
+        # Ensure the tail is strictly 0 to teach it "fleeting success != recovery"
+        seq[gasp_idx+1:, success_idx] = 0
+
     def _inject_recovery(self, seq, success_idx):
         # Start by making the whole sequence a failure
         seq[:, success_idx] = 0 
@@ -467,6 +483,9 @@ class ModelManager:
             # Probability of forcing a '1' increases over time
             if np.random.rand() < (i / len(seq)):
                 seq[i, success_idx] = 1
+        
+        # Force the last steps to 1 to ensure the model sees the recovery pattern at the prediction point
+        seq[-3:, success_idx] = 1
 
     def _update_stats_distribution(self, stats, y):
         unique, counts = np.unique(y, return_counts=True)

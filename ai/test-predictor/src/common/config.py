@@ -82,8 +82,9 @@ FOCAL_LOSS_ALPHA = 0.75
 # Data Augmentation: These ratios control how much we "tweak" the data to create new training examples. By simulating failures, deteriorations, and recoveries, we can help the model learn more robust patterns. Adjusting these ratios can help the model better capture the variability in test results, especially if there are fluctuations in success rates.
 AUGMENT_PROB = 0.7
 AUGMENT_FAILURE_RATIO = 0.4
-AUGMENT_DETERIORATION_RATIO = 0.4
-AUGMENT_RECOVERY_RATIO = 0.2
+AUGMENT_DETERIORATION_RATIO = 0.3
+AUGMENT_ZOMBIE_RATIO = 0.15
+AUGMENT_RECOVERY_RATIO = 0.15
 
 # Prediction Settings
 # Verbose (0): No output. 1: Progress bar. 2: One line per epoch.

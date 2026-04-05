@@ -144,6 +144,25 @@ def handle_context(args):
     except Exception as e:
         print(f"Connection Failed: {e}")
 
+def handle_predict_pattern(args):
+    url = f"{args.url.rstrip('/')}:{args.port}/predict-pattern"
+    params = {
+        "name": args.name, "verb": args.verb,
+        "system": args.system, "attempt": args.attempt, "scenario": args.scenario,
+        "pattern": args.pattern, "audit": args.audit
+    }
+    
+    try:
+        resp = requests.get(url, params=params, timeout=10)
+        if resp.status_code == 200:
+            prob = resp.json().get("success_probability", 0)
+            print(f"\nPrediction for {args.name} on {args.system}:")
+            print(f"   Success Probability: {prob * 100:.2f}%")
+        else:
+            print(f"Error ({resp.status_code}): {resp.json().get('error')}")
+    except Exception as e:
+        print(f"Connection Failed: {e}")
+
 def handle_test_scenarios(args):
     url = f"{args.url.rstrip('/')}:{args.port}/test"
     params = {
@@ -216,6 +235,16 @@ if __name__ == "__main__":
     c_parser.add_argument("--scenario")
     c_parser.add_argument("--audit", action="store_true")
 
+    # Pattern Command
+    p_parser = subparsers.add_parser("pattern", help="See prediction with historical context")
+    p_parser.add_argument("--name", required=True)
+    p_parser.add_argument("--system", required=True)
+    p_parser.add_argument("--pattern", required=True, help="Comma-separated string of 0s and 1s")
+    p_parser.add_argument("--verb", default="executing")
+    p_parser.add_argument("--attempt", type=int)
+    p_parser.add_argument("--scenario", default="generic")
+    p_parser.add_argument("--audit", action="store_true")
+
     t_parser = subparsers.add_parser("test", help="Verify model against synthetic scenarios")
     t_parser.add_argument("--name", default="tests/main/abort")
     t_parser.add_argument("--system", default="ubuntu-24.04-64")
@@ -232,6 +261,7 @@ if __name__ == "__main__":
         "compare": handle_worst_systems,
         "list": handle_list,
         "context": handle_context,
+        "predict-pattern": handle_predict_pattern,
         "test": handle_test_scenarios        
     }
     

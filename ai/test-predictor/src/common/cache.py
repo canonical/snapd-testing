@@ -8,7 +8,7 @@ from common.utils import setup_logging
 logger = setup_logging("cache-manager")
 
 class SystemStateCache:
-    def __init__(self, history_size=49):
+    def __init__(self, history_size=config.SEQUENCE_LENGTH-1):
         # Flattened structure: self.cache[system][name][verb] = [list of result_dicts]
         self.cache = {}
         self.history_size = history_size

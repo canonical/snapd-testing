@@ -11,6 +11,7 @@ PREDICTOR_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/p
 CATEGORY_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/list"
 CACHE_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/context"
 TEST_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/test"
+PATTERN_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/predict-pattern"
 
 def get_params():
     return {
@@ -214,6 +215,18 @@ def get_system_test():
         return jsonify({"error": "Missing params"}), 400
     try:
         response = requests.get(TEST_URL, params=p, timeout=10)
+        return (response.content, response.status_code, response.headers.items())
+    except Exception as e:
+        return jsonify({"error": f"Internal predictor unreachable: {e}"})
+    
+@predictor_bp.route('/predict-pattern', methods=['GET'])
+def predict_scenario():
+    p = get_params()
+    if not all([p['name'], p['verb'], p['system'], p['pattern']]):
+        return jsonify({"error": "Missing params"}), 400
+    
+    try:
+        response = requests.get(PATTERN_URL, params=p, timeout=10)
         return (response.content, response.status_code, response.headers.items())
     except Exception as e:
         return jsonify({"error": f"Internal predictor unreachable: {e}"})

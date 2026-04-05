@@ -301,6 +301,57 @@ def get_internal_context():
         "history": history
     }), 200
 
+@app.route('/internal/pattern', methods=['GET'])
+def get_internal_pattern():
+    """Exposes the internal SystemStateCache to the external API."""
+    pattern = request.args.get('pattern')
+    
+    # Pattern should be a comma-separated string of 0s and 1s, e.g., "1,0,1,1"
+    if pattern:
+        try:
+            pattern_list = [int(x.strip()) for x in pattern.split(',')]
+        except ValueError:
+            return jsonify({"error": "Invalid pattern format. Use comma-separated 0s and 1s."}), 400
+    else:
+        return jsonify({"error": "Pattern query parameter is required."}), 400  
+    
+    base_data = {
+        "name": request.args.get('name'),
+        "verb": request.args.get('verb'),
+        "system": request.args.get('system'),
+        "attempt": request.args.get('attempt', config.DEFAULT_ATTEMPT),
+        "scenario": request.args.get('scenario', config.DEFAULT_SCENARIO)
+    }
+    results = {}
+
+    encoders, _ = app.model_manager._get_metadata()
+
+    fake_history = []
+    for val in pattern:
+        entry = base_data.copy()
+        entry['success'] = val
+        fake_history.append(app.state_cache._normalize_entry(entry))
+        
+    target = app.state_cache._normalize_entry(base_data)
+    target['success'] = 1.0 
+    
+    full_seq = fake_history + [target]
+    X_input = np.zeros((1, config.SEQUENCE_LENGTH, config.NUM_FEATURES), dtype='float32')
+    
+    for i, item in enumerate(reversed(full_seq)):
+        if i >= config.SEQUENCE_LENGTH: 
+            break
+        vector = encode_to_vector(item, encoders)
+        X_input[0, -1 - i, :] = vector
+
+    prob = float(app.model_manager.model.predict(X_input, verbose=0)[0][0])
+    
+    return jsonify({
+        "probability": prob,
+        "context_len": len(fake_history)
+    })
+
+
 @app.route('/internal/test', methods=['GET'])
 def test_scenarios():
     """Tests the model against synthetic patterns and includes expected ranges."""
