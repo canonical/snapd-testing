@@ -76,15 +76,16 @@ TRAINING_CHUNKS_SIZE = 30000
 # Weights used during training to handle class imbalance. The model will "pay more attention" to the underrepresented class.
 WEIGHT_POSITIVE_CLASS = 1.0
 WEIGHT_NEGATIVE_CLASS = 1.0
-# Focal Loss Parameters: These parameters help the model focus on harder-to-classify examples, which can be especially useful in imbalanced datasets. Gamma controls the focus on hard examples, while Alpha balances the importance of positive vs negative examples.
+# Focal Loss Parameters: These parameters help the model focus on harder-to-classify examples, which can be especially useful in imbalanced datasets.
+# Gamma controls the focus on hard examples, while Alpha balances the importance of positive vs negative examples.
 FOCAL_LOSS_GAMMA = 2.0
 FOCAL_LOSS_ALPHA = 0.75
 # Data Augmentation: These ratios control how much we "tweak" the data to create new training examples. By simulating failures, deteriorations, and recoveries, we can help the model learn more robust patterns. Adjusting these ratios can help the model better capture the variability in test results, especially if there are fluctuations in success rates.
-AUGMENT_PROB = 0.6
-AUGMENT_FAILURE_RATIO = 0.4
-AUGMENT_DETERIORATION_RATIO = 0.3
-AUGMENT_ZOMBIE_RATIO = 0.15
-AUGMENT_RECOVERY_RATIO = 0.15
+AUGMENT_PROB = 0.5
+AUGMENT_FAILURE_RATIO = 0.25
+AUGMENT_DETERIORATION_RATIO = 0.25
+AUGMENT_FLAKY_RATIO = 0.25
+AUGMENT_RECOVERY_RATIO = 0.25
 
 # Prediction Settings
 # Verbose (0): No output. 1: Progress bar. 2: One line per epoch.

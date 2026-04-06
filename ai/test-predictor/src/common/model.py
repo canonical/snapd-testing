@@ -5,7 +5,6 @@ import os
 import shutil
 import time
 import threading
-import shutil
 import numpy as np
 import pandas as pd
 
@@ -256,7 +255,7 @@ class ModelManager:
             # Re-compile
             model.compile(
                 optimizer=Adam(learning_rate=config.ADAM_LEARNING_RATE),
-                loss=self._focal_loss(gamma=2.0, alpha=0.25),
+                loss=self._focal_loss(gamma=config.FOCAL_LOSS_GAMMA, alpha=config.FOCAL_LOSS_ALPHA),
                 metrics=['accuracy', tf.keras.metrics.Precision(name='precision'), tf.keras.metrics.Recall(name='recall')]
             )
             
@@ -373,7 +372,7 @@ class ModelManager:
         pattern_counts = {
             "failure_burst": 0,
             "deterioration": 0,
-            "zombie": 0,
+            "flaky": 0,
             "recovery": 0
         }
 
@@ -406,12 +405,12 @@ class ModelManager:
                 new_target = 0 if seq[-1, success_idx] == 0 else 1
                 pattern_counts["deterioration"] += 1
 
-            elif r < (config.AUGMENT_FAILURE_RATIO + config.AUGMENT_DETERIORATION_RATIO + config.AUGMENT_ZOMBIE_RATIO):
-                # Scenario: Zombie.
+            elif r < (config.AUGMENT_FAILURE_RATIO + config.AUGMENT_DETERIORATION_RATIO + config.AUGMENT_FLAKY_RATIO):
+                # Scenario: Flaky.
                 # Features show a brief recovery, but FUTURE is likely 0.
-                self._inject_zombie(seq, success_idx)
+                self._inject_flaky(seq, success_idx)
                 new_target = 0 if seq[-1, success_idx] == 0 else 1
-                pattern_counts["zombie"] += 1
+                pattern_counts["flaky"] += 1
 
             else:
                 # Scenario: Recovery.
@@ -454,7 +453,7 @@ class ModelManager:
         # Force the tail end to be zeros to ensure the model sees the failure pattern at the prediction point
         seq[-burst_len:, success_idx] = 0
 
-    def _inject_deterioration(self, seq, success_idx):
+    def _inject_deterioration(self, seq, success_idx, failure_start=4):
         # Start healthy
         seq[:, success_idx] = 1
 
@@ -465,17 +464,15 @@ class ModelManager:
         
         # Force the last steps to 0
         # This ensures the model sees the deterioration at the prediction point
-        seq[-3:, success_idx] = 0
+        seq[-failure_start:, success_idx] = 0
 
-    def _inject_zombie(self, seq, success_idx):
-        # Scenario: Mostly dead, one "gasp" of life, then dead again
-        seq[:, success_idx] = 0
-        gasp_idx = np.random.randint(len(seq) - 6, len(seq) - 3)
-        seq[gasp_idx, success_idx] = 1
-        # Ensure the tail is strictly 0 to teach it "fleeting success != recovery"
-        seq[gasp_idx+1:, success_idx] = 0
-
-    def _inject_recovery(self, seq, success_idx):
+    def _inject_flaky(self, seq, success_idx, flaky_prob=0.5):
+        # Scenario: Non-deterministic behavior. 
+        # Randomly flips between 0 and 1 throughout the sequence.
+        for i in range(len(seq)):
+            seq[i, success_idx] = 1 if np.random.rand() > flaky_prob else 0
+            
+    def _inject_recovery(self, seq, success_idx, recovery_start=4):
         # Start by making the whole sequence a failure
         seq[:, success_idx] = 0 
 
@@ -485,7 +482,7 @@ class ModelManager:
                 seq[i, success_idx] = 1
         
         # Force the last steps to 1 to ensure the model sees the recovery pattern at the prediction point
-        seq[-3:, success_idx] = 1
+        seq[-recovery_start:, success_idx] = 1
 
     def _update_stats_distribution(self, stats, y):
         unique, counts = np.unique(y, return_counts=True)
