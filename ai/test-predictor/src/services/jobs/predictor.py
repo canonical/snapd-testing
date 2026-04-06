@@ -48,7 +48,7 @@ def encode_to_vector(data, encoders):
     b_val = data.get('backend', 'unknown') # Default to unknown if missing
     
     # Scale numeric values (keep these as 0-1 range)
-    attempt = float(data.get('attempt', config.DEFAULT_ATTEMPT)) / 10.0
+    attempt = float(data.get('attempt', config.DEFAULT_ATTEMPT))
     success = float(data.get('success', 1.0)) 
     
     # Helper to get raw integer ID
