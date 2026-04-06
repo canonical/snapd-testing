@@ -73,7 +73,7 @@ def _clean_and_transform_data(raw_data, scenario, attempt):
         raise ValueError(f"DataFrame is missing required columns: {missing_cols}")
 
     # FINAL COLUMN ORDER
-    final_cols = [c for c in config.FEATURE_COLUMNS if c in df.columns]
+    final_cols = [c for c in config.MANDATORY_TS_COLUMNS if c in df.columns]
     df = df[final_cols]
 
     # DROP ANY ROWS WITH MISSING VALUES IN FINAL COLUMNS (after all transformations)

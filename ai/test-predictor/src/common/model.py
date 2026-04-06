@@ -500,19 +500,13 @@ class ModelManager:
         logger.info(f"Target distribution: {dist}")
 
     def _compute_class_weights(self, y):
-        unique = np.unique(y)
-
-        if len(unique) < 2:
-            return {0: 1.0, 1: 1.0}
-
-        weights = class_weight.compute_class_weight(
-            class_weight='balanced',
-            classes=unique,
-            y=y
-        )
-
-        cw = dict(zip(unique, weights))
-        logger.info(f"Class weights: {cw}")
+        # Instead of 'balanced' calculation, use your explicit overrides
+        cw = {
+            0: float(config.WEIGHT_NEGATIVE_CLASS),
+            1: float(config.WEIGHT_POSITIVE_CLASS)
+        }
+        
+        logger.info(f"Using manual class weights: {cw}")
         return cw
 
     def _train_in_chunks(self, model, X, y, class_weights=None):
