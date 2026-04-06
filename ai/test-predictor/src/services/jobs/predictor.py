@@ -174,8 +174,7 @@ def predict():
 
     # This ensures the 'Target' matches the format used in training
     normalized_target = app.state_cache._normalize_entry(data)
-    # Keep current outcome unknown at prediction time.
-    normalized_target['success'] = 0.0
+    normalized_target['success'] = 1.0
 
     # Validate: use the long names that exist in both normalized_target and encoders
     keys_to_validate = ['name', 'verb', 'system', 'scenario']

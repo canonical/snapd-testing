@@ -92,9 +92,7 @@ class ModelManager:
 
         # CATEGORICAL ENCODING
         # Note: 'success' and 'attempt' are excluded from cat_cols as they are handled above
-        cat_cols = ['verb', 'backend', 'system', 'name', 'scenario']
-        
-        for col in cat_cols:
+        for col in config.ENCODED_FEATURES:
             if col in df.columns:
                 col_data = df[col].astype(str).fillna("unknown")
                 
@@ -106,7 +104,7 @@ class ModelManager:
                     new_labels = sorted([l for l in col_data.unique() if l not in existing_classes])
                     if new_labels:
                         encoders[col].classes_ = np.concatenate([existing_classes, new_labels])
-                
+
                 df[col] = encoders[col].transform(col_data).astype('int32')
 
         logger.info(f"Preprocessed {len(df)} rows.")
@@ -121,7 +119,7 @@ class ModelManager:
         success_idx = self.feature_index.get('success')
         sequences, targets = [], []
         
-        for _, group in df.groupby(['system', 'name', 'verb', 'scenario']):
+        for _, group in df.groupby(config.GROUPED_BY_FEATURES):
             if not all(col in group.columns for col in feature_cols):
                 continue
 
@@ -500,14 +498,24 @@ class ModelManager:
         logger.info(f"Target distribution: {dist}")
 
     def _compute_class_weights(self, y):
-        # Instead of 'balanced' calculation, use your explicit overrides
-        cw = {
-            0: float(config.WEIGHT_NEGATIVE_CLASS),
-            1: float(config.WEIGHT_POSITIVE_CLASS)
-        }
-        
-        logger.info(f"Using manual class weights: {cw}")
-        return cw
+        unique = np.unique(y)
+
+        if len(unique) < 2:
+            return {0: config.WEIGHT_NEGATIVE_CLASS, 1: config.WEIGHT_POSITIVE_CLASS}
+
+        if config.WEIGHT_CLASS == 'balanced':
+            weights = class_weight.compute_class_weight(
+                class_weight=config.WEIGHT_CLASS,
+                classes=unique,
+                y=y
+            )
+            cw = dict(zip(unique, weights))
+            logger.info(f"Class weights: {cw}")
+            return cw
+        else:
+            cw = {0: config.WEIGHT_NEGATIVE_CLASS, 1: config.WEIGHT_POSITIVE_CLASS}
+            logger.info(f"Using fixed class weights: {cw}")
+            return cw
 
     def _train_in_chunks(self, model, X, y, class_weights=None):
         total = len(X)

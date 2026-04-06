@@ -16,7 +16,7 @@ class SystemStateCache:
 
     def _normalize_entry(self, data):
         """Standardizes the raw dictionary and handles NaNs in names."""
-        # Force everything to string and strip to prevent 'fedora ' != 'fedora'
+        # Force everything to string and strip to prevent 'ubuntu ' != 'ubuntu'
         name = str(data.get('name') or '').strip()
         
         # Handle the NaN Name issue from pandas or empty API strings
