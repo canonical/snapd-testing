@@ -88,7 +88,7 @@ class ModelManager:
 
         # HANDLE ATTEMPT (Simple scaling to 0-1)
         if 'attempt' in df.columns:
-            df['attempt'] = pd.to_numeric(df['attempt'], errors='coerce').fillna(1).astype('float32') / 10.0
+            df['attempt'] = pd.to_numeric(df['attempt'], errors='coerce').fillna(1).astype('float32')
 
         # CATEGORICAL ENCODING
         # Note: 'success' and 'attempt' are excluded from cat_cols as they are handled above
@@ -118,9 +118,10 @@ class ModelManager:
             df = df.sort_values(by='start')
 
         feature_cols = config.FEATURE_COLUMNS
+        success_idx = self.feature_index.get('success')
         sequences, targets = [], []
         
-        for _, group in df.groupby(['system', 'name']):
+        for _, group in df.groupby(['system', 'name', 'verb', 'scenario']):
             if not all(col in group.columns for col in feature_cols):
                 continue
 
@@ -133,6 +134,11 @@ class ModelManager:
             for i in range(len(group_features)):
                 start_idx = max(0, i - config.SEQUENCE_LENGTH + 1)
                 window = group_features[start_idx : i + 1].copy()
+
+                # Prevent target leakage: mask the current row's success bit.
+                # Historical rows in the window keep their real outcomes.
+                if success_idx is not None and len(window) > 0:
+                    window[-1, success_idx] = 0.0
                 
                 # CRITICAL: If the window is shorter than SEQUENCE_LENGTH, 
                 # pad_sequences handles it later, but ensure the window 

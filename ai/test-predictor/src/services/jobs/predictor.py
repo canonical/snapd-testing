@@ -174,7 +174,8 @@ def predict():
 
     # This ensures the 'Target' matches the format used in training
     normalized_target = app.state_cache._normalize_entry(data)
-    normalized_target['success'] = 1.0 
+    # Keep current outcome unknown at prediction time.
+    normalized_target['success'] = 0.0
 
     # Validate: use the long names that exist in both normalized_target and encoders
     keys_to_validate = ['name', 'verb', 'system', 'scenario']
@@ -333,7 +334,7 @@ def get_internal_pattern():
         fake_history.append(app.state_cache._normalize_entry(entry))
         
     target = app.state_cache._normalize_entry(base_data)
-    target['success'] = 1.0 
+    target['success'] = 0.0
     
     full_seq = fake_history + [target]
     X_input = np.zeros((1, config.SEQUENCE_LENGTH, config.NUM_FEATURES), dtype='float32')
@@ -406,7 +407,7 @@ def test_scenarios():
             fake_history.append(app.state_cache._normalize_entry(entry))
             
         target = app.state_cache._normalize_entry(base_data)
-        target['success'] = 1.0 
+        target['success'] = 0.0
         
         full_seq = fake_history + [target]
         X_input = np.zeros((1, config.SEQUENCE_LENGTH, config.NUM_FEATURES), dtype='float32')
