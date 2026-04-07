@@ -91,14 +91,14 @@ BATCH_SIZE = 32
 # Verbose (0): No output. 1: Progress bar. 2: One line per epoch.
 TRAINING_VERBOSE = 0
 # To prevent the trainer from getting overwhelmed, we can set a cap on how many files it processes in one go.
-TRAINING_MAX_FILES = 100
+TRAINING_MAX_FILES = 300
 # To prevent the trainer from getting overwhelmed, we can also set a cap on how many rows it processes in one go.
 TRAINING_CHUNKS_SIZE = 30000
 # The balanced class weight automatically adjusts based on the frequency of each class in the training data, while the positive and negative class weights allow for manual tuning. Adjusting these weights can help improve the model's ability to learn from imbalanced datasets, which is common in test results where successes may significantly outnumber failures (or vice versa).
 WEIGHT_CLASS = 'balanced'
 # Weights used during training to handle class imbalance. The model will "pay more attention" to the underrepresented class.
 WEIGHT_POSITIVE_CLASS = 1.0
-WEIGHT_NEGATIVE_CLASS = 2.0
+WEIGHT_NEGATIVE_CLASS = 4.0
 # Focal Loss Parameters: These parameters help the model focus on harder-to-classify examples, which can be especially useful in imbalanced datasets.
 # Gamma controls the focus on hard examples, while Alpha balances the importance of positive vs negative examples.
 FOCAL_LOSS_GAMMA = 2.0
