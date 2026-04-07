@@ -1,0 +1,148 @@
+#!/usr/bin/python3
+
+import argparse
+import requests
+
+
+def print_table(headers, rows):
+    if not rows:
+        print("\nNo results found.")
+        return
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, val in enumerate(row):
+            widths[i] = max(widths[i], len(str(val)))
+    fmt = " | ".join([f"{{:<{w}}}" for w in widths])
+    print("\n" + fmt.format(*headers))
+    print("-" * (sum(widths) + 3 * (len(headers) - 1)))
+    for row in rows:
+        print(fmt.format(*[str(v) for v in row]))
+
+
+def _error_text(resp):
+    try:
+        data = resp.json()
+        if isinstance(data, dict) and "error" in data:
+            return data["error"]
+        return str(data)
+    except Exception:
+        return resp.text
+
+
+def handle_ranking(args):
+    """Show ranked root-cause tests."""
+    url = f"{args.url.rstrip('/')}:{args.port}/dependencies"
+    params = _base_params(args)
+    try:
+        resp = requests.get(url, params=params, timeout=300)
+        if resp.status_code != 200:
+            print(f"Error ({resp.status_code}): {_error_text(resp)}")
+            return
+        data = resp.json()
+        _print_meta(data)
+        rows = [
+            [i + 1, r["test"], f"{r['score']:.4f}"]
+            for i, r in enumerate(data.get("ranking", [])[:args.limit])
+        ]
+        print(f"\nROOT CAUSE RANKING (top {args.limit})")
+        print_table(["#", "TEST", "SCORE"], rows)
+    except Exception as e:
+        print(f"Connection failed: {e}")
+
+
+def handle_toxicity(args):
+    """Show most toxic tests (highest co-fail propagation)."""
+    url = f"{args.url.rstrip('/')}:{args.port}/dependencies"
+    params = _base_params(args)
+    try:
+        resp = requests.get(url, params=params, timeout=300)
+        if resp.status_code != 200:
+            print(f"Error ({resp.status_code}): {_error_text(resp)}")
+            return
+        data = resp.json()
+        _print_meta(data)
+        rows = [
+            [i + 1, t["test"], f"{t['toxicity']:.4f}"]
+            for i, t in enumerate(data.get("toxicity", [])[:args.limit])
+        ]
+        print(f"\nMOST TOXIC TESTS (top {args.limit})")
+        print_table(["#", "TEST", "TOXICITY"], rows)
+    except Exception as e:
+        print(f"Connection failed: {e}")
+
+
+def handle_edges(args):
+    """Show dependency edges (cause → effect)."""
+    url = f"{args.url.rstrip('/')}:{args.port}/dependencies"
+    params = _base_params(args)
+    try:
+        resp = requests.get(url, params=params, timeout=300)
+        if resp.status_code != 200:
+            print(f"Error ({resp.status_code}): {_error_text(resp)}")
+            return
+        data = resp.json()
+        _print_meta(data)
+        edges = data.get("edges", [])
+        if args.test:
+            edges = [e for e in edges if args.test in (e["cause"], e["effect"])]
+        edges = sorted(edges, key=lambda e: e["prob"], reverse=True)[:args.limit]
+        rows = [
+            [e["cause"], e["effect"], f"{e['prob']:.2f}", f"{e['lift']:.2f}"]
+            for e in edges
+        ]
+        print(f"\nDEPENDENCY EDGES ({len(edges)} shown)")
+        print_table(["CAUSE", "EFFECT", "P(effect|cause)", "LIFT"], rows)
+    except Exception as e:
+        print(f"Connection failed: {e}")
+
+
+def _base_params(args):
+    params = {
+        "prob_threshold": args.prob_threshold,
+        "lift_threshold": args.lift_threshold,
+    }
+    if getattr(args, 'system', None):
+        params["system"] = args.system
+    if getattr(args, 'scenario', None):
+        params["scenario"] = args.scenario
+    return params
+
+
+def _print_meta(data):
+    shape = data.get("matrix_shape", [])
+    if shape:
+        print(f"\nMatrix: {shape[0]} runs × {shape[1]} tests  |  "
+              f"{len(data.get('edges', []))} dependency edges")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Test dependency analysis client")
+    parser.add_argument("--url", default="http://test-predictor.canonical.com")
+    parser.add_argument("--port", type=int, default=5000)
+    parser.add_argument("--prob-threshold", dest="prob_threshold",
+                        type=float, default=0.3,
+                        help="Min P(B fails | A fails) for an edge (default: 0.3)")
+    parser.add_argument("--lift-threshold", dest="lift_threshold",
+                        type=float, default=1.5,
+                        help="Min lift for an edge (default: 1.5)")
+    parser.add_argument("--limit", type=int, default=20,
+                        help="Max rows to display (default: 20)")
+
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    r_parser = subparsers.add_parser("ranking", help="Show root-cause ranked tests")
+    t_parser = subparsers.add_parser("toxicity", help="Show most toxic tests")
+    e_parser = subparsers.add_parser("edges", help="Show dependency edges")
+
+    r_parser.add_argument("--system", help="Filter to a specific system")
+    r_parser.add_argument("--scenario", default="generic", help="Filter to a specific scenario")
+
+    t_parser.add_argument("--system", help="Filter to a specific system")
+    t_parser.add_argument("--scenario", default="generic", help="Filter to a specific scenario")
+
+    e_parser.add_argument("--system", help="Filter to a specific system")
+    e_parser.add_argument("--scenario", default="generic", help="Filter to a specific scenario")
+    e_parser.add_argument("--test", help="Filter edges involving this test name")
+
+    args = parser.parse_args()
+    {"ranking": handle_ranking, "toxicity": handle_toxicity, "edges": handle_edges}[args.command](args)

@@ -230,8 +230,16 @@ def predict_pattern():
     try:
         p['pattern'] = pattern
         response = requests.get(PATTERN_URL, params=p, timeout=10)
+        if response.status_code != 200:
+            try:
+                return jsonify(response.json()), response.status_code
+            except ValueError:
+                return jsonify({"error": response.text}), response.status_code
+
+        data = response.json()
         return jsonify({
-            "success_probability": response.json().get("probability"), 
+            "success_probability": data.get("probability"),
+            "pattern_info": data.get("pattern_info"),
             "params": p
         }), 200
     except Exception as e:

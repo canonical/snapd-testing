@@ -377,8 +377,27 @@ class ModelManager:
             "failure_burst": 0,
             "deterioration": 0,
             "flaky": 0,
-            "recovery": 0
+            "recovery": 0,
+            "stable_pass": 0,
         }
+
+        # Augmentation pattern mix is configured via ratios in config.py.
+        # Keep only enabled patterns (ratio > 0), then normalize so
+        # np.random.choice samples by relative probability.
+        pattern_weights = {
+            "failure_burst": float(config.AUGMENT_FAILURE_RATIO),
+            "deterioration": float(config.AUGMENT_DETERIORATION_RATIO),
+            "flaky": float(config.AUGMENT_FLAKY_RATIO),
+            "recovery": float(config.AUGMENT_RECOVERY_RATIO),
+            "stable_pass": float(config.AUGMENT_STABLE_PASS_RATIO),
+        }
+        weighted_patterns = [p for p, w in pattern_weights.items() if w > 0.0]
+        if not weighted_patterns:
+            weighted_patterns = ["failure_burst", "deterioration", "flaky", "recovery"]
+            weight_values = np.array([1.0, 1.0, 1.0, 1.0], dtype='float32')
+        else:
+            weight_values = np.array([pattern_weights[p] for p in weighted_patterns], dtype='float32')
+        weight_values = weight_values / weight_values.sum()
 
         for i in range(len(X)):
             if y[i] == 0 or np.random.rand() > config.AUGMENT_PROB:
@@ -386,35 +405,49 @@ class ModelManager:
 
             seq = X[i].copy()
 
-            # Reset identifiers so the model learns the PATTERN, not the SPECIFIC test/system
-            for feature in ["name", "system"]:
-                idx = self.feature_index.get(feature)
-                seq[:, idx] = np.random.randint(10000, 99999)
+            # Randomize identifier features using real encoded IDs from the batch.
+            # This weakens identity shortcuts while keeping values in the same range
+            # seen at inference time.
+            if getattr(config, 'AUGMENT_RANDOMIZE_IDENTIFIERS', False):
+                for feature in getattr(config, 'AUGMENT_IDENTIFIER_FEATURES', ["name", "system"]):
+                    idx = self.feature_index.get(feature)
+                    if idx is None:
+                        continue
+                    sampled_id = X[np.random.randint(0, len(X)), -1, idx]
+                    seq[:, idx] = sampled_id
 
-            r = np.random.rand()
             success_idx = self.feature_index["success"]
 
-            if r < config.AUGMENT_FAILURE_RATIO:
+            pattern = np.random.choice(weighted_patterns, p=weight_values)
+
+            if pattern == "failure_burst":
                 # Scenario: Sudden Death. 
                 # Features show some success, but FUTURE is all zeros.
                 self._inject_failure_burst(seq, success_idx)
                 new_target = 0
                 pattern_counts["failure_burst"] += 1
                 
-            elif r < (config.AUGMENT_FAILURE_RATIO + config.AUGMENT_DETERIORATION_RATIO):
+            elif pattern == "deterioration":
                 # Scenario: Deterioration.
                 # Features show declining success, FUTURE is likely 0.
                 self._inject_deterioration(seq, success_idx)
-                # If the very end of the sequence is failing, the future label is 0
-                new_target = 0 if seq[-1, success_idx] == 0 else 1
+                # Check the second-to-last step to determine the trend
+                # (last step is always masked to 0 after injection).
+                new_target = 0 if seq[-2, success_idx] == 0 else 1
                 pattern_counts["deterioration"] += 1
 
-            elif r < (config.AUGMENT_FAILURE_RATIO + config.AUGMENT_DETERIORATION_RATIO + config.AUGMENT_FLAKY_RATIO):
+            elif pattern == "flaky":
                 # Scenario: Flaky.
                 # Features show a brief recovery, but FUTURE is likely 0.
                 self._inject_flaky(seq, success_idx)
-                new_target = 0 if seq[-1, success_idx] == 0 else 1
+                new_target = 0 if seq[-2, success_idx] == 0 else 1
                 pattern_counts["flaky"] += 1
+
+            elif pattern == "stable_pass":
+                # Scenario: Stable pass streak remains healthy.
+                self._inject_stable_pass(seq, success_idx)
+                new_target = 1
+                pattern_counts["stable_pass"] += 1
 
             else:
                 # Scenario: Recovery.
@@ -422,6 +455,12 @@ class ModelManager:
                 self._inject_recovery(seq, success_idx)
                 new_target = 1
                 pattern_counts["recovery"] += 1
+
+            # Re-apply the current-step mask: _prepare_sequences already zeroed the
+            # last timestep's success to prevent target leakage, but some injectors
+            # overwrite it. Restore it so training matches inference (build_model_input
+            # also always zeros the last position).
+            seq[-1, success_idx] = 0.0
 
             aug_X.append(seq[np.newaxis, ...])
             aug_y.append(np.array([new_target]))
@@ -447,7 +486,7 @@ class ModelManager:
 
         return final_X, final_y
  
-    def _inject_failure_burst(self, seq, success_idx, burst_len=5):
+    def _inject_failure_burst(self, seq, success_idx, burst_len=3):
         if len(seq) <= burst_len:
             return seq
 
@@ -457,7 +496,7 @@ class ModelManager:
         # Force the tail end to be zeros to ensure the model sees the failure pattern at the prediction point
         seq[-burst_len:, success_idx] = 0
 
-    def _inject_deterioration(self, seq, success_idx, failure_start=4):
+    def _inject_deterioration(self, seq, success_idx, failure_start=3):
         # Start healthy
         seq[:, success_idx] = 1
 
@@ -487,6 +526,10 @@ class ModelManager:
         
         # Force the last steps to 1 to ensure the model sees the recovery pattern at the prediction point
         seq[-recovery_start:, success_idx] = 1
+
+    def _inject_stable_pass(self, seq, success_idx):
+        # Enforce a clean, stable pass history to preserve positive streak behavior.
+        seq[:, success_idx] = 1
 
     def _update_stats_distribution(self, stats, y):
         unique, counts = np.unique(y, return_counts=True)

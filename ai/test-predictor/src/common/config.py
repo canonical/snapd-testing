@@ -84,14 +84,14 @@ ENCODED_FEATURES = ['verb', 'backend', 'system', 'name', 'scenario']
 # The trainer looks at every single failed and successful test in your history 10 times.
 # If you only do 1 epoch, the model is "distracted" and misses patterns. If you do 100,
 # the model might "over-memorize" (Overfitting) and stop being able to predict new, unseen tests.
-EPOCHS = 40
+EPOCHS = 25
 # This is how many test results the AI looks at simultaneously before updating its internal math.
 # Large (e.g., 32 or 64): Learning is "smooth" and much faster, but requires more RAM.
 BATCH_SIZE = 32
 # Verbose (0): No output. 1: Progress bar. 2: One line per epoch.
 TRAINING_VERBOSE = 0
 # To prevent the trainer from getting overwhelmed, we can set a cap on how many files it processes in one go.
-TRAINING_MAX_FILES = 300
+TRAINING_MAX_FILES = 150
 # To prevent the trainer from getting overwhelmed, we can also set a cap on how many rows it processes in one go.
 TRAINING_CHUNKS_SIZE = 30000
 # The balanced class weight automatically adjusts based on the frequency of each class in the training data, while the positive and negative class weights allow for manual tuning. Adjusting these weights can help improve the model's ability to learn from imbalanced datasets, which is common in test results where successes may significantly outnumber failures (or vice versa).
@@ -103,12 +103,32 @@ WEIGHT_NEGATIVE_CLASS = 4.0
 # Gamma controls the focus on hard examples, while Alpha balances the importance of positive vs negative examples.
 FOCAL_LOSS_GAMMA = 2.0
 FOCAL_LOSS_ALPHA = 0.75
+
+# Data Augmentation Settings
+
 # Data Augmentation: These ratios control how much we "tweak" the data to create new training examples. By simulating failures, deteriorations, and recoveries, we can help the model learn more robust patterns. Adjusting these ratios can help the model better capture the variability in test results, especially if there are fluctuations in success rates.
 AUGMENT_PROB = 0.5
 AUGMENT_FAILURE_RATIO = 0.25
 AUGMENT_DETERIORATION_RATIO = 0.25
 AUGMENT_FLAKY_RATIO = 0.25
 AUGMENT_RECOVERY_RATIO = 0.25
+# Positive synthetic pattern to avoid collapsing into "history implies fail".
+AUGMENT_STABLE_PASS_RATIO = 0.35
+# Randomize identifier features in augmented samples using real, in-range IDs
+# observed in training batches to reduce identity memorization.
+AUGMENT_RANDOMIZE_IDENTIFIERS = True
+AUGMENT_IDENTIFIER_FEATURES = ["name", "system"]
+# Parameters used for injection algorithms. Adjusting these can help the model learn to recognize different patterns of failure and recovery.
+AUGMENT_DETERIORATION_LENGTH = 3
+AUGMENT_FAILURE_LENGTH = 3
+AUGMENT_RECOVERY_LENGTH = 4
+AUGMENT_FLAKY_PROB = 0.5
+# Stochastic targets for synthetic patterns to avoid overconfident cliffs.
+AUGMENT_FAILURE_SUCCESS_PROB = 0.05
+AUGMENT_DETERIORATION_SUCCESS_PROB = 0.35
+AUGMENT_FLAKY_SUCCESS_PROB = 0.65
+AUGMENT_RECOVERY_SUCCESS_PROB = 0.85
+AUGMENT_STABLE_PASS_SUCCESS_PROB = 0.98
 
 # Prediction Settings
 
@@ -136,3 +156,4 @@ API_PORT = 5000
 PREDICTOR_PORT = 5001
 TRAINER_PORT = 5002
 CLEANER_PORT = 5003
+DEPENDENCY_PORT = 5004

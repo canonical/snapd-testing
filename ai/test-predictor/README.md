@@ -74,6 +74,9 @@ pip install tensorflow pandas numpy scikit-learn
 # Install Web and Task management
 pip install flask gunicorn requests apscheduler
 
+# Install for grander causality
+pip install statsmodels networkx
+
 ```
 
 ## Model Configuration (src/common/config.py)

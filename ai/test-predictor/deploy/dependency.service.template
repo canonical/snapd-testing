@@ -1,0 +1,17 @@
+[Unit]
+Description=Standalone Python Dependency Service
+After=network.target
+
+[Service]
+User={{USER}}
+WorkingDirectory={{HOME}}
+Group=www-data
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONPATH={{HOME}}/src/common:{{HOME}}/src"
+Environment="PATH={{HOME}}/.venv/bin"
+
+ExecStart={{HOME}}/.venv/bin/python3 src/services/jobs/dependency.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
