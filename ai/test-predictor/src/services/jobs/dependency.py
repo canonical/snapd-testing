@@ -123,8 +123,7 @@ def compute_granger(matrix, max_lag=2, pval_threshold=0.05):
             try:
                 test_result = grangercausalitytests(
                     data,
-                    maxlag=max_lag,
-                    verbose=False
+                    maxlag=max_lag
                 )
 
                 # Take best (lowest) p-value across lags
@@ -165,6 +164,29 @@ def compute_conditional_prob(matrix):
             P_B_given_A = (B_fail & A_fail).sum() / A_fail.sum()
 
             prob_matrix.loc[A, B] = P_B_given_A
+
+    return prob_matrix.astype(float)
+
+
+def compute_conditional_prob_pass(matrix):
+    """Compute P(B fails | A passes) for all test pairs."""
+    tests = matrix.columns
+    prob_matrix = pd.DataFrame(index=tests, columns=tests)
+
+    for A in tests:
+        A_pass = matrix[A] == 0
+        n_pass = A_pass.sum()
+
+        if n_pass == 0:
+            continue
+
+        for B in tests:
+            B_fail = matrix[B] == 1
+
+            # P(B fails | A passes)
+            P_B_given_A_pass = (B_fail & A_pass).sum() / n_pass
+
+            prob_matrix.loc[A, B] = P_B_given_A_pass
 
     return prob_matrix.astype(float)
 
@@ -246,6 +268,12 @@ def analyze(system=None, scenario=None,
                     prob_threshold=prob_threshold,
                     lift_threshold=lift_threshold)
 
+    cond_prob_pass = compute_conditional_prob_pass(matrix)
+    lift_pass = compute_lift(matrix, cond_prob_pass)
+    G_pass = build_graph(cond_prob_pass, lift_pass,
+                         prob_threshold=prob_threshold,
+                         lift_threshold=lift_threshold)
+
     ranking = rank_root_causes(G)
     toxicity = compute_toxicity(cond_prob)
 
@@ -254,6 +282,7 @@ def analyze(system=None, scenario=None,
         "cond_prob": cond_prob,
         "lift": lift,
         "graph": G,
+        "graph_pass": G_pass,
         "ranking": ranking,
         "toxicity": toxicity
     }
@@ -281,11 +310,22 @@ def _serialize(result):
         for u, v, d in result["graph"].edges(data=True)
     ] if result.get("graph") else []
 
+    pass_edges = [
+        {
+            "cause": u,
+            "effect": v,
+            "prob": round(d["weight"], 4),
+            "lift": round(d["lift"], 4),
+        }
+        for u, v, d in result["graph_pass"].edges(data=True)
+    ] if result.get("graph_pass") else []
+
     payload = {
         "matrix_shape": list(result["matrix"].shape) if result.get("matrix") is not None else [],
         "ranking": ranking,
         "toxicity": toxicity,
         "edges": edges,
+        "pass_edges": pass_edges,
     }
 
     granger_df = result.get("granger")
@@ -302,7 +342,9 @@ def internal_dependencies():
     run_granger = str(request.args.get('run_granger', 'false')).lower() in ('1', 'true', 'yes')
 
     try:
+        # prob_threshold is the minimum P(B fails | A fails) for an edge to be included in the graph.
         prob_threshold = float(request.args.get('prob_threshold', 0.3))
+        # lift_threshold is the minimum lift for an edge to be included in the graph.
         lift_threshold = float(request.args.get('lift_threshold', 1.5))
     except ValueError:
         return jsonify({"error": "prob_threshold and lift_threshold must be numbers"}), 400

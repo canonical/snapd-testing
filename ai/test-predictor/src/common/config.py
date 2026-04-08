@@ -91,7 +91,7 @@ BATCH_SIZE = 32
 # Verbose (0): No output. 1: Progress bar. 2: One line per epoch.
 TRAINING_VERBOSE = 0
 # To prevent the trainer from getting overwhelmed, we can set a cap on how many files it processes in one go.
-TRAINING_MAX_FILES = 150
+TRAINING_MAX_FILES = 200
 # To prevent the trainer from getting overwhelmed, we can also set a cap on how many rows it processes in one go.
 TRAINING_CHUNKS_SIZE = 30000
 # The balanced class weight automatically adjusts based on the frequency of each class in the training data, while the positive and negative class weights allow for manual tuning. Adjusting these weights can help improve the model's ability to learn from imbalanced datasets, which is common in test results where successes may significantly outnumber failures (or vice versa).
