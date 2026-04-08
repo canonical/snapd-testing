@@ -1,5 +1,7 @@
 import glob
 import os
+import time
+import threading
 import pandas as pd
 import pickle
 from common import config
@@ -236,3 +238,125 @@ class SystemStateCache:
                 self.cache[s][n][v] = history[-self.history_size:]
             
         logger.info(f"Cache primed successfully.")
+
+
+class DependencyMatrixCache:
+    """
+    In-memory cache for dependency analysis results (matrices, graphs, rankings).
+    Automatically expires entries after TRAIN_INTERVAL_HOURS.
+    Thread-safe with locks.
+    Persists to disk (MODEL_DIR/DEPENDENCY_CACHE_SNAPSHOT).
+    """
+
+    def __init__(self):
+        self._cache = {}  # {(system, scenario): {"result": {...}, "timestamp": ...}}
+        self._lock = threading.Lock()
+        self._snapshot_path = os.path.join(config.MODEL_DIR, config.DEPENDENCY_CACHE_SNAPSHOT)
+
+    def _make_key(self, system, scenario):
+        """Generate cache key for a system/scenario pair."""
+        return (system, scenario)
+
+    def _is_stale(self, entry):
+        """Check if a cache entry is older than TRAIN_INTERVAL_HOURS."""
+        if entry is None:
+            return True
+        age_seconds = time.time() - entry["timestamp"]
+        max_age_seconds = config.TRAIN_INTERVAL_HOURS * 3600
+        return age_seconds > max_age_seconds
+
+    def get(self, system, scenario):
+        """Retrieve cached result if fresh, otherwise None."""
+        with self._lock:
+            key = self._make_key(system, scenario)
+            entry = self._cache.get(key)
+            if entry and not self._is_stale(entry):
+                age_hours = (time.time() - entry["timestamp"]) / 3600
+                logger.info(
+                    "Using cached analysis for system=%s scenario=%s (age: %.1f hours)",
+                    system,
+                    scenario,
+                    age_hours,
+                )
+                return entry["result"]
+        return None
+
+    def set(self, system, scenario, result):
+        """Store analysis result in cache and persist to disk."""
+        with self._lock:
+            key = self._make_key(system, scenario)
+            self._cache[key] = {
+                "result": result,
+                "timestamp": time.time(),
+            }
+        logger.info(
+            "Cached analysis for system=%s scenario=%s",
+            system,
+            scenario,
+        )
+        self.save()
+
+    def clear(self):
+        """Clear entire cache."""
+        with self._lock:
+            n = len(self._cache)
+            self._cache.clear()
+        logger.info("Cleared %d cached analyses", n)
+
+    def load(self):
+        """Load cache from disk snapshot if it exists."""
+        if not os.path.exists(self._snapshot_path):
+            logger.info(
+                "Dependency cache snapshot not found at %s. Starting fresh.",
+                self._snapshot_path,
+            )
+            return
+        try:
+            with self._lock:
+                with open(self._snapshot_path, 'rb') as f:
+                    self._cache = pickle.load(f)
+            logger.info(
+                "Dependency cache loaded from disk: %d entries",
+                len(self._cache),
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to load dependency cache from %s: %s",
+                self._snapshot_path,
+                e,
+            )
+
+    def save(self):
+        """Save cache to disk snapshot."""
+        try:
+            os.makedirs(os.path.dirname(self._snapshot_path), exist_ok=True)
+            with self._lock:
+                with open(self._snapshot_path, 'wb') as f:
+                    pickle.dump(self._cache, f)
+            logger.info(
+                "Dependency cache saved to disk: %d entries",
+                len(self._cache),
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to save dependency cache to %s: %s",
+                self._snapshot_path,
+                e,
+            )
+
+    def stats(self):
+        """Return cache statistics."""
+        with self._lock:
+            stats = {
+                "cached_entries": len(self._cache),
+                "entries": [],
+            }
+            for (system, scenario), entry in self._cache.items():
+                age_hours = (time.time() - entry["timestamp"]) / 3600
+                stats["entries"].append({
+                    "system": system,
+                    "scenario": scenario,
+                    "age_hours": round(age_hours, 2),
+                    "stale": self._is_stale(entry),
+                })
+        return stats

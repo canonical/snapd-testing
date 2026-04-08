@@ -143,11 +143,69 @@ def handle_pass_edges(args):
         print(f"Connection failed: {e}")
 
 
+def handle_cache_info(args):
+    """Show cache statistics."""
+    url = f"{args.url.rstrip('/')}:{args.port}/cache"
+    try:
+        resp = requests.get(url, timeout=args.timeout)
+        if resp.status_code != 200:
+            print(f"Error ({resp.status_code}): {_error_text(resp)}")
+            return
+        data = resp.json()
+        print(f"\nCache Stats:")
+        print(f"  Cached entries: {data.get('cached_entries', 0)}")
+        entries = data.get('entries', [])
+        if entries:
+            rows = [
+                [
+                    e.get('system') or '(none)',
+                    e.get('scenario') or '(none)',
+                    f"{e.get('age_hours', 0):.2f}h",
+                    "STALE" if e.get('stale') else "FRESH"
+                ]
+                for e in entries
+            ]
+            print_table(["SYSTEM", "SCENARIO", "AGE", "STATUS"], rows)
+    except Exception as e:
+        print(f"Connection failed: {e}")
+
+
+def handle_cache_clear(args):
+    """Clear all cached analyses."""
+    url = f"{args.url.rstrip('/')}:{args.port}/cache"
+    try:
+        resp = requests.delete(url, timeout=args.timeout)
+        if resp.status_code != 200:
+            print(f"Error ({resp.status_code}): {_error_text(resp)}")
+            return
+        data = resp.json()
+        print(f"\n{data.get('message', 'Cache cleared')}")
+    except Exception as e:
+        print(f"Connection failed: {e}")
+
+
+def handle_cache_save(args):
+    """Save cache to disk."""
+    url = f"{args.url.rstrip('/')}:{args.port}/cache"
+    try:
+        resp = requests.post(url, timeout=args.timeout)
+        if resp.status_code != 200:
+            print(f"Error ({resp.status_code}): {_error_text(resp)}")
+            return
+        data = resp.json()
+        print(f"\n{data.get('message', 'Cache saved to disk')}")
+    except Exception as e:
+        print(f"Connection failed: {e}")
+
+
+
 def _base_params(args):
     params = {
         "prob_threshold": args.prob_threshold,
         "lift_threshold": args.lift_threshold,
         "run_granger": str(bool(getattr(args, 'granger', False))).lower(),
+        "granger_max_tests": args.granger_max_tests,
+        "use_cache": str(not bool(getattr(args, 'no_cache', False))).lower(),
     }
     if getattr(args, 'system', None):
         params["system"] = args.system
@@ -176,9 +234,13 @@ if __name__ == "__main__":
     parser.add_argument("--limit", type=int, default=20,
                         help="Max rows to display (default: 20)")
     parser.add_argument("--timeout", type=int, default=600,
-                        help="HTTP timeout in seconds (default: 300)")
+                        help="HTTP timeout in seconds (default: 600)")
     parser.add_argument("--granger", "--grander", dest="granger", action="store_true",
                         help="Include Granger causality analysis (slower)")
+    parser.add_argument("--granger-max-tests", type=int, default=80,
+                        help="Cap number of tests used by Granger (default: 80)")
+    parser.add_argument("--no-cache", action="store_true",
+                        help="Force recomputation (bypass TRAIN_INTERVAL_HOURS cache)")
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -201,11 +263,18 @@ if __name__ == "__main__":
     pe_parser.add_argument("--scenario", default="generic", help="Filter to a specific scenario")
     pe_parser.add_argument("--test", help="Filter edges involving this test name")
 
+    c_parser = subparsers.add_parser("cache", help="Show cache stats")
+    c_clear_parser = subparsers.add_parser("cache-clear", help="Clear all cached analyses")
+    c_save_parser = subparsers.add_parser("cache-save", help="Save cache to disk")
+
     args = parser.parse_args()
 
     {
         "ranking": handle_ranking,
         "toxicity": handle_toxicity,
         "edges": handle_edges,
-        "pass-edges": handle_pass_edges
+        "pass-edges": handle_pass_edges,
+        "cache": handle_cache_info,
+        "cache-clear": handle_cache_clear,
+        "cache-save": handle_cache_save,
     }[args.command](args)

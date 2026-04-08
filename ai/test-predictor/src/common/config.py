@@ -16,6 +16,8 @@ PREDICTION_LOG = 'prediction_audit.jsonl'
 HISTORY_LOG = 'history_audit.jsonl'
 # These files store snapshots of the cache and config for traceability and debugging.
 CACHE_SNAPSHOT = "cache_snapshot.pkl"
+# This file stores a snapshot of the dependency cache.
+DEPENDENCY_CACHE_SNAPSHOT = "dependency_cache_snapshot.pkl"
 # File used to store a snapshot of the configuration at the time of training, which can be useful for debugging and traceability.
 CONFIG_SNAPSHOT = "config_snapshot.pkl"
 # This file stores the "Memory" of all training runs, including metrics and parameters, for auditing and future analysis.
