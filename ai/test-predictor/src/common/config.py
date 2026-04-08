@@ -109,9 +109,9 @@ FOCAL_LOSS_ALPHA = 0.75
 # Data Augmentation: These ratios control how much we "tweak" the data to create new training examples. By simulating failures, deteriorations, and recoveries, we can help the model learn more robust patterns. Adjusting these ratios can help the model better capture the variability in test results, especially if there are fluctuations in success rates.
 AUGMENT_PROB = 0.5
 AUGMENT_FAILURE_RATIO = 0.25
-AUGMENT_DETERIORATION_RATIO = 0.25
-AUGMENT_FLAKY_RATIO = 0.25
-AUGMENT_RECOVERY_RATIO = 0.25
+AUGMENT_DETERIORATION_RATIO = 0.20
+AUGMENT_FLAKY_RATIO = 0.45
+AUGMENT_RECOVERY_RATIO = 0.15
 # Positive synthetic pattern to avoid collapsing into "history implies fail".
 AUGMENT_STABLE_PASS_RATIO = 0.35
 # Randomize identifier features in augmented samples using real, in-range IDs
@@ -126,7 +126,8 @@ AUGMENT_FLAKY_PROB = 0.5
 # Stochastic targets for synthetic patterns to avoid overconfident cliffs.
 AUGMENT_FAILURE_SUCCESS_PROB = 0.05
 AUGMENT_DETERIORATION_SUCCESS_PROB = 0.35
-AUGMENT_FLAKY_SUCCESS_PROB = 0.65
+# Treat flaky behavior as high-risk: most synthetic flaky samples should fail.
+AUGMENT_FLAKY_SUCCESS_PROB = 0.20
 AUGMENT_RECOVERY_SUCCESS_PROB = 0.85
 AUGMENT_STABLE_PASS_SUCCESS_PROB = 0.98
 
