@@ -55,7 +55,7 @@ def handle_risk(args):
         print(f"Analyzing all riskiest items for {args.system}...")
     
     try:
-        resp = requests.get(url, params=params, timeout=300)
+        resp = requests.get(url, params=params, timeout=600)
         if resp.status_code == 200:
             data = resp.json().get("top_high_risk", [])
             rows = [[item['name'], f"{item['prob']*100:.2f}%"] for item in data]

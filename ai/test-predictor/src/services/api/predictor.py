@@ -33,7 +33,11 @@ def call_internal_predictor(payload):
             return resp.json(), 400
 
         if resp.status_code == 200:
-            return {"probability": resp.json().get('probability')}, 200            
+            body = resp.json()
+            return {
+                "probability": body.get('probability'),
+                "context_len": int(body.get('context_len', 0) or 0)
+            }, 200
 
         # Any other server error (500, 404, etc)
         return {"error": "Predictor server error"}, resp.status_code
@@ -87,14 +91,22 @@ def rank_risk():
 
     results = []
     for n in names:
-        p = {
+        payload = {
             "name": n, "verb": p['verb'], "system": p['system'], 
             "attempt": p['attempt'], "scenario": p['scenario']
         }
-        result, status_code = call_internal_predictor(p)
+        result, status_code = call_internal_predictor(payload)
         
         if status_code == 200 and result is not None:
-            results.append({"name": n, "prob": float(result.get("probability"))})
+            context_len = int(result.get("context_len", 0) or 0)
+            if context_len <= 0:
+                continue
+
+            results.append({
+                "name": n,
+                "prob": float(result.get("probability")),
+                "context_len": context_len
+            })
 
     # Sort by probability (minor/lowest first)
     results.sort(key=lambda x: x['prob'])
@@ -136,6 +148,16 @@ def worst_systems():
         result, status_code = call_internal_predictor(payload)
         if status_code != 200:
             return jsonify(result), status_code
+
+        context_len = int(result.get("context_len", 0) or 0)
+        if context_len <= 0:
+            continue
+
+        results.append({
+            "system": s,
+            "prob": float(result.get("probability")),
+            "context_len": context_len
+        })
     
     results.sort(key=lambda x: x['prob'])
     return jsonify(results)
