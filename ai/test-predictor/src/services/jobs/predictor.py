@@ -94,11 +94,51 @@ def build_model_input(sequence_items, encoders):
 
 
 def adjust_for_flaky_pattern(history_items, probability):
-    """Apply a conservative cap when recent history is strongly oscillating.
+    """Post-process a raw model probability to correct for flaky or mixed history.
 
-    This is a safety correction for clearly flaky sequences where the model can
-    become overconfident. It is intentionally narrow to avoid affecting stable
-    pass/fail streaks.
+    The LSTM can become overconfident on sequences that lack a clear trend,
+    producing near-certain 0% or 100% outputs for histories that are actually
+    ambiguous. This function applies two calibration stages to bring those
+    extremes back to a more defensible range.
+
+    Stage 1 — Flaky score correction:
+        A continuous flaky score is derived from two signals:
+        - transition_rate: proportion of consecutive pairs that change value
+          (0→1 or 1→0), normalised above a 0.45 baseline.
+        - balance_score: proximity of the pass ratio to 50/50 (1.0 = perfectly
+          balanced, 0.0 = all-pass or all-fail).
+        When flaky_score >= 0.30 the probability is smoothly blended toward an
+        uncertainty prior near 50%. The target is offset below 50% by the
+        degree of imbalance (skewed-fail histories land around 30-40%).
+
+    Stage 2 — Mixed-history extreme guard:
+        Even without a strict flaky signature, the model can output near-certain
+        values for mixed, transition-heavy histories that do not have a clear
+        recent trend. If the adjusted probability is still extreme (≤ 2% or
+        ≥ 98%), the history has both passes and failures (ones_ratio 20-80%),
+        transitions are non-trivial (>= 25%), and the last three steps are NOT
+        a uniform pass or fail run, the probability is further blended toward
+        the empirical pass ratio of the history.
+
+    Tail deterioration override:
+        If the two most recent results are both failures, the output is hard-
+        capped at 8% regardless of the earlier stages, reflecting a concrete
+        recent signal of regression.
+
+    The function is a no-op for histories shorter than 6 steps and for clearly
+    stable or clearly collapsing sequences — those are intentionally left
+    untouched so that real strong signals (e.g. 14× consecutive pass or 14×
+    consecutive fail) are preserved.
+
+    Args:
+        history_items: List of history entry dicts, each containing at minimum
+            a 'success' key with a value castable to int (0 or 1). The list
+            should be ordered oldest-first.
+        probability: Raw sigmoid output from the LSTM model, in [0.0, 1.0].
+
+    Returns:
+        Adjusted probability in [0.0, 1.0]. May be equal to the input if no
+        correction criteria are met.
     """
     if not history_items:
         return probability
