@@ -125,15 +125,30 @@ def adjust_for_flaky_pattern(history_items, probability):
     balance_score = max(0.0, 1.0 - abs(ones_ratio - 0.5) / 0.5)
     flaky_score = transition_score * balance_score
 
-    # Low flaky signature: keep raw model output untouched.
-    if flaky_score < 0.30:
-        return probability
+    adjusted = probability
 
-    # Move smoothly toward an uncertainty prior centered around ~50% for
-    # strongly alternating, balanced histories.
-    target_prob = 0.50 - (1.0 - balance_score) * 0.20
-    strength = max(0.0, min(1.0, (flaky_score - 0.30) / 0.70))
-    adjusted = (1.0 - strength) * probability + strength * target_prob
+    # Strong flaky signature: move toward uncertainty prior around ~50%.
+    if flaky_score >= 0.30:
+        target_prob = 0.50 - (1.0 - balance_score) * 0.20
+        strength = max(0.0, min(1.0, (flaky_score - 0.30) / 0.70))
+        adjusted = (1.0 - strength) * adjusted + strength * target_prob
+
+    # Secondary guard for mixed histories that are not strictly flaky but where
+    # the model can still jump to near-certain extremes.
+    is_extreme = adjusted <= 0.02 or adjusted >= 0.98
+    mixed_history = 0.20 <= ones_ratio <= 0.80 and transition_rate >= 0.25
+    clear_tail = False
+    if len(successes) >= 3:
+        tail3 = successes[-3:]
+        clear_tail = all(v == 1 for v in tail3) or all(v == 0 for v in tail3)
+
+    if is_extreme and mixed_history and not clear_tail:
+        # Blend toward empirical pass ratio in proportion to extremeness and
+        # mixedness; this avoids brittle cliffs while preserving clear trends.
+        extremeness = max(0.0, min(1.0, (abs(adjusted - 0.5) - 0.45) / 0.05))
+        mixedness = min(1.0, transition_rate / 0.50) * balance_score
+        strength = 0.60 * extremeness * mixedness
+        adjusted = (1.0 - strength) * adjusted + strength * ones_ratio
 
     # If the immediate tail is deteriorating, bias further downward.
     if len(successes) >= 2 and successes[-1] == 0 and successes[-2] == 0:
@@ -407,12 +422,12 @@ def get_internal_pattern():
     if model is None or encoders is None:
         return jsonify({"error": "Model or metadata not loaded"}), 503
 
-    # The model predicts on [history + current_target], where history capacity is
-    # fixed by sequence length. Accept any pattern length and keep the most recent
-    # history that fits in the model window.
+    # The model predicts on [history + current_target]. Since the current target
+    # consumes one timestep, only (SEQUENCE_LENGTH - 1) history items can be used.
+    # Accept any pattern length and keep the most recent history that fits.
     provided_len = len(pattern_list)
-    # Truncate to SEQUENCE_LENGTH if needed (pattern represents the full history we can use)
-    used_pattern = pattern_list[-config.SEQUENCE_LENGTH:] if len(pattern_list) > config.SEQUENCE_LENGTH else pattern_list
+    max_history_len = max(0, config.SEQUENCE_LENGTH - 1)
+    used_pattern = pattern_list[-max_history_len:] if len(pattern_list) > max_history_len else pattern_list
     truncated = provided_len > len(used_pattern)
 
     prob, context_len = predict_from_history_pattern(base_data, used_pattern, model, encoders)
@@ -423,6 +438,7 @@ def get_internal_pattern():
         "pattern_info": {
             "provided_length": provided_len,
             "used_length": len(used_pattern),
+            "max_history_length": max_history_len,
             "sequence_length": config.SEQUENCE_LENGTH,
             "truncated": truncated
         }

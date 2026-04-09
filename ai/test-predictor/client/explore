@@ -35,7 +35,7 @@ def handle_predict(args):
         if resp.status_code == 200:
             prob = resp.json().get("success_probability", 0)
             print(f"\nPrediction for {args.name} on {args.system}:")
-            print(f"   Success Probability: {prob * 100:.2f}%")
+            print(f"   Success Probability: {prob * 100:.4f}%")
         else:
             print(f"Error ({resp.status_code}): {resp.json().get('error')}")
     except Exception as e:
