@@ -95,14 +95,17 @@ class DependencyManager:
         """Compute P(B fails | A passes) for all test pairs."""
         tests = matrix.columns
         prob_matrix = pd.DataFrame(index=tests, columns=tests)
+        tests_with_passes = 0
         for A in tests:
             A_pass = matrix[A] == 0
             n_pass = A_pass.sum()
             if n_pass == 0:
                 continue
+            tests_with_passes += 1
             for B in tests:
                 B_fail = matrix[B] == 1
                 prob_matrix.loc[A, B] = (B_fail & A_pass).sum() / n_pass
+        logger.info(f"Pass-edges: {tests_with_passes} tests have at least 1 pass out of {len(tests)} total tests")
         return prob_matrix.astype(float)
 
     def compute_lift(self, matrix, cond_prob):
@@ -115,24 +118,44 @@ class DependencyManager:
         return lift
 
     def build_graph(self, cond_prob, lift, prob_threshold=0.3, lift_threshold=1.5):
-        """Build a directed dependency graph filtered by probability and lift thresholds."""
+        """Build a directed dependency graph filtered by probability and lift thresholds.
+           cond_prob: P(B fails | A fails) matrix
+           lift: lift matrix where lift[A, B] = P(B fails | A fails) / P(B fails)
+           prob_threshold: minimum P(B fails | A fails) to consider A→B a dependency
+           lift_threshold: minimum lift to consider A→B a dependency 
+                           (how much A failing increases the chance of B failing compared to baseline)
+        """
         G = nx.DiGraph()
+        candidates = 0
+        passed_prob = 0
+        passed_lift = 0
+        passed_both = 0
         for A in cond_prob.index:
             for B in cond_prob.columns:
                 if A == B:
                     continue
                 p = cond_prob.loc[A, B]
                 l = lift.loc[A, B]
+                # Skip NaN values
+                if pd.isna(p) or pd.isna(l):
+                    continue
+                candidates += 1
+                if p >= prob_threshold:
+                    passed_prob += 1
+                if l >= lift_threshold:
+                    passed_lift += 1
                 if p >= prob_threshold and l >= lift_threshold:
+                    passed_both += 1
                     G.add_edge(A, B, weight=p, lift=l)
+        logger.debug(f"build_graph: {candidates} candidates, {passed_prob} passed prob, {passed_lift} passed lift, {passed_both} edges created")
         return G
 
-    def rank_root_causes(self, G):
+    def rank_root_causes(self, graph):
         """Score = sum of outgoing edge weights − sum of incoming edge weights."""
         scores = {}
-        for node in G.nodes:
-            out_weight = sum(d["weight"] for _, _, d in G.out_edges(node, data=True))
-            in_weight  = sum(d["weight"] for _, _, d in G.in_edges(node, data=True))
+        for node in graph.nodes:
+            out_weight = sum(d["weight"] for _, _, d in graph.out_edges(node, data=True))
+            in_weight  = sum(d["weight"] for _, _, d in graph.in_edges(node, data=True))
             scores[node] = out_weight - in_weight
         return sorted(scores.items(), key=lambda x: x[1], reverse=True)
 
@@ -142,12 +165,12 @@ class DependencyManager:
 
     # --------------------------------------------------------------- granger
 
-    def reduce_matrix_for_granger(self, matrix, cond_prob, G, G_pass, max_tests=80):
+    def reduce_matrix_for_granger(self, matrix, cond_prob, graph, graph_pass, max_tests=80):
         """Reduce matrix to at most max_tests columns before running Granger."""
         if max_tests is None or max_tests <= 0 or matrix.shape[1] <= max_tests:
             return matrix
 
-        selected = set(G.nodes()) | set(G_pass.nodes())
+        selected = set(graph.nodes()) | set(graph_pass.nodes())
 
         impact = cond_prob.fillna(0).sum(axis=1) + cond_prob.fillna(0).sum(axis=0)
         for name in impact.sort_values(ascending=False).index:
@@ -178,7 +201,7 @@ class DependencyManager:
                 if len(data) < 10:
                     continue
                 try:
-                    test_result = grangercausalitytests(data, maxlag=max_lag, verbose=False)
+                    test_result = grangercausalitytests(data, maxlag=max_lag)
                     p_values = [
                         test_result[lag][0]["ssr_ftest"][1]
                         for lag in range(1, max_lag + 1)
@@ -223,6 +246,7 @@ class DependencyManager:
         # others to fail, and is the basis for ranking root causes and computing toxicity.
         cond_prob      = self.compute_conditional_prob(matrix)
         lift           = self.compute_lift(matrix, cond_prob)
+        logger.info(f"Fail-fail graph construction:")
         graph              = self.build_graph(cond_prob, lift, prob_threshold, lift_threshold)
 
         # Also compute the "pass" version of the dependency graph, which captures tests
@@ -231,6 +255,7 @@ class DependencyManager:
         # the failure graph alone would miss.
         cond_prob_pass = self.compute_conditional_prob_pass(matrix)
         lift_pass      = self.compute_lift(matrix, cond_prob_pass)
+        logger.info(f"Pass-fail graph construction:")
         graph_pass         = self.build_graph(cond_prob_pass, lift_pass, prob_threshold, lift_threshold)
 
         # Rank root causes based on their influence in the failure graph, and compute
