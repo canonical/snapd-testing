@@ -92,8 +92,97 @@ BATCH_SIZE: Training "bite" size (32 rows).
 
 ## Usage (Client)
 
-The client tool allows you to scan local result files and query the lab API (even through a bastion tunnel):
+All CLI clients live in `src/client/`.
 
 ```bash
-./client/predict results.json --compare
+source .venv/bin/activate
 ```
+
+By default, clients target:
+- URL: `http://test-predictor.canonical.com`
+- Port: `5000`
+
+You can override these with `--url` and `--port` on each command.
+
+### 1. `predict` - Predict success for failed items in a JSON file
+
+```bash
+python src/client/predict /path/to/results.json
+python src/client/predict /path/to/results.json --attempt 2
+```
+
+### 2. `ingest` - Upload results JSON into the ingestion API
+
+```bash
+python src/client/ingest /path/to/results.json 12345 67890
+python src/client/ingest /path/to/results.json 12345 67890 --scenario generic --attempt 1
+```
+
+Arguments:
+- `file`: path to JSON results
+- `job_id`: numeric job id
+- `run_id`: numeric run id
+
+### 3. `explore` - Query predictor/explorer endpoints
+
+```bash
+python src/client/explore --help
+python src/client/explore risk --help
+python src/client/explore compare --help
+```
+
+Available subcommands:
+- `predict`
+- `risk`
+- `compare`
+- `list`
+- `context`
+- `pattern`
+- `test`
+
+### 4. `stats` - Audit historical test results
+
+```bash
+python src/client/stats
+python src/client/stats --system ubuntu-core-24-64 --scenario generic
+python src/client/stats --name "tests/smoke/foo" --verb install
+```
+
+### 5. `train` - Control trainer service
+
+```bash
+python src/client/train start
+python src/client/train retrain
+python src/client/train status
+```
+
+### 6. `deps` - Dependency analysis client
+
+Core dependency queries:
+
+```bash
+python src/client/deps pass-given-fail --test "tests/smoke/foo" --system ubuntu-core-24-64 --scenario generic
+python src/client/deps pass-given-fail --test "tests/smoke/foo"
+python src/client/deps fail-given-fail --test "tests/smoke/foo"
+```
+
+Sort options:
+- `pass-given-fail`: `--sort {pass-prob,pass-count,pair-score}`
+- `fail-given-fail`: `--sort {fail-prob,fail-count,pair-score}`
+
+Cache operations:
+
+```bash
+python src/client/deps cache-build --system ubuntu-core-24-64
+python src/client/deps cache-build-all
+python src/client/deps cache-status
+```
+
+Use `--help` on any client or subcommand for full options:
+
+```bash
+python src/client/deps --help
+python src/client/train --help
+python src/client/explore --help
+```
+
