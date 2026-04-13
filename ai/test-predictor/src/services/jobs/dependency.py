@@ -9,90 +9,104 @@ app = Flask(__name__)
 
 _manager = DependencyManager()
 
-def serialize(result):
-    """Convert internal result dict to JSON-safe plain types."""
-    ranking = [{"test": t, "score": round(s, 4)} for t, s in result.get("ranking", [])]
-    toxicity = [
-        {"test": t, "toxicity": round(float(v), 4)}
-        for t, v in result.get("toxicity", {}).items()
-    ]
-    edges = [
-        {"cause": u, "effect": v, "prob": round(d["weight"], 4), "lift": round(d["lift"], 4)}
-        for u, v, d in result["graph"].edges(data=True)
-    ] if result.get("graph") else []
-    pass_edges = [
-        {"cause": u, "effect": v, "prob": round(d["weight"], 4), "lift": round(d["lift"], 4)}
-        for u, v, d in result["graph_pass"].edges(data=True)
-    ] if result.get("graph_pass") else []
+@app.route('/internal/dependencies/pass-given-fail', methods=['GET'])
+def internal_pass_given_fail():
+    test_name = request.args.get('test')
+    system = request.args.get('system')
+    scenario = request.args.get('scenario')
+    use_cache = str(request.args.get('use_cache', 'true')).lower() in ('1', 'true', 'yes')
+    include_self = str(request.args.get('include_self', 'false')).lower() in ('1', 'true', 'yes')
 
-    payload = {
-        "matrix_shape": list(result["matrix"].shape) if result.get("matrix") is not None else [],
-        "ranking":    ranking,
-        "toxicity":   toxicity,
-        "edges":      edges,
-        "pass_edges": pass_edges,
-    }
-
-    granger_df = result.get("granger")
-    if granger_df is not None:
-        payload["granger"] = granger_df.to_dict(orient="records")
-    granger_meta = result.get("granger_meta")
-    if granger_meta is not None:
-        payload["granger_meta"] = granger_meta
-
-    return payload
-
-@app.route('/internal/dependencies', methods=['GET'])
-def internal_dependencies():
-    system      = request.args.get('system')
-    scenario    = request.args.get('scenario')
-    run_granger = str(request.args.get('run_granger', 'false')).lower() in ('1', 'true', 'yes')
-    use_cache   = str(request.args.get('use_cache', 'true')).lower() in ('1', 'true', 'yes')
+    if not test_name:
+        return jsonify({"error": "missing required query param: test"}), 400
 
     try:
-        prob_threshold    = float(request.args.get('prob_threshold', 0.3))
-        lift_threshold    = float(request.args.get('lift_threshold', 1.5))
-        granger_max_tests = int(request.args.get('granger_max_tests', 80))
-        if granger_max_tests <= 0:
-            return jsonify({"error": "granger_max_tests must be > 0"}), 400
-    except ValueError:
-        return jsonify({"error": "prob_threshold/lift_threshold must be numbers and granger_max_tests must be integer"}), 400
-
-    try:
-        result = _manager.analyze(
+        result = _manager.get_pass_probabilities_given_fail(
+            test_name=test_name,
             system=system,
             scenario=scenario,
-            prob_threshold=prob_threshold,
-            lift_threshold=lift_threshold,
-            run_granger=run_granger,
-            granger_max_tests=granger_max_tests,
             use_cache=use_cache,
+            include_self=include_self,
         )
+    except KeyError:
+        return jsonify({"error": f"test not found in matrix: {test_name}"}), 404
     except Exception as e:
-        logger.error(f"Dependency analysis failed: {e}", exc_info=True)
+        logger.error(f"Pass-given-fail query failed: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
     if not result:
         return jsonify({"error": "No data found for the given filters"}), 404
 
-    return jsonify(serialize(result)), 200
+    return jsonify(result), 200
 
 
-@app.route('/internal/cache', methods=['GET'])
-def cache_info():
-    return jsonify(_manager.cache.stats()), 200
+@app.route('/internal/dependencies/fail-given-fail', methods=['GET'])
+def internal_fail_given_fail():
+    test_name = request.args.get('test')
+    system = request.args.get('system')
+    scenario = request.args.get('scenario')
+    use_cache = str(request.args.get('use_cache', 'true')).lower() in ('1', 'true', 'yes')
+    include_self = str(request.args.get('include_self', 'false')).lower() in ('1', 'true', 'yes')
+
+    if not test_name:
+        return jsonify({"error": "missing required query param: test"}), 400
+
+    try:
+        result = _manager.get_fail_probabilities_given_fail(
+            test_name=test_name,
+            system=system,
+            scenario=scenario,
+            use_cache=use_cache,
+            include_self=include_self,
+        )
+    except KeyError:
+        return jsonify({"error": f"test not found in matrix: {test_name}"}), 404
+    except Exception as e:
+        logger.error(f"Fail-given-fail query failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+    if not result:
+        return jsonify({"error": "No data found for the given filters"}), 404
+
+    return jsonify(result), 200
 
 
-@app.route('/internal/cache', methods=['DELETE'])
-def cache_clear():
-    _manager.cache.clear()
-    return jsonify({"message": "Cache cleared"}), 200
+@app.route('/internal/dependencies/cache/build-all', methods=['POST'])
+def internal_cache_build_all():
+    try:
+        response = _manager.trigger_cache_build_all()
+        status_code = 202 if response.get("started") else 409
+        return jsonify(response), status_code
+    except Exception as e:
+        logger.error(f"Cache build trigger failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/internal/cache', methods=['POST'])
-def cache_save():
-    _manager.cache.save()
-    return jsonify({"message": "Cache saved to disk"}), 200
+@app.route('/internal/dependencies/cache/build', methods=['POST'])
+def internal_cache_build_system():
+    system = request.args.get('system')
+    if not system:
+        return jsonify({"error": "missing required query param: system"}), 400
+
+    try:
+        response = _manager.trigger_cache_build_system(system)
+        if response.get("started"):
+            return jsonify(response), 202
+        if "not found" in response.get("message", ""):
+            return jsonify(response), 404
+        return jsonify(response), 409
+    except Exception as e:
+        logger.error(f"System cache build trigger failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/internal/dependencies/cache/status', methods=['GET'])
+def internal_cache_status():
+    try:
+        return jsonify(_manager.get_cache_build_status()), 200
+    except Exception as e:
+        logger.error(f"Cache status query failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

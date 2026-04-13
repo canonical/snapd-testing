@@ -1,5 +1,7 @@
 import glob
 import os
+import threading
+import time
 
 import pandas as pd
 import numpy as np
@@ -25,6 +27,115 @@ class DependencyManager:
         self.ts_dir = ts_dir or config.TS_DIR
         self.cache = DependencyMatrixCache()
         self.cache.load()
+        self._build_lock = threading.Lock()
+        self._build_status = {
+            "running": False,
+            "mode": None,
+            "system": None,
+            "started_at": None,
+            "finished_at": None,
+            "total": 0,
+            "processed": 0,
+            "cached": 0,
+            "no_data": 0,
+            "failed": 0,
+            "errors": [],
+        }
+
+    def _list_available_system_scenario_pairs(self):
+        """Return unique (system, scenario) pairs available in task/executing rows."""
+        files = glob.glob(os.path.join(self.ts_dir, "*.ts"))
+        pairs = set()
+        for f in files:
+            try:
+                df = pd.read_csv(f, dtype={'system': str, 'scenario': str, 'level': str, 'verb': str})
+                if len(df) < 10:
+                    continue
+                df = df[(df['level'] == 'task') & (df['verb'] == 'executing')]
+                if df.empty:
+                    continue
+                for _, row in df[['system', 'scenario']].dropna(subset=['system']).drop_duplicates().iterrows():
+                    system = str(row.get('system') or '').strip()
+                    scenario = str(row.get('scenario') or '').strip() or None
+                    if system:
+                        pairs.add((system, scenario))
+            except Exception as e:
+                logger.error("Failed to enumerate system/scenario pairs from %s: %s", f, e)
+        return sorted(pairs)
+
+    def _run_cache_build(self, system=None):
+        pairs = self._list_available_system_scenario_pairs()
+        if system:
+            pairs = [pair for pair in pairs if pair[0] == system]
+
+        with self._build_lock:
+            self._build_status.update({
+                "running": True,
+                "mode": "system" if system else "all",
+                "system": system,
+                "started_at": time.time(),
+                "finished_at": None,
+                "total": len(pairs),
+                "processed": 0,
+                "cached": 0,
+                "no_data": 0,
+                "failed": 0,
+                "errors": [],
+            })
+
+        for system, scenario in pairs:
+            try:
+                result = self.analyze(system=system, scenario=scenario, use_cache=False)
+                with self._build_lock:
+                    self._build_status["processed"] += 1
+                    if result:
+                        self._build_status["cached"] += 1
+                    else:
+                        self._build_status["no_data"] += 1
+            except Exception as e:
+                with self._build_lock:
+                    self._build_status["processed"] += 1
+                    self._build_status["failed"] += 1
+                    self._build_status["errors"].append({
+                        "system": system,
+                        "scenario": scenario,
+                        "error": str(e),
+                    })
+
+        with self._build_lock:
+            self._build_status["running"] = False
+            self._build_status["finished_at"] = time.time()
+
+    def trigger_cache_build_all(self):
+        """Start asynchronous cache build for all system/scenario pairs."""
+        with self._build_lock:
+            if self._build_status.get("running"):
+                return {"started": False, "message": "Cache build already running"}
+        threading.Thread(target=self._run_cache_build, daemon=True).start()
+        return {"started": True, "message": "Cache build started"}
+
+    def trigger_cache_build_system(self, system):
+        """Start asynchronous cache build for a specific system across scenarios."""
+        if not system:
+            return {"started": False, "message": "missing required param: system"}
+
+        available_pairs = self._list_available_system_scenario_pairs()
+        if not any(pair[0] == system for pair in available_pairs):
+            return {"started": False, "message": f"system not found: {system}"}
+
+        with self._build_lock:
+            if self._build_status.get("running"):
+                return {"started": False, "message": "Cache build already running"}
+
+        threading.Thread(target=self._run_cache_build, kwargs={"system": system}, daemon=True).start()
+        return {"started": True, "message": f"Cache build started for system: {system}"}
+
+    def get_cache_build_status(self):
+        """Return current cache build status and cache snapshot stats."""
+        with self._build_lock:
+            status = dict(self._build_status)
+        status["cache"] = self.cache.stats()
+        return status
 
     def load_all_data(self, system=None, scenario=None, min_rows=10):
         files = glob.glob(os.path.join(self.ts_dir, "*.ts"))
@@ -293,3 +404,111 @@ class DependencyManager:
 
         self.cache.set(system, scenario, result)
         return result
+
+    def get_pass_probabilities_given_fail(self, test_name, system=None, scenario=None,
+                                          use_cache=True, include_self=False):
+        """
+        Compute P(B passes | A fails) for all tests B, where A is ``test_name``.
+
+        The cohort is the same run+machine key used by the dependency matrix
+        (``runid|instance``), so probabilities are evaluated only over tests that
+        were executed together in the same run_id / machine rows.
+        """
+        if not test_name:
+            raise ValueError("test_name is required")
+
+        result = self.analyze(system=system, scenario=scenario, use_cache=use_cache)
+        if not result:
+            return {}
+
+        matrix = result.get("matrix")
+        if matrix is None or matrix.empty:
+            return {}
+
+        if test_name not in matrix.columns:
+            raise KeyError(test_name)
+
+        a_fail = matrix[test_name] == 1
+        conditioned_rows = int(a_fail.sum())
+
+        probabilities = []
+        for other_test in matrix.columns:
+            if not include_self and other_test == test_name:
+                continue
+
+            a_pass = matrix[test_name] == 0
+            b_pass = matrix[other_test] == 0
+            pass_count = int((b_pass & a_fail).sum())
+            both_pass_count = int((a_pass & b_pass).sum())
+            pass_probability = float(pass_count / conditioned_rows) if conditioned_rows > 0 else 0.0
+            probabilities.append(
+                {
+                    "test": other_test,
+                    "pass_probability": pass_probability,
+                    "pass_count": pass_count,
+                    "both_pass_count": both_pass_count,
+                }
+            )
+
+        probabilities.sort(key=lambda item: item["pass_probability"], reverse=True)
+
+        return {
+            "conditioning_test": test_name,
+            "condition": "FAIL",
+            "run_machine_rows": int(matrix.shape[0]),
+            "rows_where_condition_holds": conditioned_rows,
+            "total_tests": int(matrix.shape[1]),
+            "probabilities": probabilities,
+        }
+
+    def get_fail_probabilities_given_fail(self, test_name, system=None, scenario=None,
+                                          use_cache=True, include_self=False):
+        """
+        Compute P(B fails | A fails) for all tests B, where A is ``test_name``.
+        """
+        if not test_name:
+            raise ValueError("test_name is required")
+
+        result = self.analyze(system=system, scenario=scenario, use_cache=use_cache)
+        if not result:
+            return {}
+
+        matrix = result.get("matrix")
+        if matrix is None or matrix.empty:
+            return {}
+
+        if test_name not in matrix.columns:
+            raise KeyError(test_name)
+
+        a_fail = matrix[test_name] == 1
+        conditioned_rows = int(a_fail.sum())
+
+        probabilities = []
+        for other_test in matrix.columns:
+            if not include_self and other_test == test_name:
+                continue
+
+            b_fail = matrix[other_test] == 1
+            b_pass = matrix[other_test] == 0
+            fail_count = int((b_fail & a_fail).sum())
+            fail_pass_count = int((a_fail & b_pass).sum())
+            fail_probability = float(fail_count / conditioned_rows) if conditioned_rows > 0 else 0.0
+            probabilities.append(
+                {
+                    "test": other_test,
+                    "fail_probability": fail_probability,
+                    "fail_count": fail_count,
+                    "fail_pass_count": fail_pass_count,
+                }
+            )
+
+        probabilities.sort(key=lambda item: item["fail_probability"], reverse=True)
+
+        return {
+            "conditioning_test": test_name,
+            "condition": "FAIL",
+            "run_machine_rows": int(matrix.shape[0]),
+            "rows_where_condition_holds": conditioned_rows,
+            "total_tests": int(matrix.shape[1]),
+            "probabilities": probabilities,
+        }

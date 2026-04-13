@@ -29,258 +29,328 @@ def _error_text(resp):
         return resp.text
 
 
-def handle_ranking(args):
+def handle_pass_given_fail(args):
     """
-    Tests sorted by how likely they are to be the root cause of failures.
-    High score = this test failing tends to cause others to fail.
+    For a selected failing test A, show P(B passes | A fails) for all other tests B.
+    This helps identify tests that are inversely coupled with A.
     """
-    url = f"{args.url.rstrip('/')}:{args.port}/dependencies"
-    params = _base_params(args)
+    url = f"{args.url.rstrip('/')}:{args.port}/dependencies/pass-given-fail"
+    params = {
+        "test": args.test,
+        "use_cache": str(not bool(getattr(args, 'no_cache', False))).lower(),
+        "include_self": str(bool(getattr(args, 'include_self', False))).lower(),
+    }
+    if getattr(args, 'system', None):
+        params["system"] = args.system
+    if getattr(args, 'scenario', None):
+        params["scenario"] = args.scenario
+
     try:
         resp = requests.get(url, params=params, timeout=args.timeout)
         if resp.status_code != 200:
-            print(f"Error ({resp.status_code}): {_error_text(resp)}")
+            err = _error_text(resp)
+            if resp.status_code == 404 and "No data found" in err:
+                print("\nNo data found for the given filters.")
+                print("Tip: run 'deps ranking' with the same system/scenario and pick a test from that output.")
+            else:
+                print(f"Error ({resp.status_code}): {err}")
             return
+
         data = resp.json()
-        _print_meta(data)
+        probabilities = data.get("probabilities", [])
+
+        # Higher score means better discriminatory pairing:
+        # many PASS-FAIL cases with comparatively few BOTH-PASS cases.
+        for p in probabilities:
+            pass_count = p.get("pass_count", 0)
+            both_pass_count = p.get("both_pass_count", 0)
+            p["pair_score"] = pass_count / (both_pass_count + 1)
+
+        if args.sort == "pair-score":
+            # Primary: highest pair score; secondary: most PASS-FAIL; tertiary: least BOTH-PASS.
+            probabilities = sorted(
+                probabilities,
+                key=lambda p: (
+                    p.get("pair_score", 0.0),
+                    p.get("pass_count", 0),
+                    -p.get("both_pass_count", 0),
+                ),
+                reverse=True,
+            )
+        elif args.sort == "pass-count":
+            probabilities = sorted(
+                probabilities,
+                key=lambda p: p.get("pass_count", 0),
+                reverse=True,
+            )
+        else:
+            probabilities = sorted(
+                probabilities,
+                key=lambda p: p.get("pass_probability", 0.0),
+                reverse=True,
+            )
+
         rows = [
-            [i + 1, r["test"], f"{r['score']:.4f}"]
-            for i, r in enumerate(data.get("ranking", [])[:args.limit])
+            [
+                i + 1,
+                p["test"],
+                p["pass_count"],
+                p.get("both_pass_count", 0),
+                f"{p.get('pair_score', 0.0):.4f}",
+            ]
+            for i, p in enumerate(probabilities[:args.limit])
         ]
-        print(f"\nROOT CAUSE RANKING (top {args.limit})")
-        print_table(["#", "TEST", "SCORE"], rows)
+
+        print("\nPASS GIVEN FAIL")
+        print(f"Conditioning test: {data.get('conditioning_test', args.test)}")
+        print(f"Rows where condition holds: {data.get('rows_where_condition_holds', 0)}")
+        print(f"Run-machine rows: {data.get('run_machine_rows', 0)}")
+        print(f"Sort mode: {args.sort}")
+        print("Pair score formula: PASS-FAIL / (PASS-PASS + 1)")
+        print_table([
+            "#",
+            "TEST",
+            "PASS-FAIL",
+            "PASS-PASS",
+            "PAIR SCORE",
+        ], rows)
     except Exception as e:
         print(f"Connection failed: {e}")
 
 
-def handle_toxicity(args):
+def handle_fail_given_fail(args):
     """
-    Tests sorted by co-fail propagation weight. 
-    High toxicity = when this test fails, many other tests also fail (broad blast radius).
+    For a selected failing test A, show P(B fails | A fails) for all other tests B.
+    """
+    url = f"{args.url.rstrip('/')}:{args.port}/dependencies/fail-given-fail"
+    params = {
+        "test": args.test,
+        "use_cache": str(not bool(getattr(args, 'no_cache', False))).lower(),
+        "include_self": str(bool(getattr(args, 'include_self', False))).lower(),
+    }
+    if getattr(args, 'system', None):
+        params["system"] = args.system
+    if getattr(args, 'scenario', None):
+        params["scenario"] = args.scenario
 
-    1.50 means: when it fails, the expected number of other tests that also fail is 1.5 (summed probabilities across all its outgoing edges).
-    1.0 means it reliably causes exactly one other test to fail.
-    """
-    url = f"{args.url.rstrip('/')}:{args.port}/dependencies"
-    params = _base_params(args)
     try:
         resp = requests.get(url, params=params, timeout=args.timeout)
         if resp.status_code != 200:
-            print(f"Error ({resp.status_code}): {_error_text(resp)}")
+            err = _error_text(resp)
+            if resp.status_code == 404 and "No data found" in err:
+                print("\nNo data found for the given filters.")
+                print("Tip: run 'deps ranking' with the same system/scenario and pick a test from that output.")
+            else:
+                print(f"Error ({resp.status_code}): {err}")
             return
+
         data = resp.json()
-        _print_meta(data)
+        probabilities = data.get("probabilities", [])
+
+        if args.sort == "pair-score":
+            probabilities = sorted(
+                probabilities,
+                key=lambda p: (
+                    p.get("fail_count", 0),
+                    -p.get("fail_pass_count", 0),
+                ),
+                reverse=True,
+            )
+        elif args.sort == "fail-count":
+            probabilities = sorted(
+                probabilities,
+                key=lambda p: p.get("fail_count", 0),
+                reverse=True,
+            )
+        else:
+            probabilities = sorted(
+                probabilities,
+                key=lambda p: p.get("fail_probability", 0.0),
+                reverse=True,
+            )
+
         rows = [
-            [i + 1, t["test"], f"{t['toxicity']:.4f}"]
-            for i, t in enumerate(data.get("toxicity", [])[:args.limit])
+            [
+                i + 1,
+                p["test"],
+                p["fail_count"],
+                p.get("fail_pass_count", 0),
+                f"{p.get('fail_probability', 0.0):.4f}",
+            ]
+            for i, p in enumerate(probabilities[:args.limit])
         ]
-        print(f"\nMOST TOXIC TESTS (top {args.limit})")
-        print_table(["#", "TEST", "TOXICITY"], rows)
+
+        print("\nFAIL GIVEN FAIL")
+        print(f"Conditioning test: {data.get('conditioning_test', args.test)}")
+        print(f"Rows where condition holds: {data.get('rows_where_condition_holds', 0)}")
+        print(f"Run-machine rows: {data.get('run_machine_rows', 0)}")
+        print(f"Sort mode: {args.sort}")
+        print_table([
+            "#",
+            "TEST",
+            "FAIL-FAIL",
+            "FAIL-PASS",
+            "P(fail|conditioning fail)",
+        ], rows)
     except Exception as e:
         print(f"Connection failed: {e}")
 
 
-def handle_edges(args):
-    """
-    The raw directed dependency graph: cause → effect pairs with P(effect fails | cause fails) and lift.
-    Shows which specific test failing predicts which other specific test failing.
-
-    P(effect|cause) — Conditional probability: "Given that test A failed, what fraction of those runs also had test B fail?" Range 0–1. E.g. 0.80 means 80% of the time A fails, B also fails.
-    Lift — How much more likely is the effect to fail when the cause fails, compared to the baseline failure rate of the effect? Range 0–∞. E.g. 2.0 means B is twice as likely to fail when A fails, compared to B's overall failure rate.
-    """
-    url = f"{args.url.rstrip('/')}:{args.port}/dependencies"
-    params = _base_params(args)
+def handle_cache_build_all(args):
+    """Trigger asynchronous cache build for all system/scenario combinations."""
+    url = f"{args.url.rstrip('/')}:{args.port}/dependencies/cache/build-all"
     try:
-        resp = requests.get(url, params=params, timeout=args.timeout)
-        if resp.status_code != 200:
+        resp = requests.post(url, timeout=args.timeout)
+        if resp.status_code not in (200, 202):
             print(f"Error ({resp.status_code}): {_error_text(resp)}")
             return
         data = resp.json()
-        _print_meta(data)
-        edges = data.get("edges", [])
-        if args.test:
-            edges = [e for e in edges if args.test in (e["cause"], e["effect"])]
-        edges = sorted(edges, key=lambda e: e["prob"], reverse=True)[:args.limit]
-        rows = [
-            [e["cause"], e["effect"], f"{e['prob']:.2f}", f"{e['lift']:.2f}"]
-            for e in edges
-        ]
-        print(f"\nDEPENDENCY EDGES ({len(edges)} shown)")
-        print_table(["CAUSE", "EFFECT", "P(effect|cause)", "LIFT"], rows)
+        print(f"\n{data.get('message', 'Cache build request accepted')}")
+        print("Use 'deps cache-status' to track progress.")
     except Exception as e:
         print(f"Connection failed: {e}")
 
 
-def handle_pass_edges(args):
-    """
-    Dependency edges where P(effect fails | cause passes) is high.
-    Surfaces tests that tend to fail specifically when another test passes.
-    Useful for detecting resource conflicts or environment interference.
-
-    A high score here means: "When A passes, B tends to fail"
-    Useful for finding resource contention or environment interference between tests.
-    """
-    url = f"{args.url.rstrip('/')}:{args.port}/dependencies"
-    params = _base_params(args)
+def handle_cache_build(args):
+    """Trigger asynchronous cache build for one system across scenarios."""
+    url = f"{args.url.rstrip('/')}:{args.port}/dependencies/cache/build"
+    params = {
+        "system": args.system,
+    }
     try:
-        resp = requests.get(url, params=params, timeout=args.timeout)
-        if resp.status_code != 200:
+        resp = requests.post(url, params=params, timeout=args.timeout)
+        if resp.status_code not in (200, 202):
             print(f"Error ({resp.status_code}): {_error_text(resp)}")
             return
         data = resp.json()
-        _print_meta(data)
-        edges = data.get("pass_edges", [])
-        if args.test:
-            edges = [e for e in edges if args.test in (e["cause"], e["effect"])]
-        edges = sorted(edges, key=lambda e: e["prob"], reverse=True)[:args.limit]
-        rows = [
-            [e["cause"], e["effect"], f"{e['prob']:.2f}", f"{e['lift']:.2f}"]
-            for e in edges
-        ]
-        print(f"\nPASS→FAIL EDGES ({len(edges)} shown)")
-        print_table(["CAUSE (passes)", "EFFECT (fails)", "P(effect|cause passes)", "LIFT"], rows)
+        print(f"\n{data.get('message', 'Cache build request accepted')}")
+        print("Use 'deps cache-status' to track progress.")
     except Exception as e:
         print(f"Connection failed: {e}")
 
 
-def handle_cache_info(args):
-    """Show cache statistics."""
-    url = f"{args.url.rstrip('/')}:{args.port}/cache"
+def handle_cache_status(args):
+    """Show dependency cache build status and current cache snapshot stats."""
+    url = f"{args.url.rstrip('/')}:{args.port}/dependencies/cache/status"
     try:
         resp = requests.get(url, timeout=args.timeout)
         if resp.status_code != 200:
             print(f"Error ({resp.status_code}): {_error_text(resp)}")
             return
+
         data = resp.json()
-        print(f"\nCache Stats:")
-        print(f"  Cached entries: {data.get('cached_entries', 0)}")
-        entries = data.get('entries', [])
+        print("\nCACHE BUILD STATUS")
+        print(f"Running: {data.get('running', False)}")
+        print(f"Started at: {data.get('started_at')}")
+        print(f"Finished at: {data.get('finished_at')}")
+        print(f"Processed: {data.get('processed', 0)} / {data.get('total', 0)}")
+        print(f"Cached: {data.get('cached', 0)}")
+        print(f"No data: {data.get('no_data', 0)}")
+        print(f"Failed: {data.get('failed', 0)}")
+
+        errors = data.get('errors', [])
+        if errors:
+            rows = [
+                [e.get('system') or '(none)', e.get('scenario') or '(none)', e.get('error') or '']
+                for e in errors[:args.limit]
+            ]
+            print_table(["SYSTEM", "SCENARIO", "ERROR"], rows)
+
+        cache = data.get('cache', {})
+        print("\nCACHE SNAPSHOT")
+        print(f"Cached entries: {cache.get('cached_entries', 0)}")
+        entries = cache.get('entries', [])
         if entries:
             rows = [
                 [
                     e.get('system') or '(none)',
                     e.get('scenario') or '(none)',
                     f"{e.get('age_hours', 0):.2f}h",
-                    "STALE" if e.get('stale') else "FRESH"
+                    'STALE' if e.get('stale') else 'FRESH',
                 ]
-                for e in entries
+                for e in entries[:args.limit]
             ]
             print_table(["SYSTEM", "SCENARIO", "AGE", "STATUS"], rows)
     except Exception as e:
         print(f"Connection failed: {e}")
 
 
-def handle_cache_clear(args):
-    """Clear all cached analyses."""
-    url = f"{args.url.rstrip('/')}:{args.port}/cache"
-    try:
-        resp = requests.delete(url, timeout=args.timeout)
-        if resp.status_code != 200:
-            print(f"Error ({resp.status_code}): {_error_text(resp)}")
-            return
-        data = resp.json()
-        print(f"\n{data.get('message', 'Cache cleared')}")
-    except Exception as e:
-        print(f"Connection failed: {e}")
-
-
-def handle_cache_save(args):
-    """Save cache to disk."""
-    url = f"{args.url.rstrip('/')}:{args.port}/cache"
-    try:
-        resp = requests.post(url, timeout=args.timeout)
-        if resp.status_code != 200:
-            print(f"Error ({resp.status_code}): {_error_text(resp)}")
-            return
-        data = resp.json()
-        print(f"\n{data.get('message', 'Cache saved to disk')}")
-    except Exception as e:
-        print(f"Connection failed: {e}")
-
-
-
-def _base_params(args):
-    params = {
-        "prob_threshold": args.prob_threshold,
-        "lift_threshold": args.lift_threshold,
-        "run_granger": str(bool(getattr(args, 'granger', False))).lower(),
-        "granger_max_tests": args.granger_max_tests,
-        "use_cache": str(not bool(getattr(args, 'no_cache', False))).lower(),
-    }
-    if getattr(args, 'system', None):
-        params["system"] = args.system
-    if getattr(args, 'scenario', None):
-        params["scenario"] = args.scenario
-    return params
-
-
-def _print_meta(data):
-    shape = data.get("matrix_shape", [])
-    if shape:
-        print(f"\nMatrix: {shape[0]} runs × {shape[1]} tests  |  "
-              f"{len(data.get('edges', []))} dependency edges")
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test dependency analysis client")
     parser.add_argument("--url", default="http://test-predictor.canonical.com")
     parser.add_argument("--port", type=int, default=5000)
-    parser.add_argument("--prob-threshold", dest="prob_threshold",
-                        type=float, default=0.3,
-                        help="Min P(B fails | A fails) for an edge (default: 0.3)")
-    parser.add_argument("--lift-threshold", dest="lift_threshold",
-                        type=float, default=1.5,
-                        help="Min lift for an edge (default: 1.5)")
     parser.add_argument("--limit", type=int, default=20,
                         help="Max rows to display (default: 20)")
     parser.add_argument("--timeout", type=int, default=600,
-                        help="HTTP timeout in seconds (default: 600)")    
-    parser.add_argument("--granger-max-tests", type=int, default=80,
-                        help="Cap number of tests used by Granger (default: 80)")
+                        help="HTTP timeout in seconds (default: 600)")
     parser.add_argument("--no-cache", action="store_true",
                         help="Force recomputation (bypass TRAIN_INTERVAL_HOURS cache)")
+    # Note: system and scenario filters are passed per-command, not globally
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    r_parser = subparsers.add_parser("ranking", help="Show root-cause ranked tests")
-    t_parser = subparsers.add_parser("toxicity", help="Show most toxic tests")
-    e_parser = subparsers.add_parser("edges", help="Show fail→fail dependency edges")
-    pe_parser = subparsers.add_parser("pass-edges", help="Show pass→fail dependency edges")
+    pgf_parser = subparsers.add_parser(
+        "pass-given-fail",
+        help="For one failing test, show tests likely to pass",
+    )
+    fgf_parser = subparsers.add_parser(
+        "fail-given-fail",
+        help="For one failing test, show tests likely to fail",
+    )
+    c_build_parser = subparsers.add_parser(
+        "cache-build",
+        help="Trigger dependency cache build for a specific system",
+    )
+    c_build_all_parser = subparsers.add_parser(
+        "cache-build-all",
+        help="Trigger dependency cache build for all systems/scenarios",
+    )
+    c_status_parser = subparsers.add_parser(
+        "cache-status",
+        help="Show dependency cache build status",
+    )
 
-    r_parser.add_argument("--system", help="Filter to a specific system")
-    r_parser.add_argument("--scenario", default="generic", help="Filter to a specific scenario")
-    r_parser.add_argument("--granger", dest="granger", action="store_true",
-                        help="Include Granger causality analysis")
+    c_build_parser.add_argument("--system", required=True,
+                        help="Build cache only for this system")
 
-    t_parser.add_argument("--system", help="Filter to a specific system")
-    t_parser.add_argument("--scenario", default="generic", help="Filter to a specific scenario")
-    t_parser.add_argument("--granger", dest="granger", action="store_true",
-                        help="Include Granger causality analysis (slower)")
+    pgf_parser.add_argument("--test", required=True,
+                        help="Conditioning test name A in P(B passes | A fails)")
+    pgf_parser.add_argument("--system", help="Filter to a specific system")
+    pgf_parser.add_argument("--scenario", default="generic", help="Filter to a specific scenario")
+    pgf_parser.add_argument("--include-self", action="store_true",
+                        help="Include the conditioning test in output")
+    pgf_parser.add_argument(
+        "--sort",
+        choices=["pass-prob", "pass-count", "pair-score"],
+        default="pair-score",
+        help=(
+            "Sort strategy for combinations. "
+            "'pair-score' favors high PASS-FAIL and low PASS-PASS"
+        ),
+    )
 
-    e_parser.add_argument("--system", help="Filter to a specific system")
-    e_parser.add_argument("--scenario", default="generic", help="Filter to a specific scenario")
-    e_parser.add_argument("--test", help="Filter edges involving this test name")
-    e_parser.add_argument("--granger", dest="granger", action="store_true",
-                        help="Include Granger causality analysis (slower)")
-
-    pe_parser.add_argument("--system", help="Filter to a specific system")
-    pe_parser.add_argument("--scenario", default="generic", help="Filter to a specific scenario")
-    pe_parser.add_argument("--test", help="Filter edges involving this test name")
-    pe_parser.add_argument("--granger", dest="granger", action="store_true",
-                        help="Include Granger causality analysis")
-
-    c_parser = subparsers.add_parser("cache", help="Show cache stats")
-    c_clear_parser = subparsers.add_parser("cache-clear", help="Clear all cached analyses")
-    c_save_parser = subparsers.add_parser("cache-save", help="Save cache to disk")
+    fgf_parser.add_argument("--test", required=True,
+                        help="Conditioning test name A in P(B fails | A fails)")
+    fgf_parser.add_argument("--system", help="Filter to a specific system")
+    fgf_parser.add_argument("--scenario", default="generic", help="Filter to a specific scenario")
+    fgf_parser.add_argument("--include-self", action="store_true",
+                        help="Include the conditioning test in output")
+    fgf_parser.add_argument(
+        "--sort",
+        choices=["fail-prob", "fail-count", "pair-score"],
+        default="pair-score",
+        help=(
+            "Sort strategy for combinations. "
+            "'pair-score' favors high FAIL-FAIL and low FAIL-PASS"
+        ),
+    )
 
     args = parser.parse_args()
 
     {
-        "ranking": handle_ranking,
-        "toxicity": handle_toxicity,
-        "edges": handle_edges,
-        "pass-edges": handle_pass_edges,
-        "cache": handle_cache_info,
-        "cache-clear": handle_cache_clear,
-        "cache-save": handle_cache_save,
+        "pass-given-fail": handle_pass_given_fail,
+        "fail-given-fail": handle_fail_given_fail,
+        "cache-build": handle_cache_build,
+        "cache-build-all": handle_cache_build_all,
+        "cache-status": handle_cache_status,
     }[args.command](args)

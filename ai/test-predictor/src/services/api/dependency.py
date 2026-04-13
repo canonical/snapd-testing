@@ -9,40 +9,78 @@ logger = setup_logging("dependency-api")
 dependency_bp = Blueprint('dependency', __name__)
 
 DEPENDENCY_URL = f"http://{config.SERVER_HOST}:{config.DEPENDENCY_PORT}/internal/dependencies"
+DEPENDENCY_PASS_GIVEN_FAIL_URL = f"http://{config.SERVER_HOST}:{config.DEPENDENCY_PORT}/internal/dependencies/pass-given-fail"
+DEPENDENCY_FAIL_GIVEN_FAIL_URL = f"http://{config.SERVER_HOST}:{config.DEPENDENCY_PORT}/internal/dependencies/fail-given-fail"
 CACHE_URL = f"http://{config.SERVER_HOST}:{config.DEPENDENCY_PORT}/internal/cache"
+DEPENDENCY_CACHE_BUILD_ALL_URL = f"http://{config.SERVER_HOST}:{config.DEPENDENCY_PORT}/internal/dependencies/cache/build-all"
+DEPENDENCY_CACHE_BUILD_URL = f"http://{config.SERVER_HOST}:{config.DEPENDENCY_PORT}/internal/dependencies/cache/build"
+DEPENDENCY_CACHE_STATUS_URL = f"http://{config.SERVER_HOST}:{config.DEPENDENCY_PORT}/internal/dependencies/cache/status"
 
 
-@dependency_bp.route('/dependencies', methods=['GET'])
-def get_dependencies():
+@dependency_bp.route('/dependencies/pass-given-fail', methods=['GET'])
+def get_pass_given_fail():
     payload = {
+        "test": request.args.get('test'),
         "system": request.args.get('system'),
         "scenario": request.args.get('scenario'),
-        "prob_threshold": request.args.get('prob_threshold', 0.3),
-        "lift_threshold": request.args.get('lift_threshold', 1.5),
-        "run_granger": request.args.get('run_granger', 'false'),
-        "granger_max_tests": request.args.get('granger_max_tests', 80),
         "use_cache": request.args.get('use_cache', 'true'),
+        "include_self": request.args.get('include_self', 'false'),
     }
 
     try:
-        response = requests.get(DEPENDENCY_URL, params=payload, timeout=300)
+        response = requests.get(DEPENDENCY_PASS_GIVEN_FAIL_URL, params=payload, timeout=300)
         return (response.content, response.status_code, response.headers.items())
     except Exception as e:
-        logger.error(f"Dependency service communication error: {e}", exc_info=True)
+        logger.error(f"Dependency pass-given-fail communication error: {e}", exc_info=True)
         return jsonify({"error": "Dependency service unreachable"}), 502
 
 
-@dependency_bp.route('/cache', methods=['GET', 'POST', 'DELETE'])
-def manage_cache():
-    """Proxy cache management endpoints (GET=info, POST=save, DELETE=clear)."""
+@dependency_bp.route('/dependencies/fail-given-fail', methods=['GET'])
+def get_fail_given_fail():
+    payload = {
+        "test": request.args.get('test'),
+        "system": request.args.get('system'),
+        "scenario": request.args.get('scenario'),
+        "use_cache": request.args.get('use_cache', 'true'),
+        "include_self": request.args.get('include_self', 'false'),
+    }
+
     try:
-        if request.method == 'GET':
-            response = requests.get(CACHE_URL, timeout=30)
-        elif request.method == 'POST':
-            response = requests.post(CACHE_URL, timeout=30)
-        else:  # DELETE
-            response = requests.delete(CACHE_URL, timeout=30)
+        response = requests.get(DEPENDENCY_FAIL_GIVEN_FAIL_URL, params=payload, timeout=300)
         return (response.content, response.status_code, response.headers.items())
     except Exception as e:
-        logger.error(f"Cache service communication error: {e}", exc_info=True)
-        return jsonify({"error": "Cache service unreachable"}), 502
+        logger.error(f"Dependency fail-given-fail communication error: {e}", exc_info=True)
+        return jsonify({"error": "Dependency service unreachable"}), 502
+
+
+@dependency_bp.route('/dependencies/cache/build-all', methods=['POST'])
+def build_dependency_cache_all():
+    try:
+        response = requests.post(DEPENDENCY_CACHE_BUILD_ALL_URL, timeout=30)
+        return (response.content, response.status_code, response.headers.items())
+    except Exception as e:
+        logger.error(f"Dependency cache build trigger communication error: {e}", exc_info=True)
+        return jsonify({"error": "Dependency service unreachable"}), 502
+
+
+@dependency_bp.route('/dependencies/cache/build', methods=['POST'])
+def build_dependency_cache_system():
+    payload = {
+        "system": request.args.get('system'),
+    }
+    try:
+        response = requests.post(DEPENDENCY_CACHE_BUILD_URL, params=payload, timeout=30)
+        return (response.content, response.status_code, response.headers.items())
+    except Exception as e:
+        logger.error(f"Dependency system cache build trigger communication error: {e}", exc_info=True)
+        return jsonify({"error": "Dependency service unreachable"}), 502
+
+
+@dependency_bp.route('/dependencies/cache/status', methods=['GET'])
+def dependency_cache_status():
+    try:
+        response = requests.get(DEPENDENCY_CACHE_STATUS_URL, timeout=30)
+        return (response.content, response.status_code, response.headers.items())
+    except Exception as e:
+        logger.error(f"Dependency cache status communication error: {e}", exc_info=True)
+        return jsonify({"error": "Dependency service unreachable"}), 502
