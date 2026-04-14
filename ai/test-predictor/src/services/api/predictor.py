@@ -172,7 +172,7 @@ def proxy_list_metadata(category):
 
 @predictor_bp.route('/predict-with-history', methods=['GET'])
 def predict_with_history():
-    """Returns the prediction PLUS the 49-step history used for the LSTM."""
+    """Returns the prediction + the steps history used for the LSTM."""
     p = get_params()
     if not all([p['name'], p['verb'], p['system']]):
         return jsonify({"error": "Missing params"}), 400
@@ -196,38 +196,6 @@ def predict_with_history():
         "history": history,
         "params": p
     }), 200
-
-@predictor_bp.route('/context', methods=['GET'])
-def get_system_context():
-    """Fetches the history cache AND the real model prediction in one call."""
-    p = get_params()
-    
-    try:
-        # Fetch History from the Cache Server
-        cache_response = requests.get(CACHE_URL, params=p, timeout=5)
-        if cache_response.status_code != 200:
-            return (cache_response.content, cache_response.status_code)
-        
-        context_data = cache_response.json()
-
-        # Fetch Prediction (Reusing your internal predictor logic)
-        # result is a dict, status_code is an int
-        result, status_code = call_internal_predictor(p)
-
-        if status_code == 200:
-            # Match the key 'probability' from your internal server
-            prob = result.get("probability", 0.0)
-            context_data['prediction'] = f"{prob * 100:.2f}%"
-        else:
-            context_data['prediction'] = "N/A (Prediction Error)"
-
-        # 3. Return the merged object
-        return jsonify(context_data), 200
-
-    except Exception as e:
-        logger.error(f"Context/Predict bridge failed: {e}")
-        return jsonify({"error": f"Internal predictor unreachable: {e}"}), 500
-
 
 @predictor_bp.route('/test', methods=['GET'])
 def get_system_test():

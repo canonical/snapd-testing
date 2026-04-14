@@ -47,9 +47,6 @@ if __name__ == "__main__":
     # 'start' command
     subparsers.add_parser("start", help="Trigger a new training session")
     
-    # 'retrain' command
-    subparsers.add_parser("retrain", help="Trigger a retraining session")
-    
     # 'status' command
     subparsers.add_parser("status", help="Check the current training state")
 
