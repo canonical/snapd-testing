@@ -378,6 +378,9 @@ def reload_model():
     success = app.model_manager.reload_model()
     
     if success:
+        # Reload predictor context from the promoted snapshot on disk.
+        app.state_cache.initialize()
+
         logger.info("Model and cache refreshed successfully.")
         return jsonify({"status": "success", "message": "Model reloaded"}), 200
     else:
