@@ -1,0 +1,27 @@
+server:
+  log_level: error
+
+metrics:
+  wal_directory: /tmp/wal
+  global:
+    scrape_interval: #SCRAPE_INTERVAL#
+    scrape_timeout: #SCRAPE_TIMEOUT#
+  configs:
+    - name: default
+      remote_write:
+        - tls_config:
+            insecure_skip_verify: false
+          url: #ENDPOINT#
+      scrape_configs:
+        - job_name: grafana-agent-metrics
+          metrics_path: /metrics
+          honor_timestamps: false
+          static_configs:
+            - targets: ['#TARGET#:#PORT#']
+              labels:
+                project: #PROJECT#
+                agent: #AGENT#
+
+integrations:
+  agent:
+    enabled: true

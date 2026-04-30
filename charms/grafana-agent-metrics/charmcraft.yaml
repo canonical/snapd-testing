@@ -1,0 +1,19 @@
+name: grafana-agent-metrics
+summary: Install and configure grafana-agent
+
+description: |
+  Machine charm that installs grafana-agent snap
+  and applies grafana-agent configuration to support
+  metrics collection.
+
+type: charm
+base: ubuntu@24.04
+platforms:
+  amd64:
+
+parts:
+  charm:
+    plugin: charm
+    source: .
+    charm-requirements:
+      - requirements.txt

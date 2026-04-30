@@ -1,0 +1,33 @@
+options:
+  grafana-agent-channel:
+    type: string
+    default: stable
+    description: "Channel used to install grafana-agent snap."
+  grafana-agent-project:
+    type: string
+    default: snapd
+    description: "Project name for grafana-agent configuration."
+  grafana-agent-name:
+    type: string
+    default: ""
+    description: "Agent name for grafana-agent configuration."
+  grafana-agent-endpoint:
+    type: string
+    default: http://cos.snapd.canonical.com/prod-snapd-kcos-prometheus-0/api/v1/write
+    description: "Prometheus remote_write endpoint for metrics."
+  grafana-agent-target:
+    type: string
+    default: 127.0.0.1
+    description: "Target host or IP for scrape configuration."
+  grafana-agent-port:
+    type: int
+    default: 9180
+    description: "Target port for scrape configuration."
+  grafana-agent-scrape-interval:
+    type: string
+    default: 1m
+    description: "Scrape interval used in grafana-agent metrics global config."
+  grafana-agent-scrape-timeout:
+    type: string
+    default: 10s
+    description: "Scrape timeout used in grafana-agent metrics global config."

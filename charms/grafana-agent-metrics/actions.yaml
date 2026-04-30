@@ -1,0 +1,2 @@
+reconcile:
+  description: Install/configure grafana-agent and deploy clouds.yaml.
