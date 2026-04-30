@@ -1,5 +1,6 @@
 images/output/*
 *.snap
+*.charm
 *.log
 .venv/
 __pycache__/
