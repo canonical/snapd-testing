@@ -1,0 +1,18 @@
+name: openstack-metrics-exporter
+summary: Build and install OpenStack exporter
+
+description: |
+  Machine charm that builds or installs golang-openstack-metrics-exporter snap,
+  and runs a bash script to configure the exporter snap.
+
+type: charm
+base: ubuntu@24.04
+platforms:
+  amd64:
+
+parts:
+  charm:
+    plugin: charm
+    source: .
+    charm-requirements:
+      - requirements.txt

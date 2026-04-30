@@ -1,0 +1,11 @@
+clouds:
+  #PROJECT#:
+    auth:
+      auth_url: #OS_AUTH_URL#
+      project_name: #OS_PROJECT_NAME#
+      username: #OS_USERNAME#
+      password: #OS_PASSWORD#
+      user_domain_name: #OS_USER_DOMAIN_NAME#
+      project_domain_name: #OS_PROJECT_DOMAIN_NAME#
+    region_name: #OS_REGION_NAME#
+    identity_api_version: 3

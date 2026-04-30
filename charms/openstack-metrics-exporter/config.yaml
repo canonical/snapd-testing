@@ -1,0 +1,17 @@
+options:
+  exporter-snap-url:
+    type: string
+    default: https://storage.googleapis.com/snapd-spread-tests/dependencies/golang-openstack-metrics-exporter_1.6.0_amd64.snap
+    description: "URL to download the exporter .snap file from."
+  exporter-snap-name:
+    type: string
+    default: golang-openstack-metrics-exporter
+    description: "Snap name for exporter configuration."
+  secret-id:
+    type: string
+    default: ""
+    description: "Juju secret ID containing OpenStack credentials. The secret must contain Juju-compatible keys: os-auth-url, os-project-name, os-username, os-password, os-user-domain-name, os-project-domain-name, os-region-name, os-tenant-id."
+  project:
+    type: string
+    default: ""
+    description: "Project identifier used to configure clouds.yaml and the exporter snap (e.g. stg-snapd-spread-amd64)."
