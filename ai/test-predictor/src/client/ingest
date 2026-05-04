@@ -1,11 +1,16 @@
 #!/usr/bin/python3
 
+import sys
 import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 import requests
 import argparse
-import sys
+
+from common.utils import normalize_base_url
 
 def ingest_file(file_path, base_url, port, job_id, run_id, scenario="generic", attempt=0):
+    """ Upload the specified JSON file to the ingestion API with associated metadata. """
     url = f"{base_url.rstrip('/')}:{port}/ingest"
 
     if not os.path.exists(file_path):
@@ -24,10 +29,10 @@ def ingest_file(file_path, base_url, port, job_id, run_id, scenario="generic", a
         # Open file in binary mode and send as 'file' part
         with open(file_path, 'rb') as f:
             files = {'file': (os.path.basename(file_path), f, 'application/json')}
-            
+
             print(f"Sending {file_path} to {url}...")
             response = requests.post(url, data=data, files=files, timeout=30)
-            
+
             if response.status_code == 201:
                 result = response.json()
                 print(f"Success! File saved as: {result.get('filename')}")
@@ -43,12 +48,12 @@ def ingest_file(file_path, base_url, port, job_id, run_id, scenario="generic", a
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Upload results JSON to the ingestion API.")
-    
+
     # Positional Arguments
     parser.add_argument("file", help="Path to the JSON results file")
     parser.add_argument("job_id", type=int, help="Numerical Job ID")
     parser.add_argument("run_id", type=int, help="Numerical Run ID")
-    
+
     # Optional Arguments
     parser.add_argument("--url", default="http://test-predictor.canonical.com", help="Base URL")
     parser.add_argument("--port", type=int, default=5000, help="Port")
@@ -56,10 +61,11 @@ if __name__ == "__main__":
     parser.add_argument("--attempt", type=int, default=0, help="Attempt number")
 
     args = parser.parse_args()
+    base_url = normalize_base_url(args.url)
 
     ingest_file(
         args.file, 
-        args.url, 
+        base_url, 
         args.port, 
         args.job_id, 
         args.run_id, 

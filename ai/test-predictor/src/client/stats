@@ -1,8 +1,13 @@
 #!/usr/bin/python3
 
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 import requests
 import argparse
-import sys
+
+from common.utils import normalize_base_url
 
 def print_table(headers, rows):
     """Helper to print a simple formatted table."""
@@ -21,16 +26,26 @@ def print_table(headers, rows):
         print(fmt.format(*row))
 
 def get_audit(args):
-    base_url = args.url.rstrip('/')
+    """ 
+    Main function to query the API based on provided arguments and display
+    results accordingly.
+    """
+    base_url = normalize_base_url(args.url)
     filters = {
         "name": args.name,
         "attempt": args.attempt,
         "scenario": args.scenario,
         "verb": args.verb
     }
-    
-    # Select endpoint based on whether we want one system or all
-    if args.system and args.system.lower() == "all":
+
+    # Select endpoint based on requested mode
+    if args.history:
+        url = f"{base_url}:{args.port}/stats/history"
+        if args.system:
+            filters["system"] = args.system
+        if args.limit is not None:
+            filters["limit"] = args.limit
+    elif args.system and args.system.lower() == "all":
         url = f"{base_url}:{args.port}/stats/all-systems"
     else:
         url = f"{base_url}:{args.port}/stats"
@@ -49,8 +64,27 @@ def get_audit(args):
 
         data = response.json()
 
+        # Handle historical rows for a specific name+system
+        if "history" in data:
+            history = data.get("history", [])
+            rows = []
+            for row in history:
+                success = row.get("success")
+                result = "PASS" if str(success) == "1" else "FAIL"
+                rows.append([
+                    row.get("start", "N/A"),
+                    row.get("attempt", "N/A"),
+                    row.get("scenario", "N/A"),
+                    row.get("verb", "N/A"),
+                    result
+                ])
+
+            print(f"\nHISTORY FOR: {args.name} on {args.system}")
+            print(f"Records: {data.get('count', len(rows))}")
+            print_table(["START", "ATTEMPT", "SCENARIO", "VERB", "RESULT"], rows)
+
         # Handle 'All Systems' Table View
-        if "systems" in data:
+        elif "systems" in data:
             systems = data["systems"]
             rows = []
             for s_name, stats in sorted(systems.items()):
@@ -82,19 +116,24 @@ def get_audit(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Audit Client for Historical Test Results")
-    
+
     # Connection
     parser.add_argument("--url", default="http://test-predictor.canonical.com", help="API URL")
     parser.add_argument("--port", type=int, default=5000, help="API Port")
-    
+
     # Filters
     parser.add_argument("--scenario", default="generic")
     parser.add_argument("--verb", default="executing")
     parser.add_argument("--attempt", type=int, default=1)
     parser.add_argument("--system", help="System name or 'all' for breakdown")
     parser.add_argument("--name", help="Test name")
-    
+    parser.add_argument("--history", action="store_true", help="Return historical rows for --name and --system")
+    parser.add_argument("--limit", type=int, help="Limit number of historical rows")
+
     args = parser.parse_args()
+
+    if args.history and not (args.system and args.name):
+        parser.error("--history requires both --system and --name.")
 
     if not any([args.system, args.name, args.attempt, args.scenario, args.verb]):
         parser.error("At least one filter (e.g., --system all or --name) must be provided.")

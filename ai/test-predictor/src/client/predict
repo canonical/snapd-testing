@@ -1,18 +1,25 @@
 #!/usr/bin/python3
 
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 import json
 import requests
 import argparse
 
+from common.utils import normalize_base_url
+
 def analyze_results(file_path, base_url, port, attempt=None):
+    """ Analyze the results JSON file, query predictions for failing items, and display them in a formatted table. """
     predict_url = f"{base_url}:{port}/predict"
 
     try:
         with open(file_path, 'r') as f:
             data = json.load(f)
-        
+
         items = data.get("items", [])
-        
+
         # Track if we actually have failures to display
         found_failures = False
 
@@ -25,15 +32,15 @@ def analyze_results(file_path, base_url, port, attempt=None):
                 full_name = f"{name}:{variant}" if variant else name
                 if len(full_name) > max_name_len:
                     max_name_len = len(full_name)
-        
+
         name_width = max_name_len + 2 
         verb_width = 10
-        
+
         for item in items:
             verb = item.get("verb", "")
             start = item.get("start")
             end = item.get("end")
-            
+
             if verb == "checking" or not start or not end:
                 continue
 
@@ -61,11 +68,11 @@ def analyze_results(file_path, base_url, port, attempt=None):
                 try:
                     resp = requests.get(predict_url, params=predict_params, timeout=5)
                     resp.raise_for_status()
-                    
+
                     prob_raw = resp.json().get("success_probability", 0.0)
                     prob_val = float(prob_raw)
                     prob_str = f"{prob_val * 100:6.2f}%"
-                    
+
                     print(f"{full_name:<{name_width}} | {verb:<{verb_width}} | {current_system:<25} | {prob_str}")
 
                 except Exception as e:
@@ -84,7 +91,8 @@ if __name__ == "__main__":
     parser.add_argument("--url", default="http://test-predictor.canonical.com", help="Base URL")
     parser.add_argument("--port", type=int, default=5000, help="Port")
     parser.add_argument("--attempt", type=int, help="Optional attempt number")
-    
+
     args = parser.parse_args()
+    base_url = normalize_base_url(args.url)
     # Removed args.compare as it wasn't defined in the parser or used in logic
-    analyze_results(args.file, args.url.rstrip('/'), args.port, args.attempt)
+    analyze_results(args.file, base_url, args.port, args.attempt)

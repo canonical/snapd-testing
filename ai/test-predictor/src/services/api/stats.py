@@ -74,6 +74,42 @@ def get_all_systems_stats(directory, filters):
             
     return system_stats
 
+def get_filtered_history(directory, filters, limit=None):
+    """Returns historical rows matching the provided filters."""
+    pattern = os.path.join(directory, "*.ts")
+    files = glob.glob(pattern)
+
+    frames = []
+    for f in files:
+        try:
+            df = pd.read_csv(f)
+
+            for col, val in filters.items():
+                if col in df.columns and val is not None:
+                    df = df[df[col].astype(str) == str(val)]
+
+            if not df.empty:
+                frames.append(df)
+        except Exception as e:
+            logger.error(f"Error processing history file {f}: {e}")
+
+    if not frames:
+        return []
+
+    history = pd.concat(frames, ignore_index=True)
+
+    if 'start' in history.columns:
+        history['_start_sort'] = pd.to_datetime(history['start'], errors='coerce')
+        history = history.sort_values(by='_start_sort', ascending=False)
+        history = history.drop(columns=['_start_sort'])
+
+    if limit is not None and limit > 0:
+        history = history.head(limit)
+
+    # Ensure JSON-safe null values
+    history = history.where(pd.notnull(history), None)
+    return history.to_dict(orient='records')
+
 @stats_bp.route('/stats', methods=['GET'])
 def get_filtered_stats():
     # Extract filters from the URL query string
@@ -112,3 +148,34 @@ def get_all_systems_audit():
     
     stats = get_all_systems_stats(config.TS_DIR, filters)
     return jsonify({"filters": filters, "systems": stats}), 200
+
+@stats_bp.route('/stats/history', methods=['GET'])
+def get_system_name_history():
+    filters = {
+        "name": request.args.get('name'),
+        "system": request.args.get('system'),
+        "attempt": request.args.get('attempt'),
+        "scenario": request.args.get('scenario'),
+        "verb": request.args.get('verb')
+    }
+
+    if not filters["name"] or not filters["system"]:
+        return jsonify({"error": "Both 'name' and 'system' are required"}), 400
+
+    limit_raw = request.args.get('limit')
+    limit = None
+    if limit_raw is not None:
+        try:
+            limit = int(limit_raw)
+            if limit <= 0:
+                return jsonify({"error": "'limit' must be a positive integer"}), 400
+        except ValueError:
+            return jsonify({"error": "'limit' must be an integer"}), 400
+
+    history = get_filtered_history(config.TS_DIR, filters, limit=limit)
+
+    return jsonify({
+        "filters_applied": {k: v for k, v in filters.items() if v is not None},
+        "count": len(history),
+        "history": history
+    }), 200

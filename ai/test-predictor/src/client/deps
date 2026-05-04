@@ -1,10 +1,16 @@
 #!/usr/bin/python3
 
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 import argparse
 import requests
 
+from common.utils import normalize_base_url
 
 def print_table(headers, rows):
+    """ Helper to print a simple formatted table. """
     if not rows:
         print("\nNo results found.")
         return
@@ -20,6 +26,7 @@ def print_table(headers, rows):
 
 
 def _error_text(resp):
+    """ Extract error message from response, trying JSON first and falling back to raw text. """
     try:
         data = resp.json()
         if isinstance(data, dict) and "error" in data:
@@ -29,12 +36,12 @@ def _error_text(resp):
         return resp.text
 
 
-def handle_pass_given_fail(args):
+def handle_pass_given_fail(base_url, args):
     """
     For a selected failing test A, show P(B passes | A fails) for all other tests B.
     This helps identify tests that are inversely coupled with A.
     """
-    url = f"{args.url.rstrip('/')}:{args.port}/dependencies/pass-given-fail"
+    url = f"{base_url}:{args.port}/dependencies/pass-given-fail"
     params = {
         "test": args.test,
         "use_cache": str(not bool(getattr(args, 'no_cache', False))).lower(),
@@ -118,11 +125,11 @@ def handle_pass_given_fail(args):
         print(f"Connection failed: {e}")
 
 
-def handle_fail_given_fail(args):
+def handle_fail_given_fail(base_url, args):
     """
     For a selected failing test A, show P(B fails | A fails) for all other tests B.
     """
-    url = f"{args.url.rstrip('/')}:{args.port}/dependencies/fail-given-fail"
+    url = f"{base_url}:{args.port}/dependencies/fail-given-fail"
     params = {
         "test": args.test,
         "use_cache": str(not bool(getattr(args, 'no_cache', False))).lower(),
@@ -196,9 +203,9 @@ def handle_fail_given_fail(args):
         print(f"Connection failed: {e}")
 
 
-def handle_cache_build_all(args):
+def handle_cache_build_all(base_url, args):
     """Trigger asynchronous cache build for all system/scenario combinations."""
-    url = f"{args.url.rstrip('/')}:{args.port}/dependencies/cache/build-all"
+    url = f"{base_url}:{args.port}/dependencies/cache/build-all"
     try:
         resp = requests.post(url, timeout=args.timeout)
         if resp.status_code not in (200, 202):
@@ -211,9 +218,9 @@ def handle_cache_build_all(args):
         print(f"Connection failed: {e}")
 
 
-def handle_cache_build(args):
+def handle_cache_build(base_url, args):
     """Trigger asynchronous cache build for one system across scenarios."""
-    url = f"{args.url.rstrip('/')}:{args.port}/dependencies/cache/build"
+    url = f"{base_url}:{args.port}/dependencies/cache/build"
     params = {
         "system": args.system,
     }
@@ -229,9 +236,9 @@ def handle_cache_build(args):
         print(f"Connection failed: {e}")
 
 
-def handle_cache_status(args):
+def handle_cache_status(base_url, args):
     """Show dependency cache build status and current cache snapshot stats."""
-    url = f"{args.url.rstrip('/')}:{args.port}/dependencies/cache/status"
+    url = f"{base_url}:{args.port}/dependencies/cache/status"
     try:
         resp = requests.get(url, timeout=args.timeout)
         if resp.status_code != 200:
@@ -346,6 +353,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+    base_url = normalize_base_url(args.url)
 
     {
         "pass-given-fail": handle_pass_given_fail,
@@ -353,4 +361,4 @@ if __name__ == "__main__":
         "cache-build": handle_cache_build,
         "cache-build-all": handle_cache_build_all,
         "cache-status": handle_cache_status,
-    }[args.command](args)
+    }[args.command](base_url, args)

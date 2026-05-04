@@ -1,29 +1,35 @@
 #!/usr/bin/python3
 
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 import argparse
 import json
 import requests
 
+from common.utils import normalize_base_url
 
 def print_table(headers, rows):
     """Helper to print a simple formatted table."""
     if not rows:
         print("\nNo results found.")
         return
-        
+
     widths = [len(h) for h in headers]
     for row in rows:
         for i, val in enumerate(row):
             widths[i] = max(widths[i], len(str(val)))
-    
+
     fmt = " | ".join([f"{{:<{w}}}" for w in widths])
     print("\n" + fmt.format(*headers))
     print("-" * (sum(widths) + (3 * (len(headers) - 1))))
     for row in rows:
         print(fmt.format(*row))
 
-def handle_predict(args):
-    url = f"{args.url.rstrip('/')}:{args.port}/predict"
+def handle_predict(base_url, args):
+    """ Predict single item probability based on provided arguments and display the result. """
+    url = f"{base_url}:{args.port}/predict"
     params = {
         "name": args.name, "verb": args.verb,
         "system": args.system, "attempt": args.attempt, "scenario": args.scenario,
@@ -41,8 +47,9 @@ def handle_predict(args):
     except Exception as e:
         print(f"Connection Failed: {e}")
 
-def handle_risk(args):
-    url = f"{args.url.rstrip('/')}:{args.port}/rank-risk"
+def handle_risk(base_url, args):
+    """ List riskiest tests for a system based on provided arguments and display them in a formatted table. """
+    url = f"{base_url}:{args.port}/rank-risk"
     params = {
         "verb": args.verb, "system": args.system,
         "attempt": args.attempt, "scenario": args.scenario, "audit": args.audit
@@ -66,13 +73,14 @@ def handle_risk(args):
     except Exception as e:
         print(f"Failed: {e}")
 
-def handle_worst_systems(args):
-    url = f"{args.url.rstrip('/')}:{args.port}/worst-systems"
+def handle_worst_systems(base_url, args):
+    """ Compare system performance for a specific test based on provided arguments and display the results. """
+    url = f"{base_url}:{args.port}/worst-systems"
     params = {
         "name": args.name, "verb": args.verb,
         "attempt": args.attempt, "scenario": args.scenario, "audit": args.audit
     }
-    
+
     print(f"Comparing system performance for {args.name}...")
     try:
         resp = requests.get(url, params=params, timeout=60)
@@ -85,15 +93,16 @@ def handle_worst_systems(args):
     except Exception as e:
         print(f"Failed: {e}")
 
-def handle_list(args):
-    url = f"{args.url.rstrip('/')}:{args.port}/list/{args.category}"
-    
+def handle_list(base_url, args):
+    """ List metadata (names, systems, verbs) based on the specified category and display the results. """
+    url = f"{base_url}:{args.port}/list/{args.category}"
+
     try:
         resp = requests.get(url, timeout=15)
         if resp.status_code == 200:
             data = resp.json()
             items = data.get("values", data) if isinstance(data, dict) else data
-            
+
             print(f"\nAvailable {args.category.upper()}:")
             if isinstance(items, list):
                 for item in sorted(items):
@@ -106,25 +115,26 @@ def handle_list(args):
     except Exception as e:
         print(f"Failed to fetch list: {e}")
 
-def handle_context(args):
-    url = f"{args.url.rstrip('/')}:{args.port}/predict-with-history"
+def handle_context(base_url, args):
+    """ See prediction with historical context for a specific test based on provided arguments and display the results. """
+    url = f"{base_url}:{args.port}/predict-with-history"
     params = {
         "name": args.name, "verb": args.verb,
         "system": args.system, "attempt": args.attempt, "scenario": args.scenario,
         "audit": args.audit
     }
-    
+
     try:
         resp = requests.get(url, params=params, timeout=15)
         if resp.status_code == 200:
             data = resp.json()
             prob = data.get("success_probability", 0)
             history = data.get("history", [])
-            
+
             print(f"\nEXPLORE: {args.name} on {args.system}")
             print(f"Prediction: {prob * 100:.2f}% Success")
             print(f"Context: {len(history)} historical steps found in cache.")
-            
+
             if history:
                 rows = []
                 for i, entry in enumerate(history):
@@ -144,14 +154,15 @@ def handle_context(args):
     except Exception as e:
         print(f"Connection Failed: {e}")
 
-def handle_predict_pattern(args):
-    url = f"{args.url.rstrip('/')}:{args.port}/predict-pattern"
+def handle_predict_pattern(base_url, args):
+    """ Predict pattern probability based on provided arguments and display the result. """
+    url = f"{base_url}:{args.port}/predict-pattern"
     params = {
         "name": args.name, "verb": args.verb,
         "system": args.system, "attempt": args.attempt, "scenario": args.scenario,
         "pattern": args.pattern, "audit": args.audit
     }
-    
+
     try:
         resp = requests.get(url, params=params, timeout=10)
         if resp.status_code == 200:
@@ -163,8 +174,9 @@ def handle_predict_pattern(args):
     except Exception as e:
         print(f"Connection Failed: {e}")
 
-def handle_test_scenarios(args):
-    url = f"{args.url.rstrip('/')}:{args.port}/test"
+def handle_test_scenarios(base_url, args):
+    """ Verify model against synthetic scenarios based on provided arguments and display the results. """
+    url = f"{base_url}:{args.port}/test"
     params = {
         "name": args.name,
         "system": args.system,
@@ -181,7 +193,7 @@ def handle_test_scenarios(args):
             for label, info in data.items():
                 name = label.upper().replace("_", " ")
                 rows.append([name, info["prediction"], info["expected_range"]])
-            
+
             # Now includes the Expected column
             print_table(["SCENARIO", "PREDICTION", "EXPECTED"], rows)
         else:
@@ -253,6 +265,7 @@ if __name__ == "__main__":
     t_parser.add_argument("--scenario", default="generic")
 
     args = parser.parse_args()
+    base_url = normalize_base_url(args.url)
 
     # Mapping commands to functions
     commands = {
@@ -266,4 +279,4 @@ if __name__ == "__main__":
     }
     
     if args.command in commands:
-        commands[args.command](args)
+        commands[args.command](base_url, args)
