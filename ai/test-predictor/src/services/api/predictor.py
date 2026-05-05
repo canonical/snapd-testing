@@ -124,8 +124,8 @@ def rank_risk():
 def worst_systems():
     p = get_params()
 
-    if not all([p['name'], p['verb'], p['system']]):
-        return jsonify({"error": "Missing name, verb, and system"}), 400
+    if not all([p['name'], p['verb']]):
+        return jsonify({"error": "Missing name and verb"}), 400
 
     # Fetch the systems list from the Predictor Server
     try:
