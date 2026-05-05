@@ -1,9 +1,14 @@
 #!/usr/bin/python3
 
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 import argparse
 import requests
 
 from common.utils import normalize_base_url
+
 
 def print_table(headers, rows):
     """ Helper to print a simple formatted table. """
@@ -92,6 +97,39 @@ def handle_pass_given_fail(base_url, args):
                 key=lambda p: p.get("pass_probability", 0.0),
                 reverse=True,
             )
+
+        if getattr(args, "other_test", None):
+            selected = next((p for p in probabilities if p.get("test") == args.other_test), None)
+            if not selected:
+                print(f"\nNo pair found for conditioning test '{args.test}' with target test '{args.other_test}'.")
+                return
+
+            run_machine_rows = data.get("run_machine_rows", 0)
+            rows_where_condition_holds = data.get("rows_where_condition_holds", 0)
+            rows_where_a_passes = run_machine_rows - rows_where_condition_holds
+            pass_count = selected.get("pass_count", 0)
+            both_pass_count = selected.get("both_pass_count", 0)
+            pass_probability = selected.get("pass_probability", 0.0)
+            b_pass_given_a_pass = (
+                f"{both_pass_count / rows_where_a_passes:.4f}"
+                if rows_where_a_passes > 0 else "N/A"
+            )
+
+            print("\nPASS GIVEN FAIL (PAIR DETAIL)")
+            print(f"System:   {args.system or 'all'}")
+            print(f"Scenario: {args.scenario or 'all'}")
+            print(f"A: {args.test}")
+            print(f"B: {args.other_test}")
+            print()
+            print_table(
+                ["A STATE", "B STATE", "CO-OCCURRENCES", "A ROWS", "P(B passes | A state)"],
+                [
+                    ["FAIL", "PASS", pass_count,       rows_where_condition_holds, f"{pass_probability:.4f}"],
+                    ["PASS", "PASS", both_pass_count,  rows_where_a_passes,        b_pass_given_a_pass],
+                ],
+            )
+            print(f"\nPair score (PASS-FAIL / (PASS-PASS + 1)): {selected.get('pair_score', 0.0):.4f}")
+            return
 
         rows = [
             [
@@ -330,6 +368,8 @@ if __name__ == "__main__":
 
     pgf_parser.add_argument("--test", required=True,
                         help="Conditioning test name A in P(B passes | A fails)")
+    pgf_parser.add_argument("--other-test",
+                        help="Target test name B; prints exact A-fail/B-pass co-occurrence count")
     pgf_parser.add_argument("--system", help="Filter to a specific system")
     pgf_parser.add_argument("--scenario", default="generic", help="Filter to a specific scenario")
     pgf_parser.add_argument("--include-self", action="store_true",

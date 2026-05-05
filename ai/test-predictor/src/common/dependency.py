@@ -180,9 +180,11 @@ class DependencyManager:
             columns="name",
             values="fail",
             aggfunc='max',
-            fill_value=0
+            # Do NOT fill missing with 0: a test absent from a run is NaN,
+            # not a pass. fill_value=0 would inflate PASS counts.
         )
-        seen_counts = (matrix >= 0).sum(axis=0)
+        # Count only rows where the test was actually executed (not NaN)
+        seen_counts = matrix.notna().sum(axis=0)
         matrix = matrix.loc[:, seen_counts >= min_runs]
         logger.info(
             f"Failure matrix: {matrix.shape[0]} run×instance pairs × {matrix.shape[1]} tests "
@@ -431,19 +433,26 @@ class DependencyManager:
         if test_name not in matrix.columns:
             raise KeyError(test_name)
 
-        a_fail = matrix[test_name] == 1
-        conditioned_rows = int(a_fail.sum())
+        a_series = matrix[test_name]
+        a_present = a_series.notna()
+        a_fail_all = a_present & (a_series == 1)
+        conditioned_rows = int(a_fail_all.sum())
 
         probabilities = []
         for other_test in matrix.columns:
             if not include_self and other_test == test_name:
                 continue
 
-            a_pass = matrix[test_name] == 0
-            b_pass = matrix[other_test] == 0
-            pass_count = int((b_pass & a_fail).sum())
+            b_series = matrix[other_test]
+            # Restrict to runs where BOTH tests were actually executed
+            both_present = a_present & b_series.notna()
+            a_fail = both_present & (a_series == 1)
+            a_pass = both_present & (a_series == 0)
+            b_pass = both_present & (b_series == 0)
+            pass_count = int((a_fail & b_pass).sum())
             both_pass_count = int((a_pass & b_pass).sum())
-            pass_probability = float(pass_count / conditioned_rows) if conditioned_rows > 0 else 0.0
+            denom = int(a_fail.sum())
+            pass_probability = float(pass_count / denom) if denom > 0 else 0.0
             probabilities.append(
                 {
                     "test": other_test,
@@ -488,19 +497,25 @@ class DependencyManager:
         if test_name not in matrix.columns:
             raise KeyError(test_name)
 
-        a_fail = matrix[test_name] == 1
-        conditioned_rows = int(a_fail.sum())
+        a_series = matrix[test_name]
+        a_present = a_series.notna()
+        conditioned_rows = int((a_present & (a_series == 1)).sum())
 
         probabilities = []
         for other_test in matrix.columns:
             if not include_self and other_test == test_name:
                 continue
 
-            b_fail = matrix[other_test] == 1
-            b_pass = matrix[other_test] == 0
-            fail_count = int((b_fail & a_fail).sum())
+            b_series = matrix[other_test]
+            # Restrict to runs where BOTH tests were actually executed
+            both_present = a_present & b_series.notna()
+            a_fail = both_present & (a_series == 1)
+            b_fail = both_present & (b_series == 1)
+            b_pass = both_present & (b_series == 0)
+            fail_count = int((a_fail & b_fail).sum())
             fail_pass_count = int((a_fail & b_pass).sum())
-            fail_probability = float(fail_count / conditioned_rows) if conditioned_rows > 0 else 0.0
+            denom = int(a_fail.sum())
+            fail_probability = float(fail_count / denom) if denom > 0 else 0.0
             probabilities.append(
                 {
                     "test": other_test,
