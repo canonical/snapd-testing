@@ -20,6 +20,7 @@ def count_filtered_success(directory, filters):
     
     passes = 0
     fails = 0
+    matching_files = 0
 
     for f in files:
         try:
@@ -32,6 +33,7 @@ def count_filtered_success(directory, filters):
                     df = df[df[col].astype(str) == str(val)]
             
             if not df.empty:
+                matching_files += 1
                 p = int(df['success'].sum())
                 f_count = len(df) - p
                 passes += p
@@ -39,7 +41,7 @@ def count_filtered_success(directory, filters):
         except Exception as e:
             logger.error(f"Error filtering file {f}: {e}")
             
-    return passes, fails
+    return passes, fails, matching_files
 
 def get_all_systems_stats(directory, filters):
     """Aggregates stats for every unique system found in the directory."""
@@ -126,15 +128,20 @@ def get_filtered_stats():
         return jsonify({"error": "Provide at least one filter (name, system, etc.)"}), 400
 
     # Process both directories
-    proc_p, proc_f = count_filtered_success(config.TS_DIR, filters)
+    proc_p, proc_f, file_count = count_filtered_success(config.TS_DIR, filters)
+
+    results = {
+        "pass": proc_p,
+        "fail": proc_f,
+        "total": proc_p + proc_f
+    }
+
+    if filters.get("system") or filters.get("name"):
+        results["matching_files"] = file_count
 
     return jsonify({
         "filters_applied": {k: v for k, v in filters.items() if v is not None},
-        "results": {
-            "pass": proc_p,
-            "fail": proc_f,
-            "total": proc_p  + proc_f
-        }
+        "results": results
     }), 200
 
 @stats_bp.route('/stats/all-systems', methods=['GET'])
