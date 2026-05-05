@@ -155,6 +155,7 @@ class DependencyManager:
                     df = df[df['scenario'] == scenario]
                 df = df[(df['level'] == 'task') & (df['verb'] == 'executing')]
                 if not df.empty:
+                    df['_source_file'] = os.path.basename(f)
                     chunks.append(df)
             except Exception as e:
                 logger.error(f"Failed to read {f}: {e}")
@@ -382,6 +383,8 @@ class DependencyManager:
             "graph_pass": graph_pass,
             "ranking":   ranking,
             "toxicity":  toxicity,
+            "source_file_count": int(df['_source_file'].nunique()) if '_source_file' in df.columns else 0,
+            "raw_task_rows": int(len(df)),
         }
 
         # Optionally run Granger causality analysis on a reduced set of tests to identify
@@ -456,6 +459,11 @@ class DependencyManager:
             "conditioning_test": test_name,
             "condition": "FAIL",
             "run_machine_rows": int(matrix.shape[0]),
+            "source_files_evaluated": (
+                int(result["source_file_count"])
+                if result.get("source_file_count") is not None else None
+            ),
+            "raw_task_rows": int(result.get("raw_task_rows", 0)),
             "rows_where_condition_holds": conditioned_rows,
             "total_tests": int(matrix.shape[1]),
             "probabilities": probabilities,
@@ -508,6 +516,11 @@ class DependencyManager:
             "conditioning_test": test_name,
             "condition": "FAIL",
             "run_machine_rows": int(matrix.shape[0]),
+            "source_files_evaluated": (
+                int(result["source_file_count"])
+                if result.get("source_file_count") is not None else None
+            ),
+            "raw_task_rows": int(result.get("raw_task_rows", 0)),
             "rows_where_condition_holds": conditioned_rows,
             "total_tests": int(matrix.shape[1]),
             "probabilities": probabilities,

@@ -100,14 +100,19 @@ def get_audit(args):
             res = data["results"]
             p, f, t = res['pass'], res['fail'], res['total']
             rate = f"{(p/t*100):.2f}%" if t > 0 else "0%"
-            
+
+            filters_applied = data.get('filters_applied', {})
+            target = filters_applied.get('system') or filters_applied.get('name') or 'Unknown'
+
             print("\n SINGLE SYSTEM AUDIT")
-            print(f"Target: {data.get('filters_applied', {}).get('system', 'Unknown')}")
+            print(f"Target: {target}")
             print("-" * 30)
             print(f"PASS:  {p}")
             print(f"FAIL:  {f}")
             print(f"TOTAL: {t}")
             print(f"RATE:  {rate}")
+            if "matching_files" in res:
+                print(f"FILES: {res['matching_files']}")
 
     except requests.exceptions.ConnectionError:
         print(f"Failed to connect to server at {base_url}:{args.port}")

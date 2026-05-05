@@ -1,9 +1,5 @@
 #!/usr/bin/python3
 
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
 import argparse
 import requests
 
@@ -110,8 +106,14 @@ def handle_pass_given_fail(base_url, args):
 
         print("\nPASS GIVEN FAIL")
         print(f"Conditioning test: {data.get('conditioning_test', args.test)}")
+        print("Count semantics: PASS-FAIL and PASS-PASS are run×instance row counts (not file counts)")
         print(f"Rows where condition holds: {data.get('rows_where_condition_holds', 0)}")
         print(f"Run-machine rows: {data.get('run_machine_rows', 0)}")
+        source_files = data.get('source_files_evaluated')
+        if source_files is None:
+            print("Source files evaluated: N/A (legacy cache entry, run with --no-cache)")
+        else:
+            print(f"Source files evaluated: {source_files}")
         print(f"Sort mode: {args.sort}")
         print("Pair score formula: PASS-FAIL / (PASS-PASS + 1)")
         print_table([
@@ -189,8 +191,14 @@ def handle_fail_given_fail(base_url, args):
 
         print("\nFAIL GIVEN FAIL")
         print(f"Conditioning test: {data.get('conditioning_test', args.test)}")
+        print("Count semantics: FAIL-FAIL and FAIL-PASS are run×instance row counts (not file counts)")
         print(f"Rows where condition holds: {data.get('rows_where_condition_holds', 0)}")
         print(f"Run-machine rows: {data.get('run_machine_rows', 0)}")
+        source_files = data.get('source_files_evaluated')
+        if source_files is None:
+            print("Source files evaluated: N/A (legacy cache entry, run with --no-cache)")
+        else:
+            print(f"Source files evaluated: {source_files}")
         print(f"Sort mode: {args.sort}")
         print_table([
             "#",
