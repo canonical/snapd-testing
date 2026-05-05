@@ -116,7 +116,6 @@ class ModelManager:
             df = df.sort_values(by='start')
 
         feature_cols = config.FEATURE_COLUMNS
-        success_idx = self.feature_index.get('success')
         sequences, targets = [], []
         
         for _, group in df.groupby(config.GROUPED_BY_FEATURES):
@@ -133,14 +132,8 @@ class ModelManager:
                 start_idx = max(0, i - config.SEQUENCE_LENGTH + 1)
                 window = group_features[start_idx : i + 1].copy()
 
-                # Prevent target leakage: mask the current row's success bit.
-                # Historical rows in the window keep their real outcomes.
-                if success_idx is not None and len(window) > 0:
-                    window[-1, success_idx] = 0.0
-                
-                # CRITICAL: If the window is shorter than SEQUENCE_LENGTH, 
-                # pad_sequences handles it later, but ensure the window 
-                # is actually relevant to this specific test's history.
+                # No masking needed - success is not an input feature.
+                # The model predicts success from test characteristics only.
                 sequences.append(window)
                 targets.append(group_targets[i])
         
@@ -352,16 +345,19 @@ class ModelManager:
 
     def _augment_sequences(self, X, y, stats):
         """
-        Performs synthetic data augmentation to balance class distribution and 
-        teach the model specific failure patterns (Death Spirals, Deterioration).
+        STRATEGY: "Label Repetition and Mixup Augmentation"
+        To combat the 80%+ success bias in real-world data without manipulating success
+        as a feature (since it's no longer part of the input):
         
-        STRATEGY: "Only Augment Successes"
-        To combat the 80%+ success bias in real-world data, this method targets 
-        original 'Success' sequences (y=1) and transforms them into 'Failure' 
-        sequences (y=0) by injecting synthetic noise into the tail of the features.
+        1. Label Repetition: Over-sample minority class (failures) by repeating sequences
+        2. Mixup: Create synthetic sequences by blending test characteristics from different
+           sequences while preserving realistic feature ranges
+        
+        This forces the model to learn from test characteristics rather than just
+        remembering success patterns, since success is no longer leaked as an input.
         
         Args:
-            X (np.array): Input sequences of shape (Samples, 15, Features).
+            X (np.array): Input sequences of shape (Samples, SEQUENCE_LENGTH, NUM_FEATURES).
             y (np.array): Target labels (0 or 1).
             stats (dict): Dictionary to track augmentation counts and distributions.
             
@@ -371,100 +367,47 @@ class ModelManager:
         if config.AUGMENT_PROB <= 0.0:
             return X, y
 
-        aug_X, aug_y = [X], [y]
+        aug_X, aug_y = [X.copy()], [y.copy()]
         
         pattern_counts = {
-            "failure_burst": 0,
-            "deterioration": 0,
-            "flaky": 0,
-            "recovery": 0,
-            "stable_pass": 0,
+            "label_repetition": 0,
+            "mixup": 0,
         }
-
-        # Augmentation pattern mix is configured via ratios in config.py.
-        # Keep only enabled patterns (ratio > 0), then normalize so
-        # np.random.choice samples by relative probability.
-        pattern_weights = {
-            "failure_burst": float(config.AUGMENT_FAILURE_RATIO),
-            "deterioration": float(config.AUGMENT_DETERIORATION_RATIO),
-            "flaky": float(config.AUGMENT_FLAKY_RATIO),
-            "recovery": float(config.AUGMENT_RECOVERY_RATIO),
-            "stable_pass": float(config.AUGMENT_STABLE_PASS_RATIO),
-        }
-        weighted_patterns = [p for p, w in pattern_weights.items() if w > 0.0]
-        if not weighted_patterns:
-            weighted_patterns = ["failure_burst", "deterioration", "flaky", "recovery"]
-            weight_values = np.array([1.0, 1.0, 1.0, 1.0], dtype='float32')
-        else:
-            weight_values = np.array([pattern_weights[p] for p in weighted_patterns], dtype='float32')
-        weight_values = weight_values / weight_values.sum()
-
-        for i in range(len(X)):
-            if y[i] == 0 or np.random.rand() > config.AUGMENT_PROB:
-                continue
-
-            seq = X[i].copy()
-
-            # Randomize identifier features using real encoded IDs from the batch.
-            # This weakens identity shortcuts while keeping values in the same range
-            # seen at inference time.
-            if getattr(config, 'AUGMENT_RANDOMIZE_IDENTIFIERS', False):
-                for feature in getattr(config, 'AUGMENT_IDENTIFIER_FEATURES', ["name", "system"]):
-                    idx = self.feature_index.get(feature)
-                    if idx is None:
-                        continue
-                    sampled_id = X[np.random.randint(0, len(X)), -1, idx]
-                    seq[:, idx] = sampled_id
-
-            success_idx = self.feature_index["success"]
-
-            pattern = np.random.choice(weighted_patterns, p=weight_values)
-
-            if pattern == "failure_burst":
-                # Scenario: Sudden Death. 
-                # Features show some success, but FUTURE is all zeros.
-                self._inject_failure_burst(seq, success_idx)
-                new_target = 0
-                pattern_counts["failure_burst"] += 1
+        
+        # Find minority class indices
+        fail_indices = np.where(y == 0)[0]
+        pass_indices = np.where(y == 1)[0]
+        minority_count = len(fail_indices)
+        majority_count = len(pass_indices)
+        
+        # Strategy 1: Label Repetition - repeat minority class sequences
+        if minority_count > 0 and config.AUGMENT_PROB > 0.0:
+            target_count = int(majority_count * config.AUGMENT_PROB)
+            if target_count > minority_count:
+                repeat_count = target_count - minority_count
+                for _ in range(repeat_count):
+                    idx = fail_indices[np.random.randint(0, len(fail_indices))]
+                    aug_X.append(X[idx:idx+1].copy())
+                    aug_y.append(np.array([0]))
+                    pattern_counts["label_repetition"] += 1
+        
+        # Strategy 2: Mixup - blend features from different sequences
+        mixup_count = int(len(X) * config.AUGMENT_PROB * 0.3)  # 30% of augmentation is mixup
+        
+        for _ in range(mixup_count):
+            if len(fail_indices) > 0 and len(pass_indices) > 0:
+                # Blend a failure sequence with a pass sequence
+                fail_seq = X[fail_indices[np.random.randint(0, len(fail_indices))]].copy()
+                pass_seq = X[pass_indices[np.random.randint(0, len(pass_indices))]].copy()
                 
-            elif pattern == "deterioration":
-                # Scenario: Deterioration.
-                # Features show declining success, FUTURE is likely 0.
-                self._inject_deterioration(seq, success_idx)
-                # Check the second-to-last step to determine the trend
-                # (last step is always masked to 0 after injection).
-                new_target = 0 if seq[-2, success_idx] == 0 else 1
-                pattern_counts["deterioration"] += 1
-
-            elif pattern == "flaky":
-                # Scenario: Flaky.
-                # Features show a brief recovery, but FUTURE is likely 0.
-                self._inject_flaky(seq, success_idx)
-                new_target = 0 if seq[-2, success_idx] == 0 else 1
-                pattern_counts["flaky"] += 1
-
-            elif pattern == "stable_pass":
-                # Scenario: Stable pass streak remains healthy.
-                self._inject_stable_pass(seq, success_idx)
-                new_target = 1
-                pattern_counts["stable_pass"] += 1
-
-            else:
-                # Scenario: Recovery.
-                # Features show messiness, but FUTURE is stable.
-                self._inject_recovery(seq, success_idx)
-                new_target = 1
-                pattern_counts["recovery"] += 1
-
-            # Re-apply the current-step mask: _prepare_sequences already zeroed the
-            # last timestep's success to prevent target leakage, but some injectors
-            # overwrite it. Restore it so training matches inference (build_model_input
-            # also always zeros the last position).
-            seq[-1, success_idx] = 0.0
-
-            aug_X.append(seq[np.newaxis, ...])
-            aug_y.append(np.array([new_target]))
-
+                alpha = np.random.rand()
+                blended = alpha * fail_seq + (1 - alpha) * pass_seq
+                
+                # Target: take the failure label (we're augmenting to balance failures)
+                aug_X.append(blended[np.newaxis, ...])
+                aug_y.append(np.array([0]))
+                pattern_counts["mixup"] += 1
+        
         final_X = np.concatenate(aug_X)
         final_y = np.concatenate(aug_y)
 

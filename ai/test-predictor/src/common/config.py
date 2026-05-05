@@ -50,17 +50,17 @@ ADAM_LEARNING_RATE = 0.0001
 # 1 = Current run only. 10 = Look at the last 10 results.
 SEQUENCE_LENGTH = 15
 # This list must match the EXACT order used during model.fit() as in the .ts files
+# NOTE: 'success' and 'attempt' are NOT included as features.
+# The model predicts success from characteristics and history context only.
 FEATURE_COLUMNS = [
     'scenario', 
-    'attempt', 
     'verb', 
     'backend', 
     'system', 
-    'name',
-    'success'
+    'name'
 ]
 # The "width" of the data. It tells the AI exactly how many different pieces of information it gets for every single run.
-# Attempt number, Verb (encoded), Backend (encoded), System (encoded), Name (encoded) and Scenario (encoded).
+# Scenario, Verb (encoded), Backend (encoded), System (encoded), Name (encoded).
 NUM_FEATURES = len(FEATURE_COLUMNS)
 # This is the minimum set of columns that must be present in the .ts files for the model to train and predict correctly.
 MANDATORY_TS_COLUMNS = [ 
