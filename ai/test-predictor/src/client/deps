@@ -74,7 +74,8 @@ def handle_pass_given_fail(base_url, args):
             both_pass_count = p.get("both_pass_count", 0)
             p["pair_score"] = pass_count / (both_pass_count + 1)
 
-        if args.sort == "pair-score":
+        ascending = getattr(args, 'reverse', False)
+        if args.sort == "score":
             # Primary: highest pair score; secondary: most PASS-FAIL; tertiary: least BOTH-PASS.
             probabilities = sorted(
                 probabilities,
@@ -83,53 +84,20 @@ def handle_pass_given_fail(base_url, args):
                     p.get("pass_count", 0),
                     -p.get("both_pass_count", 0),
                 ),
-                reverse=True,
+                reverse=not ascending,
             )
-        elif args.sort == "pass-count":
+        elif args.sort == "pass-fail":
             probabilities = sorted(
                 probabilities,
                 key=lambda p: p.get("pass_count", 0),
-                reverse=True,
+                reverse=not ascending,
             )
-        else:
+        else:  # pass-pass
             probabilities = sorted(
                 probabilities,
-                key=lambda p: p.get("pass_probability", 0.0),
-                reverse=True,
+                key=lambda p: p.get("both_pass_count", 0),
+                reverse=not ascending,
             )
-
-        if getattr(args, "other_test", None):
-            selected = next((p for p in probabilities if p.get("test") == args.other_test), None)
-            if not selected:
-                print(f"\nNo pair found for conditioning test '{args.test}' with target test '{args.other_test}'.")
-                return
-
-            run_machine_rows = data.get("run_machine_rows", 0)
-            rows_where_condition_holds = data.get("rows_where_condition_holds", 0)
-            rows_where_a_passes = run_machine_rows - rows_where_condition_holds
-            pass_count = selected.get("pass_count", 0)
-            both_pass_count = selected.get("both_pass_count", 0)
-            pass_probability = selected.get("pass_probability", 0.0)
-            b_pass_given_a_pass = (
-                f"{both_pass_count / rows_where_a_passes:.4f}"
-                if rows_where_a_passes > 0 else "N/A"
-            )
-
-            print("\nPASS GIVEN FAIL (PAIR DETAIL)")
-            print(f"System:   {args.system or 'all'}")
-            print(f"Scenario: {args.scenario or 'all'}")
-            print(f"A: {args.test}")
-            print(f"B: {args.other_test}")
-            print()
-            print_table(
-                ["A STATE", "B STATE", "CO-OCCURRENCES", "A ROWS", "P(B passes | A state)"],
-                [
-                    ["FAIL", "PASS", pass_count,       rows_where_condition_holds, f"{pass_probability:.4f}"],
-                    ["PASS", "PASS", both_pass_count,  rows_where_a_passes,        b_pass_given_a_pass],
-                ],
-            )
-            print(f"\nPair score (PASS-FAIL / (PASS-PASS + 1)): {selected.get('pair_score', 0.0):.4f}")
-            return
 
         rows = [
             [
@@ -145,21 +113,13 @@ def handle_pass_given_fail(base_url, args):
         print("\nPASS GIVEN FAIL")
         print(f"Conditioning test: {data.get('conditioning_test', args.test)}")
         print("Count semantics: PASS-FAIL and PASS-PASS are run×instance row counts (not file counts)")
-        print(f"Rows where condition holds: {data.get('rows_where_condition_holds', 0)}")
-        print(f"Run-machine rows: {data.get('run_machine_rows', 0)}")
-        source_files = data.get('source_files_evaluated')
-        if source_files is None:
-            print("Source files evaluated: N/A (legacy cache entry, run with --no-cache)")
-        else:
-            print(f"Source files evaluated: {source_files}")
-        print(f"Sort mode: {args.sort}")
-        print("Pair score formula: PASS-FAIL / (PASS-PASS + 1)")
+        print("Score formula: PASS-FAIL / (PASS-PASS + 1)")
         print_table([
             "#",
             "TEST",
             "PASS-FAIL",
             "PASS-PASS",
-            "PAIR SCORE",
+            "SCORE",
         ], rows)
     except Exception as e:
         print(f"Connection failed: {e}")
@@ -194,26 +154,47 @@ def handle_fail_given_fail(base_url, args):
         data = resp.json()
         probabilities = data.get("probabilities", [])
 
-        if args.sort == "pair-score":
+        # Higher score means better discriminatory pairing:
+        # many FAIL-FAIL cases with comparatively few FAIL-PASS cases.
+        for p in probabilities:
+            fail_count = p.get("fail_count", 0)
+            fail_pass_count = p.get("fail_pass_count", 0)
+            p["pair_score"] = fail_count / (fail_pass_count + 1)
+
+        ascending = getattr(args, 'reverse', False)
+        if args.sort == "score":
             probabilities = sorted(
                 probabilities,
                 key=lambda p: (
+                    p.get("pair_score", 0.0),
                     p.get("fail_count", 0),
                     -p.get("fail_pass_count", 0),
                 ),
-                reverse=True,
+                reverse=not ascending,
             )
         elif args.sort == "fail-count":
             probabilities = sorted(
                 probabilities,
                 key=lambda p: p.get("fail_count", 0),
-                reverse=True,
+                reverse=not ascending,
+            )
+        elif args.sort == "fail-pass":
+            probabilities = sorted(
+                probabilities,
+                key=lambda p: p.get("fail_pass_count", 0),
+                reverse=not ascending,
+            )
+        elif args.sort == "test":
+            probabilities = sorted(
+                probabilities,
+                key=lambda p: p.get("test", ""),
+                reverse=ascending,
             )
         else:
             probabilities = sorted(
                 probabilities,
                 key=lambda p: p.get("fail_probability", 0.0),
-                reverse=True,
+                reverse=not ascending,
             )
 
         rows = [
@@ -222,7 +203,7 @@ def handle_fail_given_fail(base_url, args):
                 p["test"],
                 p["fail_count"],
                 p.get("fail_pass_count", 0),
-                f"{p.get('fail_probability', 0.0):.4f}",
+                f"{p.get('pair_score', 0.0):.4f}",
             ]
             for i, p in enumerate(probabilities[:args.limit])
         ]
@@ -230,20 +211,13 @@ def handle_fail_given_fail(base_url, args):
         print("\nFAIL GIVEN FAIL")
         print(f"Conditioning test: {data.get('conditioning_test', args.test)}")
         print("Count semantics: FAIL-FAIL and FAIL-PASS are run×instance row counts (not file counts)")
-        print(f"Rows where condition holds: {data.get('rows_where_condition_holds', 0)}")
-        print(f"Run-machine rows: {data.get('run_machine_rows', 0)}")
-        source_files = data.get('source_files_evaluated')
-        if source_files is None:
-            print("Source files evaluated: N/A (legacy cache entry, run with --no-cache)")
-        else:
-            print(f"Source files evaluated: {source_files}")
-        print(f"Sort mode: {args.sort}")
+        print("Score formula: FAIL-FAIL / (FAIL-PASS + 1)")
         print_table([
             "#",
             "TEST",
             "FAIL-FAIL",
             "FAIL-PASS",
-            "P(fail|conditioning fail)",
+            "SCORE",
         ], rows)
     except Exception as e:
         print(f"Connection failed: {e}")
@@ -368,20 +342,20 @@ if __name__ == "__main__":
 
     pgf_parser.add_argument("--test", required=True,
                         help="Conditioning test name A in P(B passes | A fails)")
-    pgf_parser.add_argument("--other-test",
-                        help="Target test name B; prints exact A-fail/B-pass co-occurrence count")
     pgf_parser.add_argument("--system", help="Filter to a specific system")
     pgf_parser.add_argument("--scenario", default="generic", help="Filter to a specific scenario")
     pgf_parser.add_argument("--include-self", action="store_true",
                         help="Include the conditioning test in output")
     pgf_parser.add_argument(
         "--sort",
-        choices=["pass-prob", "pass-count", "pair-score"],
-        default="pair-score",
-        help=(
-            "Sort strategy for combinations. "
-            "'pair-score' favors high PASS-FAIL and low PASS-PASS"
-        ),
+        choices=["score", "pass-pass", "pass-fail"],
+        default="score",
+        help="Sort column: 'score' (default), 'pass-pass', 'pass-fail'",
+    )
+    pgf_parser.add_argument(
+        "--reverse",
+        action="store_true",
+        help="Reverse sort order (ascending instead of descending)",
     )
 
     fgf_parser.add_argument("--test", required=True,
@@ -392,12 +366,17 @@ if __name__ == "__main__":
                         help="Include the conditioning test in output")
     fgf_parser.add_argument(
         "--sort",
-        choices=["fail-prob", "fail-count", "pair-score"],
-        default="pair-score",
+        choices=["fail-prob", "fail-count", "fail-pass", "score", "test"],
+        default="score",
         help=(
-            "Sort strategy for combinations. "
-            "'pair-score' favors high FAIL-FAIL and low FAIL-PASS"
+            "Sort column: 'score' (default), 'fail-prob', 'fail-count', "
+            "'fail-pass', 'test'"
         ),
+    )
+    fgf_parser.add_argument(
+        "--reverse",
+        action="store_true",
+        help="Reverse sort order (ascending instead of descending)",
     )
 
     args = parser.parse_args()
