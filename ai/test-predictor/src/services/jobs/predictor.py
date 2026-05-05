@@ -102,214 +102,229 @@ def build_model_input(sequence_items, encoders):
     return X_input
 
 
-def adjust_for_flaky_pattern(history_items, probability):
-    """Post-process a raw model probability to correct for flaky or mixed history.
+def _clamp01(value):
+    return max(0.0, min(1.0, value))
 
-    The LSTM can become overconfident on sequences that lack a clear trend,
-    producing near-certain 0% or 100% outputs for histories that are actually
-    ambiguous. This function applies two calibration stages to bring those
-    extremes back to a more defensible range.
 
-    Stage 1 — Flaky score correction:
-        A continuous flaky score is derived from two signals:
-        - transition_rate: proportion of consecutive pairs that change value
-          (0→1 or 1→0), normalised above a 0.45 baseline.
-        - balance_score: proximity of the pass ratio to 50/50 (1.0 = perfectly
-          balanced, 0.0 = all-pass or all-fail).
-        When flaky_score >= 0.30 the probability is smoothly blended toward an
-        uncertainty prior near 50%. The target is offset below 50% by the
-        degree of imbalance (skewed-fail histories land around 30-40%).
-
-    Stage 2 — Mixed-history extreme guard:
-        Even without a strict flaky signature, the model can output near-certain
-        values for mixed, transition-heavy histories that do not have a clear
-        recent trend. If the adjusted probability is still extreme (≤ 2% or
-        ≥ 98%), the history has both passes and failures (ones_ratio 20-80%),
-        transitions are non-trivial (>= 25%), and the last three steps are NOT
-        a uniform pass or fail run, the probability is further blended toward
-        the empirical pass ratio of the history.
-
-    Tail deterioration override:
-        If the two most recent results are both failures, the output is hard-
-        capped at 8% regardless of the earlier stages, reflecting a concrete
-        recent signal of regression.
-
-    The function is a no-op for histories shorter than 6 steps and for clearly
-    stable or clearly collapsing sequences — those are intentionally left
-    untouched so that real strong signals (e.g. 14× consecutive pass or 14×
-    consecutive fail) are preserved.
-
-    Args:
-        history_items: List of history entry dicts, each containing at minimum
-            a 'success' key with a value castable to int (0 or 1). The list
-            should be ordered oldest-first.
-        probability: Raw sigmoid output from the LSTM model, in [0.0, 1.0].
-
-    Returns:
-        Adjusted probability in [0.0, 1.0]. May be equal to the input if no
-        correction criteria are met.
-    """
-    if not history_items:
-        # New tests should default to a cautiously optimistic baseline.
-        return max(probability, 0.93)
-
+def _extract_successes(history_items):
     successes = []
     for item in history_items:
         try:
             successes.append(int(float(item.get('success', 0))))
         except (TypeError, ValueError):
             continue
+    return successes
 
-    if len(successes) < 6:
-        return probability
 
-    # Helper streak counters from the tail.
-    tail_one_streak = 0
-    for v in reversed(successes):
-        if v == 1:
-            tail_one_streak += 1
+def _tail_streak(values, target):
+    streak = 0
+    for v in reversed(values):
+        if v == target:
+            streak += 1
         else:
             break
+    return streak
 
-    tail_zero_streak = 0
-    for v in reversed(successes):
-        if v == 0:
-            tail_zero_streak += 1
+
+def _prev_streak_before_tail(values, tail_len, target):
+    if tail_len <= 0:
+        return 0
+
+    streak = 0
+    for v in reversed(values[:-tail_len]):
+        if v == target:
+            streak += 1
         else:
             break
+    return streak
 
-    # Opposite-class streak length immediately before the current tail streak.
-    prev_zero_streak = 0
-    if tail_one_streak > 0:
-        for v in reversed(successes[:-tail_one_streak]):
-            if v == 0:
-                prev_zero_streak += 1
-            else:
-                break
 
-    prev_one_streak = 0
-    if tail_zero_streak > 0:
-        for v in reversed(successes[:-tail_zero_streak]):
-            if v == 1:
-                prev_one_streak += 1
-            else:
-                break
-
-    # Calculate the transition rate and balance of successes in the history.
+def _compute_history_metrics(successes):
     transitions = sum(1 for i in range(1, len(successes)) if successes[i] != successes[i - 1])
     transition_rate = transitions / float(len(successes) - 1)
     ones_ratio = sum(successes) / float(len(successes))
 
-    # Build a continuous flaky score instead of hard thresholds.
-    # - transition_score: frequent 0<->1 switches
-    # - balance_score: close to a 50/50 pass/fail split
-    transition_score = max(0.0, min(1.0, (transition_rate - 0.45) / 0.55))
-    balance_score = max(0.0, 1.0 - abs(ones_ratio - 0.5) / 0.5)
+    transition_score = _clamp01((transition_rate - 0.45) / 0.55)
+    balance_score = _clamp01(1.0 - abs(ones_ratio - 0.5) / 0.5)
     flaky_score = transition_score * balance_score
 
-    adjusted = probability
+    return {
+        "transition_rate": transition_rate,
+        "ones_ratio": ones_ratio,
+        "balance_score": balance_score,
+        "flaky_score": flaky_score,
+    }
 
-    # Strong deterministic trends should override weak model priors.
+
+def _apply_strong_trend_rules(adjusted, ones_ratio, tail_one_streak, tail_zero_streak, transition_rate):
     if ones_ratio >= 0.99:
-        return max(adjusted, 0.97)
+        return max(adjusted, 0.97), True
     if ones_ratio <= 0.01:
-        return min(adjusted, 0.03)
-    # Histories that are overwhelmingly pass and currently ending in passes
-    # should not collapse to near-zero due to weak model priors.
+        return min(adjusted, 0.03), True
+
     if ones_ratio >= 0.85 and tail_one_streak >= 2 and transition_rate <= 0.25:
         adjusted = max(adjusted, 0.90)
     if tail_zero_streak >= 3 and ones_ratio <= 0.20:
-        return min(adjusted, 0.03)
+        return min(adjusted, 0.03), True
     if tail_one_streak >= 6 and ones_ratio >= 0.50 and transition_rate <= 0.20:
         adjusted = max(adjusted, 0.90)
 
-    # Dynamic boundary-flip handling after dominant runs.
-    # This avoids fixed constants while preserving intuitive behavior:
-    # single opposite result = tentative reversal, repeated opposite tail = stronger signal.
+    return adjusted, False
+
+
+def _apply_boundary_flip_rules(
+    adjusted,
+    tail_zero_streak,
+    prev_one_streak,
+    tail_one_streak,
+    prev_zero_streak,
+):
     if tail_zero_streak >= 1 and prev_one_streak >= 6:
-        trend_strength = max(0.0, min(1.0, (prev_one_streak - 6) / 8.0))
-        confirmation = max(0.0, min(1.0, (tail_zero_streak - 1) / 2.0))
+        trend_strength = _clamp01((prev_one_streak - 6) / 8.0)
+        confirmation = _clamp01((tail_zero_streak - 1) / 2.0)
         target = 0.50 + 0.15 * trend_strength - 0.30 * confirmation
         strength = 0.65 + 0.30 * trend_strength
         adjusted = (1.0 - strength) * adjusted + strength * target
 
     if tail_one_streak >= 1 and prev_zero_streak >= 6:
-        trend_strength = max(0.0, min(1.0, (prev_zero_streak - 6) / 8.0))
-        confirmation = max(0.0, min(1.0, (tail_one_streak - 1) / 2.0))
-        target = 0.50 - 0.15 * trend_strength + 0.85 * confirmation
-        target = max(0.0, min(1.0, target))
+        trend_strength = _clamp01((prev_zero_streak - 6) / 8.0)
+        confirmation = _clamp01((tail_one_streak - 1) / 2.0)
+        target = _clamp01(0.50 - 0.15 * trend_strength + 0.85 * confirmation)
         strength = 0.65 + 0.30 * trend_strength
         adjusted = (1.0 - strength) * adjusted + strength * target
 
-    # Mostly-pass mixed histories with a positive tail should not collapse.
-    # Use a smooth floor driven by pass ratio, tail confidence, and transition noise.
+    return adjusted
+
+
+def _apply_mostly_pass_rules(
+    adjusted,
+    ones_ratio,
+    tail_one_streak,
+    tail_zero_streak,
+    prev_one_streak,
+    prev_zero_streak,
+    transition_rate,
+):
     if ones_ratio >= 0.70 and tail_one_streak >= 2:
-        pass_strength = max(0.0, min(1.0, (ones_ratio - 0.70) / 0.30))
-        tail_conf = max(0.0, min(1.0, (tail_one_streak - 2) / 3.0))
-        noise_penalty = max(0.0, min(1.0, (transition_rate - 0.30) / 0.40))
+        pass_strength = _clamp01((ones_ratio - 0.70) / 0.30)
+        tail_conf = _clamp01((tail_one_streak - 2) / 3.0)
+        noise_penalty = _clamp01((transition_rate - 0.30) / 0.40)
         floor = 0.45 + 0.25 * pass_strength + 0.18 * tail_conf - 0.18 * noise_penalty
         adjusted = max(adjusted, floor)
 
-    # A single fresh fail after a pass run in mostly-pass history should land in
-    # a medium band instead of near-zero.
     if ones_ratio >= 0.70 and tail_zero_streak == 1 and prev_one_streak >= 3:
-        pass_strength = max(0.0, min(1.0, (ones_ratio - 0.70) / 0.30))
-        run_strength = max(0.0, min(1.0, (prev_one_streak - 3) / 5.0))
-        noise_penalty = max(0.0, min(1.0, (transition_rate - 0.30) / 0.40))
+        pass_strength = _clamp01((ones_ratio - 0.70) / 0.30)
+        run_strength = _clamp01((prev_one_streak - 3) / 5.0)
+        noise_penalty = _clamp01((transition_rate - 0.30) / 0.40)
         floor = 0.40 + 0.12 * pass_strength + 0.12 * run_strength - 0.12 * noise_penalty
         adjusted = max(adjusted, floor)
 
-    # Brief failure dip followed by an immediate pass in an otherwise strong
-    # pass history should recover into a medium/high band, not collapse to 0%.
     if (
         tail_one_streak >= 1
         and 1 <= prev_zero_streak <= 3
         and ones_ratio >= 0.70
         and transition_rate <= 0.30
     ):
-        recovery_strength = max(0.0, min(1.0, (ones_ratio - 0.70) / 0.30))
-        dip_penalty = max(0.0, min(1.0, (prev_zero_streak - 1) / 2.0))
+        recovery_strength = _clamp01((ones_ratio - 0.70) / 0.30)
+        dip_penalty = _clamp01((prev_zero_streak - 1) / 2.0)
         target = 0.55 + 0.25 * recovery_strength - 0.15 * dip_penalty
         blend = 0.60 + 0.25 * recovery_strength
         adjusted = (1.0 - blend) * adjusted + blend * target
 
-    # Strong flaky signature: move toward uncertainty prior around ~50%.
+    return adjusted
+
+
+def _apply_flaky_rules(adjusted, flaky_score, balance_score, tail_one_streak, ones_ratio):
     if flaky_score >= 0.30:
         target_prob = 0.50 - (1.0 - balance_score) * 0.20
-        strength = max(0.0, min(1.0, (flaky_score - 0.30) / 0.70))
+        strength = _clamp01((flaky_score - 0.30) / 0.70)
         adjusted = (1.0 - strength) * adjusted + strength * target_prob
 
-        # If a highly flaky stream recently recovered with multiple passes,
-        # bump into a medium-high band instead of staying near coin-flip.
         if tail_one_streak >= 3 and ones_ratio >= 0.45:
             adjusted = max(adjusted, 0.80)
 
-    # Secondary guard for mixed histories that are not strictly flaky but where
-    # the model can still jump to near-certain extremes.
+    return adjusted
+
+
+def _apply_mixed_extreme_guard(adjusted, ones_ratio, transition_rate, balance_score, successes):
     is_extreme = adjusted <= 0.02 or adjusted >= 0.98
     mixed_history = 0.20 <= ones_ratio <= 0.80 and transition_rate >= 0.25
+
     clear_tail = False
     if len(successes) >= 3:
         tail3 = successes[-3:]
         clear_tail = all(v == 1 for v in tail3) or all(v == 0 for v in tail3)
 
     if is_extreme and mixed_history and not clear_tail:
-        # Blend toward empirical pass ratio in proportion to extremeness and
-        # mixedness; this avoids brittle cliffs while preserving clear trends.
-        extremeness = max(0.0, min(1.0, (abs(adjusted - 0.5) - 0.45) / 0.05))
+        extremeness = _clamp01((abs(adjusted - 0.5) - 0.45) / 0.05)
         mixedness = min(1.0, transition_rate / 0.50) * balance_score
         strength = 0.60 * extremeness * mixedness
         adjusted = (1.0 - strength) * adjusted + strength * ones_ratio
 
-    # If the immediate tail is deteriorating, bias further downward.
-    # Do not apply this hard cap to long stable-pass streaks that just started to regress;
-    # those are handled above with dynamic reversal scoring.
+    return adjusted
+
+
+def _apply_tail_deterioration_cap(adjusted, successes, prev_one_streak, ones_ratio):
     if len(successes) >= 2 and successes[-1] == 0 and successes[-2] == 0:
         if prev_one_streak < 8:
             if ones_ratio >= 0.75:
                 adjusted = min(adjusted, 0.04)
             else:
                 adjusted = min(adjusted, 0.08)
+    return adjusted
+
+
+def adjust_for_flaky_pattern(history_items, probability):
+    """Post-process raw model probability to avoid brittle extremes on mixed history."""
+    if not history_items:
+        return max(probability, 0.93)
+
+    successes = _extract_successes(history_items)
+    if len(successes) < 6:
+        return probability
+
+    tail_one_streak = _tail_streak(successes, 1)
+    tail_zero_streak = _tail_streak(successes, 0)
+    prev_zero_streak = _prev_streak_before_tail(successes, tail_one_streak, 0)
+    prev_one_streak = _prev_streak_before_tail(successes, tail_zero_streak, 1)
+
+    metrics = _compute_history_metrics(successes)
+    transition_rate = metrics["transition_rate"]
+    ones_ratio = metrics["ones_ratio"]
+    balance_score = metrics["balance_score"]
+    flaky_score = metrics["flaky_score"]
+
+    adjusted = probability
+
+    adjusted, should_return = _apply_strong_trend_rules(
+        adjusted,
+        ones_ratio,
+        tail_one_streak,
+        tail_zero_streak,
+        transition_rate,
+    )
+    if should_return:
+        return adjusted
+
+    adjusted = _apply_boundary_flip_rules(
+        adjusted,
+        tail_zero_streak,
+        prev_one_streak,
+        tail_one_streak,
+        prev_zero_streak,
+    )
+    adjusted = _apply_mostly_pass_rules(
+        adjusted,
+        ones_ratio,
+        tail_one_streak,
+        tail_zero_streak,
+        prev_one_streak,
+        prev_zero_streak,
+        transition_rate,
+    )
+    adjusted = _apply_flaky_rules(adjusted, flaky_score, balance_score, tail_one_streak, ones_ratio)
+    adjusted = _apply_mixed_extreme_guard(adjusted, ones_ratio, transition_rate, balance_score, successes)
+    adjusted = _apply_tail_deterioration_cap(adjusted, successes, prev_one_streak, ones_ratio)
 
     return adjusted
 
