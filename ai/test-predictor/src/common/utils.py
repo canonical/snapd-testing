@@ -16,15 +16,3 @@ def setup_logging(name):
         handler.setFormatter(formatter)
         logger.addHandler(handler)
     return logger
-
-
-def normalize_base_url(raw_url):
-    """
-    Ensure the base URL is well-formed, defaulting to http://test-predictor.canonical.com if empty.
-    """
-    url = (raw_url or "").strip()
-    if not url:
-        return "http://test-predictor.canonical.com"
-    if not url.startswith(("http://", "https://")):
-        url = f"http://{url}"
-    return url.rstrip('/')

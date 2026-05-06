@@ -1,14 +1,19 @@
 #!/usr/bin/python3
 
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
 import argparse
 import json
 import requests
 
-from common.utils import normalize_base_url
+def normalize_base_url(raw_url):
+    """
+    Ensure the base URL is well-formed, defaulting to http://test-predictor.canonical.com if empty.
+    """
+    url = (raw_url or "").strip()
+    if not url:
+        return "http://test-predictor.canonical.com"
+    if not url.startswith(("http://", "https://")):
+        url = f"http://{url}"
+    return url.rstrip('/')
 
 def print_table(headers, rows):
     """Helper to print a simple formatted table."""

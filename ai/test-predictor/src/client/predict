@@ -1,18 +1,23 @@
 #!/usr/bin/python3
 
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
 import json
 import requests
 import argparse
 
-from common.utils import normalize_base_url
+def normalize_base_url(raw_url):
+    """
+    Ensure the base URL is well-formed, defaulting to http://test-predictor.canonical.com if empty.
+    """
+    url = (raw_url or "").strip()
+    if not url:
+        return "http://test-predictor.canonical.com"
+    if not url.startswith(("http://", "https://")):
+        url = f"http://{url}"
+    return url.rstrip('/')
+
 
 def analyze_results(file_path, base_url, port, attempt=None):
     """ Analyze the results JSON file, query predictions for failing items, and display them in a formatted table. """
-    predict_url = f"{base_url}:{port}/predict"
 
     try:
         with open(file_path, 'r') as f:
