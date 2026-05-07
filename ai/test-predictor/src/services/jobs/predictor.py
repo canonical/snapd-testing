@@ -329,6 +329,33 @@ def adjust_for_flaky_pattern(history_items, probability):
     return adjusted
 
 
+def _prediction_diagnostics(history_items):
+    """Summarize history-derived signals used by flaky post-processing."""
+    successes = _extract_successes(history_items)
+    if not successes:
+        return {
+            "usable_successes": 0,
+            "ones_ratio": None,
+            "transition_rate": None,
+            "tail_one_streak": 0,
+            "tail_zero_streak": 0,
+        }
+
+    tail_one_streak = _tail_streak(successes, 1)
+    tail_zero_streak = _tail_streak(successes, 0)
+    transitions = sum(1 for i in range(1, len(successes)) if successes[i] != successes[i - 1])
+    transition_rate = 0.0 if len(successes) < 2 else transitions / float(len(successes) - 1)
+    ones_ratio = sum(successes) / float(len(successes))
+
+    return {
+        "usable_successes": len(successes),
+        "ones_ratio": ones_ratio,
+        "transition_rate": transition_rate,
+        "tail_one_streak": tail_one_streak,
+        "tail_zero_streak": tail_zero_streak,
+    }
+
+
 def predict_from_history_pattern(base_data, pattern_values, model, encoders):
     """Build prediction input from history pattern and return adjusted probability."""
     history_items = []
@@ -483,8 +510,27 @@ def predict():
 
         # PREDICT
         prediction = model.predict(X_input, verbose=config.PREDICTION_VERBOSE)
-        prob = float(prediction[0][0])
-        prob = adjust_for_flaky_pattern(history, prob)
+        raw_prob = float(prediction[0][0])
+        prob = adjust_for_flaky_pattern(history, raw_prob)
+
+        if data.get('audit', config.DEFAULT_AUDIT):
+            diag = _prediction_diagnostics(history)
+            logger.info(
+                "Prediction diagnostics: system=%s name=%s verb=%s scenario=%s context_len=%d usable_successes=%d "
+                "tail_one=%d tail_zero=%d ones_ratio=%s transition_rate=%s raw_prob=%.4f adjusted_prob=%.4f",
+                system,
+                name,
+                verb,
+                scenario,
+                len(history),
+                diag["usable_successes"],
+                diag["tail_one_streak"],
+                diag["tail_zero_streak"],
+                "n/a" if diag["ones_ratio"] is None else f"{diag['ones_ratio']:.3f}",
+                "n/a" if diag["transition_rate"] is None else f"{diag['transition_rate']:.3f}",
+                raw_prob,
+                prob,
+            )
 
         if data.get('audit', config.DEFAULT_AUDIT):
             audit_prediction(X_input, prob, normalized_target, app.model_manager)
