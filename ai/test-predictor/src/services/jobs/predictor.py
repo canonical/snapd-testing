@@ -63,6 +63,7 @@ def encode_to_vector(data, encoders):
     s = data.get('system', 'unknown')
     sce = data.get('scenario', config.DEFAULT_SCENARIO)
     b_val = data.get('backend', 'unknown') # Default to unknown if missing
+    succ = data.get('success', config.CURRENT_SUCCESS_MASK_VALUE)
     
     # Helper to get raw integer ID
     def get_id(key, value):
@@ -75,19 +76,20 @@ def encode_to_vector(data, encoders):
             return 0.0
 
     # Build the vector in the EXACT order of config.FEATURE_COLUMNS
-    # [scenario, verb, backend, system, name]
-    # NOTE: success is NOT included - it's the target we predict, not an input feature
+    # [scenario, verb, backend, system, name, success]
+    # Success is a lag feature; current timestep is masked in build_model_input.
     return np.array([
         get_id('scenario', sce),
         get_id('verb', v),
         get_id('backend', b_val),
         get_id('system', s),
-        get_id('name', n)
+        get_id('name', n),
+        float(succ)
     ], dtype='float32')
 
 
 def build_model_input(sequence_items, encoders):
-    """Builds a padded model input from test characteristics (no success feature)."""
+    """Builds a padded model input and masks current-step success to avoid leakage."""
     X_input = np.zeros((1, config.SEQUENCE_LENGTH, config.NUM_FEATURES), dtype='float32')
 
     for i, raw_item in enumerate(reversed(sequence_items)):
@@ -95,7 +97,9 @@ def build_model_input(sequence_items, encoders):
             break
 
         item = dict(raw_item)
-        # No masking needed - success is not an input feature
+        if i == 0:
+            # The most recent item is the target timestep: its success is unknown.
+            item['success'] = config.CURRENT_SUCCESS_MASK_VALUE
         vector = encode_to_vector(item, encoders)
         X_input[0, -1 - i, :] = vector
 

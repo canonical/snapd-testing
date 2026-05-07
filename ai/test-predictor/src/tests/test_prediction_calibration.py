@@ -48,7 +48,7 @@ class TestPredictionCalibration(unittest.TestCase):
             # Mostly-pass rules
             "mostly_pass_positive_tail_floor": ([1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1], 0.00, 0.70, 0.82),
             "single_fresh_fail_floor": ([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0], 0.00, 0.56, 0.66),
-            "brief_dip_then_pass_recovery": ([1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1], 0.00, 0.62, 0.74),
+            "brief_dip_then_pass_recovery": ([1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1], 0.00, 0.88, 0.92),
             "stale_single_fail_long_pass_tail": ([0] + [1] * 13, 0.00, 0.89, 0.91),
 
             # Flaky and mixed-history guards

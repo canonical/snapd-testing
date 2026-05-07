@@ -50,17 +50,21 @@ ADAM_LEARNING_RATE = 0.0001
 # 1 = Current run only. 10 = Look at the last 10 results.
 SEQUENCE_LENGTH = 15
 # This list must match the EXACT order used during model.fit() as in the .ts files
-# NOTE: 'success' and 'attempt' are NOT included as features.
-# The model predicts success from characteristics and history context only.
+# NOTE: 'success' is included as a lag feature for historical timesteps.
+# For the current timestep (the one being predicted), success is masked to
+# CURRENT_SUCCESS_MASK_VALUE to avoid target leakage.
 FEATURE_COLUMNS = [
     'scenario', 
     'verb', 
     'backend', 
     'system', 
-    'name'
+    'name',
+    'success'
 ]
+# Neutral value used to mask the current timestep success during training/inference.
+CURRENT_SUCCESS_MASK_VALUE = 0.5
 # The "width" of the data. It tells the AI exactly how many different pieces of information it gets for every single run.
-# Scenario, Verb (encoded), Backend (encoded), System (encoded), Name (encoded).
+# Scenario, Verb (encoded), Backend (encoded), System (encoded), Name (encoded), Success (lag/masked).
 NUM_FEATURES = len(FEATURE_COLUMNS)
 # This is the minimum set of columns that must be present in the .ts files for the model to train and predict correctly.
 MANDATORY_TS_COLUMNS = [ 

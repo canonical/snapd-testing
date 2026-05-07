@@ -132,8 +132,12 @@ class ModelManager:
                 start_idx = max(0, i - config.SEQUENCE_LENGTH + 1)
                 window = group_features[start_idx : i + 1].copy()
 
-                # No masking needed - success is not an input feature.
-                # The model predicts success from test characteristics only.
+                # Prevent leakage: current-step success must be unknown while
+                # predicting that same step. Keep historical success values.
+                success_idx = self.feature_index.get('success')
+                if success_idx is not None:
+                    window[-1, success_idx] = config.CURRENT_SUCCESS_MASK_VALUE
+
                 sequences.append(window)
                 targets.append(group_targets[i])
         
@@ -347,14 +351,14 @@ class ModelManager:
         """
         STRATEGY: "Label Repetition and Mixup Augmentation"
         To combat the 80%+ success bias in real-world data without manipulating success
-        as a feature (since it's no longer part of the input):
+        as a target:
         
         1. Label Repetition: Over-sample minority class (failures) by repeating sequences
-        2. Mixup: Create synthetic sequences by blending test characteristics from different
-           sequences while preserving realistic feature ranges
+          2. Mixup: Create synthetic sequences by blending non-success characteristics from
+              different sequences while preserving a realistic success-history channel.
         
-        This forces the model to learn from test characteristics rather than just
-        remembering success patterns, since success is no longer leaked as an input.
+        Success is a lag feature in the input, but the current timestep remains masked
+        to avoid target leakage.
         
         Args:
             X (np.array): Input sequences of shape (Samples, SEQUENCE_LENGTH, NUM_FEATURES).
@@ -394,6 +398,8 @@ class ModelManager:
         # Strategy 2: Mixup - blend features from different sequences
         mixup_count = int(len(X) * config.AUGMENT_PROB * 0.3)  # 30% of augmentation is mixup
         
+        success_idx = self.feature_index.get('success')
+
         for _ in range(mixup_count):
             if len(fail_indices) > 0 and len(pass_indices) > 0:
                 # Blend a failure sequence with a pass sequence
@@ -402,6 +408,11 @@ class ModelManager:
                 
                 alpha = np.random.rand()
                 blended = alpha * fail_seq + (1 - alpha) * pass_seq
+
+                # Keep lagged success realistic: do not interpolate the success channel.
+                # Preserve the failure sequence success history (including masked tail).
+                if success_idx is not None:
+                    blended[:, success_idx] = fail_seq[:, success_idx]
                 
                 # Target: take the failure label (we're augmenting to balance failures)
                 aug_X.append(blended[np.newaxis, ...])
