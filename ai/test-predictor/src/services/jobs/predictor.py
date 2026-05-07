@@ -221,6 +221,7 @@ def _apply_mostly_pass_rules(
 
     if (
         tail_one_streak >= 1
+        and tail_one_streak <= 4
         and 1 <= prev_zero_streak <= 3
         and ones_ratio >= 0.70
         and transition_rate <= 0.30
