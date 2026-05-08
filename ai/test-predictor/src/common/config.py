@@ -81,7 +81,7 @@ MANDATORY_TS_COLUMNS = [
     'name',
     'success'
 ]
-GROUPED_BY_FEATURES = ['system', 'name']
+GROUPED_BY_FEATURES = ['backend', 'system', 'name']
 ENCODED_FEATURES = ['verb', 'backend', 'system', 'name', 'scenario']
 
 # Training Settings
@@ -90,12 +90,16 @@ ENCODED_FEATURES = ['verb', 'backend', 'system', 'name', 'scenario']
 # The trainer looks at every single failed and successful test in your history 10 times.
 # If you only do 1 epoch, the model is "distracted" and misses patterns. If you do 100,
 # the model might "over-memorize" (Overfitting) and stop being able to predict new, unseen tests.
-EPOCHS = 25
+EPOCHS = 30
 # This is how many test results the AI looks at simultaneously before updating its internal math.
 # Large (e.g., 32 or 64): Learning is "smooth" and much faster, but requires more RAM.
 BATCH_SIZE = 32
 # Verbose (0): No output. 1: Progress bar. 2: One line per epoch.
 TRAINING_VERBOSE = 0
+# Fraction of training data held out for validation (detects overfitting during fit).
+TRAINING_VALIDATION_SPLIT = 0.15
+# Early stopping: stop training when val_loss has not improved for this many epochs.
+TRAINING_EARLY_STOPPING_PATIENCE = 5
 # To prevent the trainer from getting overwhelmed, we can set a cap on how many files it processes in one go.
 TRAINING_MAX_FILES = 200
 # Train only from records/files matching this attempt number.

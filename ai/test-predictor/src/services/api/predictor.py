@@ -17,6 +17,7 @@ def get_params():
     return {
         "name": request.args.get('name'),
         "verb": request.args.get('verb'),
+        "backend": request.args.get('backend', None),
         "system": request.args.get('system'),
         "attempt": request.args.get('attempt', None),
         "scenario": request.args.get('scenario', None),

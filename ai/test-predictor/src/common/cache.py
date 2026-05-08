@@ -39,6 +39,7 @@ class SystemStateCache:
         return {
             'name': name,
             'verb': str(data.get('verb') or 'unknown'),
+            'backend': str(data.get('backend') or 'unknown'),
             'system': str(data.get('system') or 'unknown'),
             'scenario': str(data.get('scenario') or config.DEFAULT_SCENARIO),
             'success': safe_int(data.get('success'), 0),
@@ -160,7 +161,7 @@ class SystemStateCache:
         if len(history) > self.history_size:
             self.cache[s][n][v] = history[-self.history_size:]
 
-    def get_context(self, system, name, verb, attempt=None, scenario=None):
+    def get_context(self, system, name, verb, attempt=None, scenario=None, backend=None):
         """
         Retrieves filtered history, falling back to general history if needed,
         and caps the result to (SEQUENCE_LENGTH - 1) to fit the model window.
@@ -171,6 +172,8 @@ class SystemStateCache:
             
             # Apply Filters
             filtered = full_history
+            if backend:
+                filtered = [i for i in filtered if i.get('backend') == backend]
             if scenario:
                 filtered = [i for i in filtered if i.get('scenario') == scenario]
             if attempt is not None:

@@ -37,7 +37,8 @@ def handle_predict(base_url, args):
     url = f"{base_url}:{args.port}/predict"
     params = {
         "name": args.name, "verb": args.verb,
-        "system": args.system, "attempt": args.attempt, "scenario": args.scenario,
+        "system": args.system, "backend": args.backend,
+        "attempt": args.attempt, "scenario": args.scenario,
         "audit": args.audit
     }
     
@@ -56,7 +57,7 @@ def handle_risk(base_url, args):
     """ List riskiest tests for a system based on provided arguments and display them in a formatted table. """
     url = f"{base_url}:{args.port}/rank-risk"
     params = {
-        "verb": args.verb, "system": args.system,
+        "verb": args.verb, "system": args.system, "backend": args.backend,
         "attempt": args.attempt, "scenario": args.scenario, "audit": args.audit
     }
     
@@ -125,7 +126,8 @@ def handle_context(base_url, args):
     url = f"{base_url}:{args.port}/predict-with-history"
     params = {
         "name": args.name, "verb": args.verb,
-        "system": args.system, "attempt": args.attempt, "scenario": args.scenario,
+        "system": args.system, "backend": args.backend,
+        "attempt": args.attempt, "scenario": args.scenario,
         "audit": args.audit
     }
 
@@ -164,7 +166,8 @@ def handle_predict_pattern(base_url, args):
     url = f"{base_url}:{args.port}/predict-pattern"
     params = {
         "name": args.name, "verb": args.verb,
-        "system": args.system, "attempt": args.attempt, "scenario": args.scenario,
+        "system": args.system, "backend": args.backend,
+        "attempt": args.attempt, "scenario": args.scenario,
         "pattern": args.pattern, "audit": args.audit
     }
 
@@ -185,6 +188,7 @@ def handle_test_scenarios(base_url, args):
     params = {
         "name": args.name,
         "system": args.system,
+        "backend": args.backend,
         "verb": args.verb,
         "attempt": args.attempt,
         "scenario": args.scenario
@@ -216,6 +220,7 @@ if __name__ == "__main__":
     # Predict Command
     p_parser = subparsers.add_parser("predict", help="Predict single item probability")
     p_parser.add_argument("--verb", default="executing")
+    p_parser.add_argument("--backend")
     p_parser.add_argument("--attempt", type=int)
     p_parser.add_argument("--scenario")
     p_parser.add_argument("--audit", action="store_true", help="Enable prediction auditing")
@@ -225,6 +230,7 @@ if __name__ == "__main__":
     # Risk Command
     r_parser = subparsers.add_parser("risk", help="List riskiest tests for a system")
     r_parser.add_argument("--verb", default="executing")
+    r_parser.add_argument("--backend")
     r_parser.add_argument("--limit", type=int, default=10, help="Number of tests to show (omit for all)")
     r_parser.add_argument("--audit", action="store_true", help="Enable prediction auditing")
     r_parser.add_argument("--attempt", type=int)
@@ -234,6 +240,7 @@ if __name__ == "__main__":
     # Worst Systems Command
     s_parser = subparsers.add_parser("compare", help="Compare test across all systems")
     s_parser.add_argument("--verb", default="executing")
+    s_parser.add_argument("--backend")
     s_parser.add_argument("--attempt", type=int)
     s_parser.add_argument("--audit", action="store_true", help="Enable prediction auditing")
     s_parser.add_argument("--scenario")
@@ -248,6 +255,7 @@ if __name__ == "__main__":
     c_parser.add_argument("--name", required=True)
     c_parser.add_argument("--system", required=True)
     c_parser.add_argument("--verb", default="executing")
+    c_parser.add_argument("--backend")
     c_parser.add_argument("--attempt", type=int)
     c_parser.add_argument("--scenario")
     c_parser.add_argument("--audit", action="store_true")
@@ -258,6 +266,7 @@ if __name__ == "__main__":
     pt_parser.add_argument("--system", required=True)
     pt_parser.add_argument("--pattern", required=True, help="Comma-separated string of 0s and 1s")
     pt_parser.add_argument("--verb", default="executing")
+    pt_parser.add_argument("--backend")
     pt_parser.add_argument("--attempt", type=int)
     pt_parser.add_argument("--scenario", default="generic")
     pt_parser.add_argument("--audit", action="store_true")
@@ -266,6 +275,7 @@ if __name__ == "__main__":
     t_parser.add_argument("--name", default="tests/main/abort")
     t_parser.add_argument("--system", default="ubuntu-24.04-64")
     t_parser.add_argument("--verb", default="executing")
+    t_parser.add_argument("--backend")
     t_parser.add_argument("--attempt", type=int, default=1)
     t_parser.add_argument("--scenario", default="generic")
 

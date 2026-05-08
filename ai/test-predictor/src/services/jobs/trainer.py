@@ -4,6 +4,7 @@ import glob
 import shutil
 import requests
 import os
+import threading
 
 from datetime import datetime
 from flask import Flask, jsonify
@@ -96,8 +97,9 @@ def perform_training_cycle():
         else:
             logger.error("Failed to reload model after promotion!")
 
-        # Notify Predictor to reload from the root (where we just swapped files)
-        notify_predictor()
+        # Notify Predictor asynchronously so this cycle does not block waiting
+        # for a potentially slow/restarting predictor instance.
+        threading.Thread(target=notify_predictor, daemon=True).start()
 
         # Local Cleanup
         gc.collect()
@@ -111,7 +113,7 @@ def notify_predictor():
     logger.info("Notifying Predictor...")
     try:
         predictor_url = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/reload"
-        resp = requests.post(predictor_url, json=None, timeout=(5, 600))
+        resp = requests.post(predictor_url, json=None, timeout=(3, 10))
         if resp.status_code == 200:
             logger.info("Predictor successfully reloaded the new model.")
         else:

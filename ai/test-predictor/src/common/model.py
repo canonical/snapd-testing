@@ -26,6 +26,31 @@ from common.utils import setup_logging
 
 logger = setup_logging("model-manager")
 
+
+class _TrainingProgressLogger(tf.keras.callbacks.Callback):
+    """Logs epoch-level progress through the service logger."""
+
+    def __init__(self, chunk_idx, total_chunks):
+        super().__init__()
+        self.chunk_idx = chunk_idx
+        self.total_chunks = total_chunks
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        logger.info(
+            "Chunk %d/%d epoch %d/%d - loss=%.6f acc=%.4f precision=%.4f recall=%.4f | val_loss=%.6f val_acc=%.4f",
+            self.chunk_idx,
+            self.total_chunks,
+            epoch + 1,
+            int(config.EPOCHS),
+            float(logs.get('loss', 0.0)),
+            float(logs.get('accuracy', 0.0)),
+            float(logs.get('precision', 0.0)),
+            float(logs.get('recall', 0.0)),
+            float(logs.get('val_loss', 0.0)),
+            float(logs.get('val_accuracy', 0.0)),
+        )
+
 class ModelManager:
     def __init__(self, model_path, metadata_path):
         self.model_path = model_path
@@ -106,7 +131,9 @@ class ModelManager:
                     if new_labels:
                         encoders[col].classes_ = np.concatenate([existing_classes, new_labels])
 
-                df[col] = encoders[col].transform(col_data).astype('int32')
+                encoded = encoders[col].transform(col_data).astype('float32')
+                max_index = max(len(encoders[col].classes_) - 1, 1)
+                df[col] = encoded / float(max_index)
 
         logger.info(f"Preprocessed {len(df)} rows.")
         return df
@@ -297,48 +324,74 @@ class ModelManager:
 
     def _select_training_subset(self, ts_files, stats):
         """
-        Selects a subset of .ts files for training based on the most recent attempt and per-system limits. 
-        This method implements a strategy to prioritize recent data while ensuring diversity across different systems.
-        Strategy: 1. Group files by 'system' (extracted from metadata).
-                  2. Within each system, sort files by modification time (newest first).
-                  3. Select up to a configured maximum number of files per system.
+        Selects a subset of .ts files for training based on the most recent attempt and per-backend+system+scenario limits. 
+        This method implements a strategy to prioritize recent data while ensuring diversity across different backend+system+scenario combinations.
+        Strategy: 1. Group files by (backend, system, scenario) composite key (extracted from metadata).
+                  2. Within each (backend, system, scenario) triple, sort files by modification time (newest first).
+                  3. Select up to a configured maximum number of files per (backend, system, scenario) triple.
         """
         max_per_system = int(config.TRAINING_MAX_FILES_PER_SYSTEM)
 
-        per_system_files = defaultdict(list)
+        per_backend_system_scenario_files = defaultdict(list)
         file_mtime = {}
 
-        for ts_file in ts_files:
+        total_files = len(ts_files)
+        for idx, ts_file in enumerate(ts_files, start=1):
             try:
-                df_meta = pd.read_csv(ts_file, usecols=['system'])
+                df_meta = pd.read_csv(ts_file, usecols=['system', 'backend', 'scenario'])
             except Exception as e:
                 logger.warning(f"Skipping file metadata read for {ts_file}: {e}")
                 continue
 
-            if df_meta.empty or 'system' not in df_meta.columns:
+            if df_meta.empty or 'system' not in df_meta.columns or 'backend' not in df_meta.columns or 'scenario' not in df_meta.columns:
                 continue
 
-            systems = {
-                value
-                for value in df_meta['system'].dropna().astype(str).str.strip().tolist()
-                if value
+            # Build triples row-wise (not cartesian product) to avoid O(n^3) blowups.
+            triples_df = (
+                df_meta[['backend', 'system', 'scenario']]
+                .dropna()
+                .astype(str)
+                .apply(lambda col: col.str.strip())
+            )
+            triples_df = triples_df[
+                (triples_df['backend'] != '')
+                & (triples_df['system'] != '')
+                & (triples_df['scenario'] != '')
+            ]
+
+            if triples_df.empty:
+                continue
+
+            backend_system_scenario_triples = {
+                (row.backend, row.system, row.scenario)
+                for row in triples_df.drop_duplicates().itertuples(index=False)
             }
-            if not systems:
+            if not backend_system_scenario_triples:
                 continue
 
             mtime = os.path.getmtime(ts_file)
             file_mtime[ts_file] = mtime
-            for system in systems:
-                per_system_files[system].append((mtime, ts_file))
+            for backend, system, scenario in backend_system_scenario_triples:
+                per_backend_system_scenario_files[(backend, system, scenario)].append((mtime, ts_file))
+
+            if idx % 100 == 0 or idx == total_files:
+                logger.info(
+                    "Stage 1 progress: scanned %d/%d files, discovered %d backend+system+scenario groups",
+                    idx,
+                    total_files,
+                    len(per_backend_system_scenario_files),
+                )
 
         selected_paths = set()
-        for system, files in per_system_files.items():
+        for (backend, system, scenario), files in per_backend_system_scenario_files.items():
             files.sort(key=lambda item: item[0], reverse=True)
             selected = [path for _, path in files[:max_per_system]]
             selected_paths.update(selected)
             logger.info(
-                "System %s: selected %d/%d files",
+                "Backend %s, System %s, Scenario %s: selected %d/%d files",
+                backend,
                 system,
+                scenario,
                 len(selected),
                 len(files),
             )
@@ -349,7 +402,7 @@ class ModelManager:
         stats["files_processed"] = len(subset)
 
         logger.info(
-            "Training using %d files (up to %d files per system; attempt verified at load)",
+            "Training using %d files (up to %d files per backend+system+scenario; attempt verified at load)",
             len(subset),
             max_per_system,
         )
@@ -430,13 +483,14 @@ class ModelManager:
             return X, y
 
         aug_X, aug_y = [X.copy()], [y.copy()]
-        
+
         pattern_counts = {
             "label_repetition": 0,
             "mixup": 0,
             "scenario_expansion": 0,
+            "stable_pass": 0,
         }
-        
+
         # Find minority class indices
         fail_indices = np.where(y == 0)[0]
         pass_indices = np.where(y == 1)[0]
@@ -478,7 +532,35 @@ class ModelManager:
                 aug_y.append(np.array([0]))
                 pattern_counts["mixup"] += 1
 
-        # Strategy 3: Scenario expansion - clone sequences while swapping scenario ID
+        # Strategy 3: Stable pass - reinforce clean positive histories so the raw
+        # model learns pass streaks without relying only on post-processing.
+        if success_idx is not None and len(pass_indices) > 0:
+            stable_pass_count = max(
+                1,
+                int(len(X) * config.AUGMENT_PROB * config.AUGMENT_STABLE_PASS_RATIO),
+            )
+
+            for _ in range(stable_pass_count):
+                idx = pass_indices[np.random.randint(0, len(pass_indices))]
+                pass_seq = X[idx].copy()
+
+                active_rows = np.any(pass_seq != 0, axis=1)
+                active_indices = np.where(active_rows)[0]
+                if len(active_indices) == 0:
+                    continue
+
+                history_indices = active_indices[:-1]
+                if len(history_indices) > 0:
+                    pass_seq[history_indices, success_idx] = 1.0
+
+                # Preserve the no-leakage contract for the target timestep.
+                pass_seq[active_indices[-1], success_idx] = config.CURRENT_SUCCESS_MASK_VALUE
+
+                aug_X.append(pass_seq[np.newaxis, ...])
+                aug_y.append(np.array([1]))
+                pattern_counts["stable_pass"] += 1
+
+        # Strategy 4: Scenario expansion - clone sequences while swapping scenario ID
         # to broaden scenario coverage without altering label semantics.
         scenario_idx = self.feature_index.get('scenario')
         if scenario_idx is not None and len(X) > 0:
@@ -611,14 +693,50 @@ class ModelManager:
     def _train_in_chunks(self, model, X, y, class_weights=None):
         total = len(X)
         chunk_size = config.TRAINING_CHUNKS_SIZE
+        total_chunks = max(1, (total + chunk_size - 1) // chunk_size)
+
+        # Shuffle once globally so each chunk is class-mixed and validation_split
+        # does not accidentally operate on near single-class segments.
+        if total > 1:
+            perm = np.random.permutation(total)
+            X = X[perm]
+            y = y[perm]
 
         losses, accs = [], []
 
         for i in range(0, total, chunk_size):
             end = min(i + chunk_size, total)
+            chunk_idx = i // chunk_size + 1
+            chunk_start = time.time()
 
-            logger.info(f"Chunk {i//chunk_size + 1}: {i}-{end}")
+            logger.info(
+                "Starting chunk %d/%d (%d samples: [%d, %d))",
+                chunk_idx,
+                total_chunks,
+                end - i,
+                i,
+                end,
+            )
 
+            y_chunk = y[i:end]
+            uniq, cnt = np.unique(y_chunk, return_counts=True)
+            chunk_dist = {int(k): int(v) for k, v in zip(uniq, cnt)}
+            logger.info("Chunk %d/%d class distribution: %s", chunk_idx, total_chunks, chunk_dist)
+
+            if len(uniq) < 2:
+                logger.warning(
+                    "Chunk %d/%d has a single class (%s); precision/recall may be zero while accuracy is high.",
+                    chunk_idx,
+                    total_chunks,
+                    int(uniq[0]),
+                )
+
+            early_stop = tf.keras.callbacks.EarlyStopping(
+                monitor='val_loss',
+                patience=int(config.TRAINING_EARLY_STOPPING_PATIENCE),
+                restore_best_weights=True,
+                verbose=0,
+            )
             history = model.fit(
                 X[i:end],
                 y[i:end],
@@ -626,11 +744,20 @@ class ModelManager:
                 batch_size=config.BATCH_SIZE,
                 class_weight=class_weights,
                 shuffle=True,
-                verbose=1,
+                verbose=config.TRAINING_VERBOSE,
+                validation_split=float(config.TRAINING_VALIDATION_SPLIT),
+                callbacks=[_TrainingProgressLogger(chunk_idx, total_chunks), early_stop],
             )
 
             losses.append(history.history['loss'][-1])
             accs.append(history.history['accuracy'][-1])
+
+            logger.info(
+                "Finished chunk %d/%d in %.1fs",
+                chunk_idx,
+                total_chunks,
+                time.time() - chunk_start,
+            )
 
             gc.collect()
 
@@ -658,20 +785,37 @@ class ModelManager:
             return False
 
         stats = self._init_stats()
+        train_start = time.time()
 
         with self.training_lock:
             try:
+                logger.info("Train stage 1/6: selecting training subset from %d files", len(ts_files))
                 training_subset = self._select_training_subset(ts_files, stats)
+
+                logger.info("Train stage 2/6: loading and preprocessing data from %d files", len(training_subset))
                 enc, scal = self._get_metadata()
                 X_train, y_train = self._load_training_data(training_subset, enc, scal)
 
                 if X_train is None:
+                    logger.warning("Train aborted: no sequences prepared from selected files.")
                     return False
 
+                logger.info("Train stage 3/6: augmenting %d sequences", len(y_train))
                 X_train, y_train = self._augment_sequences(X_train, y_train, stats)
+                aug_stats = stats.get("augmentation", {})
+                logger.info(
+                    "Augmentation summary: original=%s synthetic=%s total=%s patterns=%s",
+                    aug_stats.get("original_samples", len(y_train)),
+                    aug_stats.get("synthetic_samples", 0),
+                    aug_stats.get("total_samples", len(y_train)),
+                    aug_stats.get("patterns", {}),
+                )
+
+                logger.info("Train stage 4/6: computing class distribution/weights")
                 self._update_stats_distribution(stats, y_train)
                 class_weights = self._compute_class_weights(y_train)
 
+                logger.info("Train stage 5/6: building/loading model and fitting")
                 model = self.load_or_build_model(
                     input_shape=(X_train.shape[1], X_train.shape[2]),
                     output_dir=output_dir
@@ -679,6 +823,7 @@ class ModelManager:
 
                 stats.update(self._train_in_chunks(model, X_train, y_train, class_weights=class_weights))
 
+                logger.info("Train stage 6/6: persisting artifacts")
                 self._persist_artifacts(model, enc, scal, stats, output_dir)
 
                 # Reload the LIVE model if we just did a live training (not shadow)
@@ -689,6 +834,8 @@ class ModelManager:
                         return False
                 else:
                     logger.info(f"Shadow training complete. Artifacts stored in {output_dir}. Skipping live reload.")
+
+                logger.info("Training completed successfully in %.1fs", time.time() - train_start)
 
                 return True 
 

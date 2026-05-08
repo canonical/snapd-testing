@@ -69,8 +69,9 @@ def encode_to_vector(data, encoders):
     def get_id(key, value):
         enc = encoders[key]
         try:
-            # Transform returns the raw integer index
-            return float(enc.transform([str(value)])[0])
+            encoded = float(enc.transform([str(value)])[0])
+            max_index = max(len(enc.classes_) - 1, 1)
+            return encoded / float(max_index)
         except (ValueError, KeyError):
             # If label is new/unknown, default to 0 (usually 'unknown')
             return 0.0
@@ -161,8 +162,10 @@ def _compute_history_metrics(successes):
 
 
 def _apply_strong_trend_rules(adjusted, ones_ratio, tail_one_streak, tail_zero_streak, transition_rate):
-    if ones_ratio >= 0.99:
-        return max(adjusted, 0.97), True
+    if ones_ratio >= 0.99 and tail_one_streak >= 8 and transition_rate <= 0.05:
+        return max(adjusted, 0.99), True
+    if ones_ratio >= 0.98:
+        return max(adjusted, 0.98), True
     if ones_ratio <= 0.01:
         return min(adjusted, 0.03), True
 
@@ -473,8 +476,14 @@ def predict():
     system = data.get('system')
     name = data.get('name')
     verb = data.get('verb')
-    attempt = data.get('attempt', config.DEFAULT_ATTEMPT)
-    scenario = data.get('scenario', config.DEFAULT_SCENARIO)
+    backend = data.get('backend')
+    attempt = data.get('attempt')
+    scenario = data.get('scenario') or config.DEFAULT_SCENARIO
+
+    try:
+        attempt = int(attempt) if attempt is not None and attempt != '' else int(config.DEFAULT_ATTEMPT)
+    except (TypeError, ValueError):
+        attempt = int(config.DEFAULT_ATTEMPT)
     
     model, encoders, _ = app.model_manager.get_state()
     if encoders is None:
@@ -496,13 +505,22 @@ def predict():
 
     try:
         # GET CONTEXT: Last tests for this system
+        backend_filter = str(backend).strip() if backend is not None and str(backend).strip() else None
         history = app.state_cache.get_context(
             system=system, 
             name=name, 
             verb=verb,
-            attempt=None, 
-            scenario=scenario
+            attempt=attempt,
+            scenario=scenario,
+            backend=backend_filter,
         )
+
+        # If backend is not explicitly provided, reuse the most recent backend from
+        # matched history so the backend feature is not always 'unknown'.
+        if normalized_target.get('backend') in (None, '', 'unknown') and history:
+            recent_backend = history[-1].get('backend')
+            if recent_backend:
+                normalized_target['backend'] = str(recent_backend)
 
         if data.get('audit', config.DEFAULT_AUDIT):
             audit_history(history, app.model_manager)
@@ -615,13 +633,20 @@ def get_internal_context():
     system = request.args.get('system')
     name = request.args.get('name')
     verb = request.args.get('verb')
-    scenario = request.args.get('scenario', config.DEFAULT_SCENARIO)
-    attempt = request.args.get('attempt', config.DEFAULT_ATTEMPT)
+    backend = request.args.get('backend')
+    scenario = request.args.get('scenario') or config.DEFAULT_SCENARIO
+    attempt = request.args.get('attempt')
+
+    try:
+        attempt = int(attempt) if attempt is not None and attempt != '' else int(config.DEFAULT_ATTEMPT)
+    except (TypeError, ValueError):
+        attempt = int(config.DEFAULT_ATTEMPT)
     
     if not system:
         return jsonify({"error": "System required"}), 400
         
-    history = app.state_cache.get_context(system, name, verb, None, scenario)
+    backend_filter = str(backend).strip() if backend is not None and str(backend).strip() else None
+    history = app.state_cache.get_context(system, name, verb, attempt, scenario, backend_filter)
     return jsonify({
         "system": system,
         "name": name,
@@ -693,7 +718,7 @@ def test_scenarios():
         },
         "stable_pass": {
             "pattern": [1] * 14,
-            "expected": "> 95%"
+            "expected": ">= 99%"
         },
         "flaky_recovery": {
             # Flaky history that ends with recovery; flaky-aware scoring keeps this
