@@ -162,7 +162,7 @@ def _compute_history_metrics(successes):
 
 
 def _apply_strong_trend_rules(adjusted, ones_ratio, tail_one_streak, tail_zero_streak, transition_rate):
-    if ones_ratio >= 0.99 and tail_one_streak >= 8 and transition_rate <= 0.05:
+    if ones_ratio >= 0.99 and tail_one_streak >= 6 and transition_rate <= 0.05:
         return max(adjusted, 0.99), True
     if ones_ratio >= 0.98:
         return max(adjusted, 0.98), True
@@ -477,14 +477,8 @@ def predict():
     name = data.get('name')
     verb = data.get('verb')
     backend = data.get('backend')
-    attempt = data.get('attempt')
     scenario = data.get('scenario') or config.DEFAULT_SCENARIO
 
-    try:
-        attempt = int(attempt) if attempt is not None and attempt != '' else int(config.DEFAULT_ATTEMPT)
-    except (TypeError, ValueError):
-        attempt = int(config.DEFAULT_ATTEMPT)
-    
     model, encoders, _ = app.model_manager.get_state()
     if encoders is None:
         return jsonify({"error": "Metadata not loaded"}), 503
@@ -507,11 +501,11 @@ def predict():
         # GET CONTEXT: Last tests for this system
         backend_filter = str(backend).strip() if backend is not None and str(backend).strip() else None
         history = app.state_cache.get_context(
-            system=system, 
-            name=name, 
+            system=system,
+            name=name,
             verb=verb,
-            attempt=attempt,
-            scenario=scenario,
+            attempt=None,
+            scenario=None,
             backend=backend_filter,
         )
 
@@ -634,19 +628,12 @@ def get_internal_context():
     name = request.args.get('name')
     verb = request.args.get('verb')
     backend = request.args.get('backend')
-    scenario = request.args.get('scenario') or config.DEFAULT_SCENARIO
-    attempt = request.args.get('attempt')
 
-    try:
-        attempt = int(attempt) if attempt is not None and attempt != '' else int(config.DEFAULT_ATTEMPT)
-    except (TypeError, ValueError):
-        attempt = int(config.DEFAULT_ATTEMPT)
-    
     if not system:
         return jsonify({"error": "System required"}), 400
-        
+
     backend_filter = str(backend).strip() if backend is not None and str(backend).strip() else None
-    history = app.state_cache.get_context(system, name, verb, attempt, scenario, backend_filter)
+    history = app.state_cache.get_context(system, name, verb, None, None, backend_filter)
     return jsonify({
         "system": system,
         "name": name,
