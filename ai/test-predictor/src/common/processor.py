@@ -14,6 +14,22 @@ def _extract_attempt(filename):
     match = re.search(r"attempt_(\d+)", filename)
     return int(match.group(1)) if match else config.DEFAULT_ATTEMPT
 
+
+def get_files_for_attempt(file_paths, attempt, extension="ts"):
+    """Return only files whose name ends with `_attempt_<n>.<extension>`."""
+    target_attempt = int(attempt)
+    ext = extension.lstrip('.').lower()
+
+    matched = []
+    for path in file_paths:
+        filename = os.path.basename(path)
+        if ext and not filename.lower().endswith(f".{ext}"):
+            continue
+        if _extract_attempt(filename) == target_attempt:
+            matched.append(path)
+
+    return matched
+
 def _clean_and_transform_data(raw_data, scenario, attempt):
     """
     Core logic to transform raw JSON items into the specific TS format.

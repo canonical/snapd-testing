@@ -98,6 +98,10 @@ BATCH_SIZE = 32
 TRAINING_VERBOSE = 0
 # To prevent the trainer from getting overwhelmed, we can set a cap on how many files it processes in one go.
 TRAINING_MAX_FILES = 200
+# Train only from records/files matching this attempt number.
+TRAINING_ATTEMPT_FILTER = 1
+# Within each system, train from this many most-recent files.
+TRAINING_MAX_FILES_PER_SYSTEM = 3
 # To prevent the trainer from getting overwhelmed, we can also set a cap on how many rows it processes in one go.
 TRAINING_CHUNKS_SIZE = 30000
 # The balanced class weight automatically adjusts based on the frequency of each class in the training data, while the positive and negative class weights allow for manual tuning. Adjusting these weights can help improve the model's ability to learn from imbalanced datasets, which is common in test results where successes may significantly outnumber failures (or vice versa).
@@ -114,6 +118,8 @@ FOCAL_LOSS_ALPHA = 0.75
 
 # Data Augmentation: These ratios control how much we "tweak" the data to create new training examples. By simulating failures, deteriorations, and recoveries, we can help the model learn more robust patterns. Adjusting these ratios can help the model better capture the variability in test results, especially if there are fluctuations in success rates.
 AUGMENT_PROB = 0.5
+# Portion of augmentation budget used to clone sequences across other scenario IDs.
+AUGMENT_SCENARIO_EXPANSION_RATIO = 0.30
 AUGMENT_FAILURE_RATIO = 0.25
 AUGMENT_DETERIORATION_RATIO = 0.20
 AUGMENT_FLAKY_RATIO = 0.45

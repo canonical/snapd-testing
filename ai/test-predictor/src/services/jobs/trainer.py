@@ -14,7 +14,7 @@ from common.cleaner import cleanup_and_restore
 from common.utils import setup_logging
 from common.model import ModelManager
 from common.cache import SystemStateCache
-from common.processor import process_results
+from common.processor import process_results, get_files_for_attempt
 
 logger = setup_logging("trainer-server")
 app = Flask(__name__)
@@ -47,6 +47,22 @@ def perform_training_cycle():
             logger.info("No new .ts files found. Training skipped.")
             return True
 
+        # Prefilter by attempt directly from filename, e.g.
+        # results_..._scenario_generic_attempt_3.ts
+        target_attempt = int(config.TRAINING_ATTEMPT_FILTER)
+        filtered_ts_files = get_files_for_attempt(ts_files, target_attempt, extension="ts")
+
+        logger.info(
+            "Attempt prefilter: kept %d/%d files for attempt=%d",
+            len(filtered_ts_files),
+            len(ts_files),
+            target_attempt,
+        )
+
+        if not filtered_ts_files:
+            logger.info("No .ts files matched attempt=%d. Training skipped.", target_attempt)
+            return True
+
         # Create Shadow Directory for this run
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         shadow_dir = os.path.join(config.SHADOW_MODELS_DIR, f"{timestamp}")
@@ -56,7 +72,7 @@ def perform_training_cycle():
         
         # Train model directly into the shadow directory
         # This creates model.h5 and metadata.pkl inside shadow_dir
-        success = app.model_manager.train(ts_files, output_dir=shadow_dir)
+        success = app.model_manager.train(filtered_ts_files, output_dir=shadow_dir)
 
         if not success:
             logger.error("Training failed in shadow directory.")

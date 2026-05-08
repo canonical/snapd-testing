@@ -5,6 +5,7 @@ import os
 import shutil
 import time
 import threading
+from collections import defaultdict
 import numpy as np
 import pandas as pd
 
@@ -295,12 +296,63 @@ class ModelManager:
         }
 
     def _select_training_subset(self, ts_files, stats):
-        ts_files.sort(key=os.path.getmtime, reverse=True)
-        subset = ts_files[:config.TRAINING_MAX_FILES]
+        """
+        Selects a subset of .ts files for training based on the most recent attempt and per-system limits. 
+        This method implements a strategy to prioritize recent data while ensuring diversity across different systems.
+        Strategy: 1. Group files by 'system' (extracted from metadata).
+                  2. Within each system, sort files by modification time (newest first).
+                  3. Select up to a configured maximum number of files per system.
+        """
+        max_per_system = int(config.TRAINING_MAX_FILES_PER_SYSTEM)
+
+        per_system_files = defaultdict(list)
+        file_mtime = {}
+
+        for ts_file in ts_files:
+            try:
+                df_meta = pd.read_csv(ts_file, usecols=['system'])
+            except Exception as e:
+                logger.warning(f"Skipping file metadata read for {ts_file}: {e}")
+                continue
+
+            if df_meta.empty or 'system' not in df_meta.columns:
+                continue
+
+            systems = {
+                value
+                for value in df_meta['system'].dropna().astype(str).str.strip().tolist()
+                if value
+            }
+            if not systems:
+                continue
+
+            mtime = os.path.getmtime(ts_file)
+            file_mtime[ts_file] = mtime
+            for system in systems:
+                per_system_files[system].append((mtime, ts_file))
+
+        selected_paths = set()
+        for system, files in per_system_files.items():
+            files.sort(key=lambda item: item[0], reverse=True)
+            selected = [path for _, path in files[:max_per_system]]
+            selected_paths.update(selected)
+            logger.info(
+                "System %s: selected %d/%d files",
+                system,
+                len(selected),
+                len(files),
+            )
+
+        subset = sorted(selected_paths, key=lambda path: file_mtime.get(path, 0.0), reverse=True)
+        subset = subset[:config.TRAINING_MAX_FILES]
 
         stats["files_processed"] = len(subset)
 
-        logger.info(f"Training using {len(subset)} most recent files")
+        logger.info(
+            "Training using %d files (up to %d files per system; attempt verified at load)",
+            len(subset),
+            max_per_system,
+        )
         return subset
     
     def _load_training_data(self, files, enc, scal):
@@ -327,6 +379,12 @@ class ModelManager:
                 df = pd.read_csv(ts_file)
                 if df.empty:
                     continue
+
+                if 'attempt' in df.columns:
+                    attempts = pd.to_numeric(df['attempt'], errors='coerce')
+                    df = df[attempts == int(config.TRAINING_ATTEMPT_FILTER)].copy()
+                    if df.empty:
+                        continue
 
                 proc_df = self._preprocess_dataframe(df, enc, scal)
                 X, y = self._prepare_sequences(proc_df)
@@ -376,6 +434,7 @@ class ModelManager:
         pattern_counts = {
             "label_repetition": 0,
             "mixup": 0,
+            "scenario_expansion": 0,
         }
         
         # Find minority class indices
@@ -418,6 +477,41 @@ class ModelManager:
                 aug_X.append(blended[np.newaxis, ...])
                 aug_y.append(np.array([0]))
                 pattern_counts["mixup"] += 1
+
+        # Strategy 3: Scenario expansion - clone sequences while swapping scenario ID
+        # to broaden scenario coverage without altering label semantics.
+        scenario_idx = self.feature_index.get('scenario')
+        if scenario_idx is not None and len(X) > 0:
+            scenario_values = np.unique(X[:, :, scenario_idx])
+            scenario_values = [float(v) for v in scenario_values if np.isfinite(v)]
+
+            if len(scenario_values) > 1:
+                scenario_count = int(len(X) * config.AUGMENT_PROB * config.AUGMENT_SCENARIO_EXPANSION_RATIO)
+
+                for _ in range(scenario_count):
+                    base_idx = np.random.randint(0, len(X))
+                    base_seq = X[base_idx].copy()
+
+                    # Keep pre-padding untouched by changing only rows that carry signal.
+                    active_rows = np.any(base_seq != 0, axis=1)
+                    if not np.any(active_rows):
+                        continue
+
+                    current_vals = np.unique(base_seq[active_rows, scenario_idx])
+                    if len(current_vals) == 0:
+                        continue
+
+                    current_val = float(current_vals[-1])
+                    candidate_vals = [v for v in scenario_values if v != current_val]
+                    if not candidate_vals:
+                        continue
+
+                    sampled_val = candidate_vals[np.random.randint(0, len(candidate_vals))]
+                    base_seq[active_rows, scenario_idx] = sampled_val
+
+                    aug_X.append(base_seq[np.newaxis, ...])
+                    aug_y.append(np.array([y[base_idx]]))
+                    pattern_counts["scenario_expansion"] += 1
         
         final_X = np.concatenate(aug_X)
         final_y = np.concatenate(aug_y)
