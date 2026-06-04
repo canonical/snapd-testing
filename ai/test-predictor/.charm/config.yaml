@@ -1,0 +1,35 @@
+options:
+  port:
+    type: int
+    default: 5000
+    description: API bind port.
+
+  workers:
+    type: int
+    default: 1
+    description: Number of gunicorn worker processes.
+
+  threads:
+    type: int
+    default: 4
+    description: Number of gunicorn worker threads.
+
+  timeout:
+    type: int
+    default: 300
+    description: Gunicorn worker timeout in seconds.
+
+  http_proxy:
+    type: string
+    default: ""
+    description: HTTP proxy URL used by apt/pip and exported to services.
+
+  https_proxy:
+    type: string
+    default: ""
+    description: HTTPS proxy URL used by apt/pip and exported to services.
+
+  no_proxy:
+    type: string
+    default: ""
+    description: Comma-separated hosts/IPs to bypass the proxy.

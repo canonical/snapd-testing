@@ -1,0 +1,9 @@
+pandas
+numpy
+scikit-learn
+flask
+gunicorn
+requests
+apscheduler
+statsmodels
+networkx

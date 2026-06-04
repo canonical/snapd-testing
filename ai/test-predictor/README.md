@@ -295,3 +295,63 @@ python src/client/train --help
 python src/client/explore --help
 ```
 
+## Deploy As A Charm
+
+This project now includes a machine charm that deploys the API service with gunicorn.
+
+### 1. Build the charm
+
+```bash
+cd ./ai/test-predictor
+charmcraft pack
+```
+
+### 2. Deploy with Juju
+
+```bash
+juju deploy ./test-predictor_amd64.charm --base ubuntu@24.04
+```
+
+Note: The application is not externally reachable until it is exposed.
+
+```bash
+juju expose test-predictor
+```
+
+If you need to pass proxy values manually at deploy time:
+
+```bash
+juju deploy ./test-predictor_amd64.charm \
+	--base ubuntu@24.04 \
+	--config http_proxy=http://egress.ps7.internal:3128 \
+	--config https_proxy=http://egress.ps7.internal:3128 \
+	--config no_proxy=127.0.0.1,127.0.0.53,localhost
+```
+
+### 3. Configure runtime options (optional)
+
+```bash
+juju config test-predictor port=5000 workers=1 threads=4 timeout=300
+```
+
+You can also set or change proxy settings after deployment:
+
+```bash
+juju config test-predictor \
+	http_proxy=http://egress.ps7.internal:3128 \
+	https_proxy=http://egress.ps7.internal:3128 \
+	no_proxy=127.0.0.1,127.0.0.53,localhost
+```
+
+### 4. Check status
+
+```bash
+juju status test-predictor
+juju debug-log --include test-predictor --replay
+```
+
+Notes:
+- The charm creates a Python virtual environment on the unit and installs dependencies from `.charm/requirements-app.txt` and `.charm/requirements-ml.txt`.
+- Proxy config (`http_proxy`, `https_proxy`, `no_proxy`) is exported to all services and synchronized to `/etc/environment` (both uppercase and lowercase variants).
+- It manages a `test-predictor-api` systemd service.
+

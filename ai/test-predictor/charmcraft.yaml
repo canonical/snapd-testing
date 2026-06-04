@@ -1,0 +1,25 @@
+type: charm
+name: test-predictor
+summary: Charm for the test predictor API service
+
+description: |
+  Deploys the test predictor API as a machine charm using gunicorn.
+  The charm prepares a Python virtual environment, installs dependencies,
+  and manages the API process via systemd.
+
+base: ubuntu@24.04
+platforms:
+  amd64:
+
+parts:
+  charm:
+    plugin: charm
+    source: .charm
+    charm-requirements:
+      - requirements-charm.txt
+    override-build: |
+      craftctl default
+      chmod +x "$CRAFT_PART_INSTALL/src/charm.py"
+      mkdir -p "$CRAFT_PART_INSTALL/src"
+      cp -a "$CRAFT_PROJECT_DIR/src/common" "$CRAFT_PART_INSTALL/src/"
+      cp -a "$CRAFT_PROJECT_DIR/src/services" "$CRAFT_PART_INSTALL/src/"

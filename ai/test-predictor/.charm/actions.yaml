@@ -1,0 +1,11 @@
+restart-services:
+  description: Daemon-reload and restart all test-predictor systemd services.
+
+start-services:
+  description: Start (and enable) all test-predictor systemd services.
+
+stop-services:
+  description: Stop all test-predictor systemd services (does not disable them).
+
+service-status:
+  description: Return the systemd status of all test-predictor services.

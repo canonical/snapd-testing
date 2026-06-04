@@ -1,0 +1,17 @@
+name: test-predictor
+summary: Test predictor API
+
+description: |
+  Machine charm that runs the Test Predictor API server and manages
+  its runtime dependencies.
+
+maintainers:
+  - sergio.cazzolato@canonical.com
+
+tags:
+  - ai
+  - testing
+  - ml
+
+series:
+  - noble

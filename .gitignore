@@ -12,3 +12,5 @@ __pycache__/
 test-predictor*.service
 ai/test-predictor/model/*
 ai/test-predictor/logs/*
+!ai/test-predictor/.charm/
+!ai/test-predictor/.charm/**
