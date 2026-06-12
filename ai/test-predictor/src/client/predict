@@ -19,6 +19,8 @@ def normalize_base_url(raw_url):
 def analyze_results(file_path, base_url, port, attempt=None):
     """ Analyze the results JSON file, query predictions for failing items, and display them in a formatted table. """
 
+    predict_url = f"{base_url}:{port}/predict"
+
     try:
         with open(file_path, 'r') as f:
             data = json.load(f)
