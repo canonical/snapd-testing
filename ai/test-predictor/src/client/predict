@@ -35,6 +35,8 @@ def analyze_results(file_path, base_url, port, attempt=None):
         for item in items:
             if not item.get("success") and not item.get("skipped"):
                 name = str(item.get("name", "")).strip()
+                if not name:
+                    continue
                 variant = str(item.get("variant", "")).strip()
                 full_name = f"{name}:{variant}" if variant else name
                 if len(full_name) > max_name_len:
@@ -52,16 +54,18 @@ def analyze_results(file_path, base_url, port, attempt=None):
                 continue
 
             if not item.get("success") and not item.get("skipped"):
-                # Print header once if we find at least one failure
+                name = str(item.get("name", "")).strip()
+                if not name:
+                    continue
+                variant = str(item.get("variant", "")).strip()
+                full_name = f"{name}:{variant}" if variant else name
+                scenario = str(item.get("scenario", "generic")).strip()
+
+                # Print header once if we find at least one valid failure.
                 if not found_failures:
                     print(f"{'NAME':<{name_width}} | {'VERB':<{verb_width}} | {'SYSTEM':<25} | {'SUCCESS PROB'}")
                     print("-" * (name_width + verb_width + 45))
                     found_failures = True
-
-                name = str(item.get("name", "")).strip()
-                variant = str(item.get("variant", "")).strip()
-                full_name = f"{name}:{variant}" if variant else name
-                scenario = str(item.get("scenario", "generic")).strip()
 
                 # Removed 'level' from params
                 params = {"name": full_name, "verb": verb, "scenario": scenario}
