@@ -9,6 +9,7 @@ from src.services.api.trainer import trainer_bp
 from src.services.api.stats import stats_bp
 from src.services.api.cleaner import cleaner_bp
 from src.services.api.dependency import dependency_bp
+from src.services.api.esn import esn_bp
 
 from common.utils import setup_logging
 
@@ -24,3 +25,4 @@ app.register_blueprint(predictor_bp)
 app.register_blueprint(stats_bp)
 app.register_blueprint(cleaner_bp)
 app.register_blueprint(dependency_bp)
+app.register_blueprint(esn_bp)
