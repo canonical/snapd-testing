@@ -1,0 +1,2 @@
+reconcile:
+  description: Ensure enterprise-store snap is installed and ports are open.

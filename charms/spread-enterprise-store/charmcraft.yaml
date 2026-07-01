@@ -1,0 +1,33 @@
+name: spread-enterprise-store
+summary: Install enterprise-store snap and open HTTP/HTTPS ports
+
+description: |
+  Machine charm that installs the enterprise-store snap and opens
+  TCP ports 80 and 443.
+
+type: charm
+base: ubuntu@24.04
+platforms:
+  amd64:
+
+config:
+  options:
+    http-proxy:
+      type: string
+      default: ""
+      description: HTTP proxy URL (e.g., http://proxy.example.com:8080)
+    https-proxy:
+      type: string
+      default: ""
+      description: HTTPS proxy URL (e.g., http://proxy.example.com:8080)
+    no-proxy:
+      type: string
+      default: ""
+      description: Comma-separated list of hosts to bypass proxy (e.g., localhost,127.0.0.1)
+
+parts:
+  charm:
+    plugin: charm
+    source: .
+    charm-requirements:
+      - requirements.txt
