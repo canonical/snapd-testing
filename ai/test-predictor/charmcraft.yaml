@@ -1,5 +1,5 @@
 type: charm
-name: test-predictor
+name: spread-tests-predictor
 summary: Charm for the test predictor API service
 
 description: |
