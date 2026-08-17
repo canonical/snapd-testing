@@ -1,8 +1,4 @@
 options:
-  grafana-agent-channel:
-    type: string
-    default: stable
-    description: "Channel used to install grafana-agent snap."
   grafana-agent-project:
     type: string
     default: snapd
@@ -13,7 +9,7 @@ options:
     description: "Agent name for grafana-agent configuration."
   grafana-agent-endpoint:
     type: string
-    default: http://cos.snapd.canonical.com/prod-snapd-kcos-prometheus-0/api/v1/write
+    default: http://cos.snapd.canonical.com/k8s-snapd-cos-default-prometheus-0/api/v1/write
     description: "Prometheus remote_write endpoint for metrics."
   grafana-agent-target:
     type: string

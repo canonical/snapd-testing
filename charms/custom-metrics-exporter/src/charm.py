@@ -15,6 +15,9 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingSta
 
 logger = logging.getLogger(__name__)
 METRICS_EXPORTER_CONFIG_SCRIPT = "scripts/configure-metrics-exporter.sh"
+METRICS_PORT = 9091
+EXPORTER_SNAP_RESOURCE = "exporter-snap"
+EXPORTER_SNAP_NAME = "prometheus-pushgateway"
 
 
 class MetricsExporterCharm(CharmBase):
@@ -38,13 +41,15 @@ class MetricsExporterCharm(CharmBase):
         try:
             self._reconcile()
             event.set_results({"result": "reconcile completed"})
-        except Exception as exc:
+        except (subprocess.CalledProcessError, RuntimeError, FileNotFoundError) as exc:
             event.fail(str(exc))
 
     def _reconcile(self):
         try:
             self._ensure_snapd()
+            self._ensure_exporter_snap()
             self._run_metrics_exporter_config_script()
+            self._ensure_metrics_port_open()
             self.unit.status = ActiveStatus("metrics exporter configured")
         except FileNotFoundError as exc:
             self.unit.status = BlockedStatus(str(exc))
@@ -56,16 +61,39 @@ class MetricsExporterCharm(CharmBase):
                 msg = f"{msg}: {stderr}"
             self.unit.status = WaitingStatus(msg)
             raise RuntimeError(msg) from exc
-        except Exception as exc:
-            self.unit.status = BlockedStatus(str(exc))
-            raise
 
     def _ensure_snapd(self):
         self._run(["snap", "version"], check=True)
 
+    def _ensure_exporter_snap(self):
+        result = self._run(["snap", "list", EXPORTER_SNAP_NAME], check=False)
+        if result.returncode == 0:
+            logger.info("Snap %s already installed", EXPORTER_SNAP_NAME)
+            return
+
+        try:
+            snap_path = self.model.resources.fetch(EXPORTER_SNAP_RESOURCE)
+        except Exception as exc:
+            raise FileNotFoundError(
+                f"Snap resource '{EXPORTER_SNAP_RESOURCE}' is not available; "
+                "attach it with: juju attach-resource <app> exporter-snap=/path/to/prometheus-pushgateway.snap"
+            ) from exc
+
+        if not snap_path.exists() or snap_path.suffix != ".snap":
+            raise FileNotFoundError(
+                f"Snap resource '{EXPORTER_SNAP_RESOURCE}' is invalid: expected a .snap file, got {snap_path}"
+            )
+
+        logger.info("Installing snap from %s", snap_path)
+        self._run(["snap", "install", "--dangerous", str(snap_path)], check=True)
+
     def _run_metrics_exporter_config_script(self):
         script = self._resolve_path(METRICS_EXPORTER_CONFIG_SCRIPT, "metrics exporter configuration script")
         self._run([str(script)], check=True)
+
+    def _ensure_metrics_port_open(self):
+        self.unit.open_port("tcp", METRICS_PORT)
+        logger.info("Opened tcp/%d for metrics endpoint", METRICS_PORT)
 
     def _resolve_path(self, configured_path: str, description: str) -> Path:
         if not configured_path:

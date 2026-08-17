@@ -1,4 +1,4 @@
-name: metrics-exporter
+name: custom-metrics-exporter
 summary: Install prometheus-pushgateway snap
 
 description: |
@@ -9,6 +9,12 @@ type: charm
 base: ubuntu@24.04
 platforms:
   amd64:
+
+resources:
+  exporter-snap:
+    type: file
+    filename: prometheus-pushgateway.snap
+    description: Local .snap payload for prometheus-pushgateway.
 
 parts:
   charm:

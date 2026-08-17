@@ -11,6 +11,12 @@ base: ubuntu@24.04
 platforms:
   amd64:
 
+resources:
+  grafana-agent-snap:
+    type: file
+    filename: grafana-agent.snap
+    description: Local .snap payload for grafana-agent.
+
 parts:
   charm:
     plugin: charm

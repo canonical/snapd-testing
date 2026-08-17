@@ -14,6 +14,7 @@ from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
 
 logger = logging.getLogger(__name__)
+GRAFANA_AGENT_SNAP_RESOURCE = "grafana-agent-snap"
 GRAFANA_AGENT_CONFIG_TEMPLATE = "config/charm/grafana-agent.yaml.orig"
 GRAFANA_AGENT_CONFIG_SCRIPT = "scripts/configure-grafana-agent.sh"
 
@@ -45,6 +46,7 @@ class GrafanaAgentInstallerCharm(CharmBase):
     def _reconcile(self):
         try:
             self._ensure_snapd()
+            self._ensure_grafana_agent_snap()
             self._run_grafana_agent_config_script()
             self.unit.status = ActiveStatus("grafana-agent configured")
         except FileNotFoundError as exc:
@@ -64,6 +66,30 @@ class GrafanaAgentInstallerCharm(CharmBase):
     def _ensure_snapd(self):
         self._run(["snap", "version"], check=True)
 
+    def _ensure_grafana_agent_snap(self):
+        snap_name = "grafana-agent"
+
+        result = self._run(["snap", "list", snap_name], check=False)
+        if result.returncode == 0:
+            logger.info("Snap %s already installed", snap_name)
+            return
+
+        try:
+            snap_path = self.model.resources.fetch(GRAFANA_AGENT_SNAP_RESOURCE)
+        except Exception as exc:
+            raise FileNotFoundError(
+                f"Snap resource '{GRAFANA_AGENT_SNAP_RESOURCE}' is not available; "
+                "attach it with: juju attach-resource <app> grafana-agent-snap=/path/to/grafana-agent.snap"
+            ) from exc
+
+        if not snap_path.exists() or snap_path.suffix != ".snap":
+            raise FileNotFoundError(
+                f"Snap resource '{GRAFANA_AGENT_SNAP_RESOURCE}' is invalid: expected a .snap file, got {snap_path}"
+            )
+
+        logger.info("Installing snap from %s", snap_path)
+        self._run(["snap", "install", "--dangerous", str(snap_path)], check=True)
+
     def _run_grafana_agent_config_script(self):
         script = self._resolve_path(GRAFANA_AGENT_CONFIG_SCRIPT, "grafana-agent configuration script")
 
@@ -72,7 +98,6 @@ class GrafanaAgentInstallerCharm(CharmBase):
         )
 
         env = {
-            "GRAFANA_AGENT_CHANNEL": str(self.config["grafana-agent-channel"]).strip() or "stable",
             "GRAFANA_AGENT_CONFIG_TEMPLATE": template_path,
             "GRAFANA_AGENT_PROJECT": str(self.config["grafana-agent-project"]).strip(),
             "GRAFANA_AGENT_AGENT": str(self.config["grafana-agent-name"]).strip(),

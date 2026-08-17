@@ -16,7 +16,7 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingSta
 
 logger = logging.getLogger(__name__)
 
-EXPORTER_SNAP_INSTALL_SCRIPT = "scripts/ensure-exporter-snap.sh"
+EXPORTER_SNAP_RESOURCE = "exporter-snap"
 EXPORTER_CONFIG_SCRIPT = "scripts/configure-openstack-metrics-exporter.sh"
 CLOUDS_YAML_TEMPLATE = "config/charm/clouds.yaml"
 CLOUDS_YAML_PATH = "/etc/openstack/clouds.yaml"
@@ -71,6 +71,7 @@ class OpenstackMetricsExporterCharm(CharmBase):
 
     def _reconcile(self):
         try:
+            self._apply_proxy_settings()
             self._ensure_snapd()
             self._ensure_exporter_snap()
             self._generate_clouds_yaml()
@@ -93,15 +94,83 @@ class OpenstackMetricsExporterCharm(CharmBase):
     def _ensure_snapd(self):
         self._run(["snap", "version"], check=True)
 
+    def _apply_proxy_settings(self):
+        """Apply HTTP/HTTPS proxy settings to the system environment and snapd."""
+        http_proxy = str(self.config.get("http-proxy", "")).strip()
+        https_proxy = str(self.config.get("https-proxy", "")).strip()
+        no_proxy = str(self.config.get("no-proxy", "")).strip()
+
+        env_vars = []
+        if http_proxy:
+            env_vars.append(f"http_proxy={http_proxy}")
+            env_vars.append(f"HTTP_PROXY={http_proxy}")
+        if https_proxy:
+            env_vars.append(f"https_proxy={https_proxy}")
+            env_vars.append(f"HTTPS_PROXY={https_proxy}")
+        if no_proxy:
+            env_vars.append(f"no_proxy={no_proxy}")
+            env_vars.append(f"NO_PROXY={no_proxy}")
+
+        if not env_vars:
+            return
+
+        env_file = "/etc/environment"
+        env_content = ""
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                env_content = f.read()
+        except FileNotFoundError:
+            pass
+
+        proxy_vars = ("HTTP_PROXY=", "HTTPS_PROXY=", "NO_PROXY=", "http_proxy=", "https_proxy=", "no_proxy=")
+        lines = [line for line in env_content.split("\n") if not line.startswith(proxy_vars)]
+
+        for var in env_vars:
+            key, value = var.split("=", 1)
+            lines.append(f'{key}="{value}"')
+
+        new_content = "\n".join(lines) + ("\n" if lines else "")
+        with open(env_file, "w", encoding="utf-8") as f:
+            f.write(new_content)
+        logger.info("Proxy settings applied to %s", env_file)
+
+        snapd_service_dir = "/etc/systemd/system/snapd.service.d"
+        os.makedirs(snapd_service_dir, mode=0o755, exist_ok=True)
+
+        snapd_proxy_conf = f"""[Service]
+Environment={' '.join(env_vars)}
+"""
+        snapd_proxy_file = os.path.join(snapd_service_dir, "proxy.conf")
+        with open(snapd_proxy_file, "w", encoding="utf-8") as f:
+            f.write(snapd_proxy_conf)
+        logger.info("Snapd proxy configuration written to %s", snapd_proxy_file)
+
+        self._run(["systemctl", "daemon-reload"], check=True)
+        self._run(["systemctl", "restart", "snapd"], check=True)
+
     def _ensure_exporter_snap(self):
-        script = self._resolve_path(EXPORTER_SNAP_INSTALL_SCRIPT, "exporter snap installer script")
+        snap_name = str(self.config["exporter-snap-name"]).strip() or "golang-openstack-metrics-exporter"
 
-        env = {
-            "EXPORTER_SNAP_URL": str(self.config["exporter-snap-url"]).strip(),
-            "EXPORTER_SNAP_NAME": str(self.config["exporter-snap-name"]).strip() or "golang-openstack-metrics-exporter",
-        }
+        result = self._run(["snap", "list", snap_name], check=False)
+        if result.returncode == 0:
+            logger.info("Snap %s already installed", snap_name)
+            return
 
-        self._run([str(script)], env=env, check=True)
+        try:
+            snap_path = self.model.resources.fetch(EXPORTER_SNAP_RESOURCE)
+        except Exception as exc:
+            raise FileNotFoundError(
+                f"Snap resource '{EXPORTER_SNAP_RESOURCE}' is not available; "
+                "attach it with: juju attach-resource <app> exporter-snap=/path/to/exporter.snap"
+            ) from exc
+
+        if not snap_path.exists() or snap_path.suffix != ".snap":
+            raise FileNotFoundError(
+                f"Snap resource '{EXPORTER_SNAP_RESOURCE}' is invalid: expected a .snap file, got {snap_path}"
+            )
+
+        logger.info("Installing snap from %s", snap_path)
+        self._run(["snap", "install", "--dangerous", str(snap_path)], check=True)
 
     def _generate_clouds_yaml(self):
         """Generate clouds.yaml from OpenStack credentials secret."""
@@ -148,10 +217,10 @@ class OpenstackMetricsExporterCharm(CharmBase):
     def _generate_clouds_yaml_from_secret(self, creds: dict[str, str], project: str):
         """Generate clouds.yaml from secret credentials."""
         template = self._resolve_path(CLOUDS_YAML_TEMPLATE, "clouds.yaml template")
-        
+
         with open(template, "r", encoding="utf-8") as f:
             content = f.read()
-        
+
         # Replace placeholders
         replacements = {
             "#PROJECT#": project,
@@ -163,15 +232,15 @@ class OpenstackMetricsExporterCharm(CharmBase):
             "#OS_PROJECT_DOMAIN_NAME#": creds.get("OS_PROJECT_DOMAIN_NAME", ""),
             "#OS_REGION_NAME#": creds.get("OS_REGION_NAME", ""),
         }
-        
+
         for placeholder, value in replacements.items():
             content = content.replace(placeholder, value)
-        
+
         # Write to temporary file and move atomically
         with tempfile.NamedTemporaryFile(mode="w", delete=False, encoding="utf-8") as tmp:
             tmp.write(content)
             tmp_path = tmp.name
-        
+
         try:
             self._run(["sudo", "mkdir", "-p", str(Path(CLOUDS_YAML_PATH).parent)], check=True)
             self._run(["sudo", "mv", tmp_path, CLOUDS_YAML_PATH], check=True)
@@ -224,6 +293,21 @@ class OpenstackMetricsExporterCharm(CharmBase):
         cmd_display = cmd if isinstance(cmd, str) else shlex.join(cmd)
         logger.info("Running command: %s", cmd_display)
         run_env = os.environ.copy()
+
+        http_proxy = str(self.config.get("http-proxy", "")).strip()
+        https_proxy = str(self.config.get("https-proxy", "")).strip()
+        no_proxy = str(self.config.get("no-proxy", "")).strip()
+
+        if http_proxy:
+            run_env["http_proxy"] = http_proxy
+            run_env["HTTP_PROXY"] = http_proxy
+        if https_proxy:
+            run_env["https_proxy"] = https_proxy
+            run_env["HTTPS_PROXY"] = https_proxy
+        if no_proxy:
+            run_env["no_proxy"] = no_proxy
+            run_env["NO_PROXY"] = no_proxy
+
         if env:
             run_env.update(env)
         return subprocess.run(

@@ -2,8 +2,8 @@
 
 This machine charm performs the following workflow:
 
-1. Installs `golang-openstack-metrics-exporter` snap from a configured URL.
-2. Runs a bash script to configure `golang-openstack-metrics-exporter` snap settings.
+1. Installs `golang-openstack-exporter` snap from an attached Juju file resource.
+2. Runs a bash script to configure `golang-openstack-exporter` snap settings.
 
 ## Build
 
@@ -14,24 +14,77 @@ charmcraft pack
 
 ## Deploy
 
+Deploy from Charmhub (no local charm file):
+
+```bash
+juju deploy openstack-metrics-exporter --channel latest/edge
+```
+
+Example with snap resource and OpenStack secret:
+
+```bash
+# Get the secret ID first
+SECRET_ID=$(juju show-secret openstack-metrics-exporter-credentials --format=json | jq -r '.[] | .id')
+
+juju deploy openstack-metrics-exporter --channel latest/edge \
+  --resource exporter-snap=/path/to/golang-openstack-exporter.snap \
+  --config exporter-snap-name=golang-openstack-exporter \
+  --config secret-id=$SECRET_ID \
+  --config project=stg-snapd-spread-amd64
+```
+
+Deploy from a local charm artifact:
+
 ```bash
 juju deploy ./openstack-metrics-exporter_ubuntu-24.04-amd64.charm
 ```
 
-Example with custom snap URL and OpenStack secret:
+Example with snap resource and OpenStack secret:
 
 ```bash
 # Get the secret ID first
 SECRET_ID=$(juju show-secret openstack-metrics-exporter-credentials --format=json | jq -r '.[] | .id')
 
 juju deploy ./openstack-metrics-exporter_ubuntu-24.04-amd64.charm \
+  --resource exporter-snap=/path/to/golang-openstack-exporter.snap \
+  --config exporter-snap-name=golang-openstack-exporter \
   --config secret-id=$SECRET_ID \
-  --config project=stg-snapd-spread-amd64
+  --config project=stg-snapd-spread-amd64 \
+  --config http-proxy="http://egress.ps7.internal:3128" \
+  --config https-proxy="http://egress.ps7.internal:3128" \
+  --config no-proxy="127.0.0.1,127.0.0.53,localhost"
+```
+
+If the application is already deployed, attach or update the resource with:
+
+```bash
+juju attach-resource openstack-metrics-exporter exporter-snap=/path/to/golang-openstack-exporter.snap
+```
+
+If your snap installs under a different snap name than the charm default, set it explicitly:
+
+```bash
+juju config openstack-metrics-exporter exporter-snap-name=golang-openstack-exporter
+```
+
+Example with proxy settings:
+
+```bash
+juju deploy ./openstack-metrics-exporter_ubuntu-24.04-amd64.charm \
+  --config http-proxy="http://egress.ps7.internal:3128" \
+  --config https-proxy="http://egress.ps7.internal:3128" \
+  --config no-proxy="127.0.0.1,127.0.0.53,localhost"
 ```
 
 ## Configure
 
 The charm requires OpenStack credentials to be stored in a Juju secret. The secret ID is used for credentials lookup, and `project` is configured separately as the project identifier for both `clouds.yaml` and the exporter snap. Here's how to set it up:
+
+The charm also supports the following proxy configuration options:
+
+- `http-proxy`: HTTP proxy URL (e.g., `http://proxy.example.com:8080`)
+- `https-proxy`: HTTPS proxy URL (e.g., `http://proxy.example.com:8080`)
+- `no-proxy`: Comma-separated list of hosts to bypass proxy (e.g., `localhost,127.0.0.1`)
 
 ### 1. Create a Juju Secret with OpenStack Credentials
 
@@ -74,6 +127,7 @@ SECRET_ID=$(juju show-secret openstack-metrics-exporter-credentials --format=jso
 
 juju config openstack-metrics-exporter secret-id=$SECRET_ID
 juju config openstack-metrics-exporter project=stg-snapd-spread-amd64
+juju config openstack-metrics-exporter exporter-snap-name=golang-openstack-exporter
 ```
 
 ### 4. (Optional) Rotate Credentials

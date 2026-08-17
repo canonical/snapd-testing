@@ -2,7 +2,6 @@
 set -euo pipefail
 
 SNAP_NAME="grafana-agent"
-CHANNEL="${GRAFANA_AGENT_CHANNEL:-stable}"
 CONFIG_TEMPLATE="${GRAFANA_AGENT_CONFIG_TEMPLATE:-}"
 PROJECT="${GRAFANA_AGENT_PROJECT:-}"
 AGENT="${GRAFANA_AGENT_AGENT:-}"
@@ -12,12 +11,6 @@ PORT="${GRAFANA_AGENT_PORT:-}"
 SCRAPE_INTERVAL="${GRAFANA_AGENT_SCRAPE_INTERVAL:-1m}"
 SCRAPE_TIMEOUT="${GRAFANA_AGENT_SCRAPE_TIMEOUT:-10s}"
 CFG_PATH="/etc/grafana-agent.yaml"
-
-if snap list "$SNAP_NAME" >/dev/null 2>&1; then
-    snap refresh "$SNAP_NAME" --channel "$CHANNEL"
-else
-    snap install "$SNAP_NAME" --channel "$CHANNEL"
-fi
 
 if [[ -n "$CONFIG_TEMPLATE" ]]; then
     if [[ ! -f "$CONFIG_TEMPLATE" ]]; then

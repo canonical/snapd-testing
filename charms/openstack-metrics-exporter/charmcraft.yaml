@@ -10,6 +10,39 @@ base: ubuntu@24.04
 platforms:
   amd64:
 
+resources:
+  exporter-snap:
+    type: file
+    filename: exporter.snap
+    description: Local .snap payload for golang-openstack-metrics-exporter.
+
+config:
+  options:
+    exporter-snap-name:
+      type: string
+      default: golang-openstack-metrics-exporter
+      description: "Snap name for exporter configuration."
+    http-proxy:
+      type: string
+      default: ""
+      description: "HTTP proxy URL (e.g., http://proxy.example.com:8080)"
+    https-proxy:
+      type: string
+      default: ""
+      description: "HTTPS proxy URL (e.g., http://proxy.example.com:8080)"
+    no-proxy:
+      type: string
+      default: ""
+      description: "Comma-separated list of hosts to bypass proxy (e.g., localhost,127.0.0.1)"
+    secret-id:
+      type: string
+      default: ""
+      description: "Juju secret ID containing OpenStack credentials. The secret must contain Juju-compatible keys: os-auth-url, os-project-name, os-username, os-password, os-user-domain-name, os-project-domain-name, os-region-name, os-tenant-id."
+    project:
+      type: string
+      default: ""
+      description: "Project identifier used to configure clouds.yaml and the exporter snap (e.g. stg-snapd-spread-amd64)."
+
 parts:
   charm:
     plugin: charm
