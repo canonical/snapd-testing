@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "name": "representative-spread-queries",
+  "default_headers": {
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    "User-Agent": "store-load/0.1"
+  },
+  "clients": [
+    {
+      "name": "classic-amd64",
+      "weight": 4,
+      "variables": {
+        "architecture": "amd64",
+        "series": "16",
+        "refresh_context": []
+      }
+    },
+    {
+      "name": "core-amd64",
+      "weight": 1,
+      "variables": {
+        "architecture": "amd64",
+        "series": "16",
+        "refresh_context": []
+      }
+    }
+  ],
+  "requests": [
+    {
+      "name": "refresh",
+      "method": "POST",
+      "path": "/v2/snaps/refresh",
+      "weight": 8,
+      "auth": "device",
+      "headers": {
+        "Snap-Device-Architecture": "${architecture}",
+        "Snap-Device-Series": "${series}"
+      },
+      "body": {
+        "context": "${refresh_context}",
+        "actions": [],
+        "fields": []
+      }
+    },
+    {
+      "name": "find",
+      "method": "GET",
+      "path": "/v2/snaps/find?q=test-snapd-tools",
+      "weight": 2,
+      "headers": {
+        "Snap-Device-Architecture": "${architecture}",
+        "Snap-Device-Series": "${series}"
+      }
+    }
+  ]
+}
