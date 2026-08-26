@@ -1,0 +1,21 @@
+version = 1
+
+[targets.local]
+base_url = "http://127.0.0.1:18080"
+allowed_hosts = ["127.0.0.1"]
+protected = false
+allow_http = true
+max_clients = 50
+max_duration_seconds = 600
+max_requests_per_second = 20.0
+probe_path = "/health"
+
+[targets.enterprise]
+base_url = "https://enterprise-store.example.invalid"
+allowed_hosts = ["enterprise-store.example.invalid"]
+protected = true
+max_clients = 520
+max_duration_seconds = 7200
+max_requests_per_second = 100.0
+proxy_env = "HTTPS_PROXY"
+credentials_env = "STORE_LOAD_CREDENTIALS_FILE"

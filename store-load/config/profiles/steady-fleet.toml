@@ -1,0 +1,23 @@
+version = 1
+name = "steady-fleet"
+description = "Ramp to 400 stateful clients and hold for 30 minutes."
+transactions_per_client_per_minute = 0.5
+jitter_fraction = 0.2
+
+[[stages]]
+name = "warm-up"
+clients = 50
+duration_seconds = 300
+spawn_rate = 10.0
+
+[[stages]]
+name = "ramp"
+clients = 200
+duration_seconds = 300
+spawn_rate = 25.0
+
+[[stages]]
+name = "hold"
+clients = 400
+duration_seconds = 1800
+spawn_rate = 25.0

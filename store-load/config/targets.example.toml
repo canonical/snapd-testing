@@ -1,0 +1,25 @@
+version = 1
+
+# Limits are examples only. Store owners must approve the final values.
+[targets.production]
+base_url = "https://api.snapcraft.io"
+allowed_hosts = ["api.snapcraft.io"]
+protected = true
+max_clients = 520
+max_duration_seconds = 7200
+max_requests_per_second = 100.0
+proxy_env = "HTTPS_PROXY"
+credentials_env = "STORE_LOAD_CREDENTIALS_FILE"
+probe_path = "/"
+
+# Replace this non-routable placeholder before running a network preflight.
+[targets.enterprise]
+base_url = "https://enterprise-store.example.invalid"
+allowed_hosts = ["enterprise-store.example.invalid"]
+protected = true
+max_clients = 520
+max_duration_seconds = 7200
+max_requests_per_second = 100.0
+proxy_env = "HTTPS_PROXY"
+credentials_env = "STORE_LOAD_CREDENTIALS_FILE"
+probe_path = "/"
