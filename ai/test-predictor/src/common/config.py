@@ -174,3 +174,32 @@ PREDICTOR_PORT = 5001
 TRAINER_PORT = 5002
 CLEANER_PORT = 5003
 DEPENDENCY_PORT = 5004
+ESN_PREDICTOR_PORT = 5005
+
+# Echo State Network (Reservoir Computing) Settings
+
+# The ESN acts as an independent second source of truth alongside the LSTM.
+ESN_MODEL_NAME = 'test_predictor_esn.pkl'
+ESN_METADATA_NAME = 'esn_metadata.pkl'
+
+# Reservoir size: number of recurrent neurons. 200-500 is typical for
+# tabular-sequential data. Larger = more expressive but slower.
+ESN_RESERVOIR_SIZE = 300
+# Spectral radius: controls memory length. Values near 1.0 give longer memory.
+# For spread tests with 15-step sequences, 0.95 works well.
+ESN_SPECTRAL_RADIUS = 0.95
+# Leaking rate: how quickly the reservoir forgets. Lower = longer memory.
+# 0.3 balances recent-event sensitivity with history awareness.
+ESN_LEAKING_RATE = 0.3
+# Input scaling: amplitude of input-to-reservoir projections.
+ESN_INPUT_SCALING = 0.5
+# Ridge regression regularization for readout layer.
+# Higher alpha = more regularization = less overfitting.
+ESN_RIDGE_ALPHA = 1.0
+# Random seed for reproducible reservoir initialization.
+ESN_SEED = 42
+# Sensitivity multiplier for flakiness score computation.
+# Higher = more sensitive to reservoir state variance.
+ESN_FLAKINESS_SENSITIVITY = 5.0
+# Weight given to ESN in ensemble predictions (LSTM gets 1 - this).
+ESN_ENSEMBLE_WEIGHT = 0.35

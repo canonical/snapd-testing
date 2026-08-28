@@ -101,6 +101,11 @@ def perform_training_cycle():
         # for a potentially slow/restarting predictor instance.
         threading.Thread(target=notify_predictor, daemon=True).start()
 
+        # Train ESN as second source of truth (uses same .ts files)
+        threading.Thread(
+            target=train_esn_shadow, args=(filtered_ts_files, shadow_dir), daemon=True
+        ).start()
+
         # Local Cleanup
         gc.collect()
         return True
@@ -108,6 +113,42 @@ def perform_training_cycle():
     except Exception as e:
         logger.error(f"Training cycle failed: {e}", exc_info=True)
         return False
+
+def train_esn_shadow(ts_files, shadow_dir):
+    """Train the ESN in the background and notify its predictor to reload."""
+    from common.esn_model import ESNManager
+    try:
+        logger.info("Starting ESN training (shadow)...")
+
+        # Load the LSTM's encoders so both models encode features identically.
+        lstm_encoders = None
+        lstm_metadata_path = os.path.join(config.MODEL_DIR, config.METADATA_NAME)
+        if os.path.exists(lstm_metadata_path):
+            import pickle
+            with open(lstm_metadata_path, 'rb') as f:
+                lstm_encoders, _ = pickle.load(f)
+            logger.info("ESN will use LSTM's encoders for consistency.")
+
+        esn_manager = ESNManager()
+        success = esn_manager.train(ts_files, encoders=lstm_encoders, output_dir=shadow_dir)
+        if success:
+            notify_esn_predictor()
+        else:
+            logger.warning("ESN training did not succeed.")
+    except Exception as e:
+        logger.error(f"ESN shadow training failed: {e}", exc_info=True)
+
+def notify_esn_predictor():
+    """Notify the ESN predictor service to reload its model from disk."""
+    try:
+        url = f"http://{config.SERVER_HOST}:{config.ESN_PREDICTOR_PORT}/internal/reload"
+        resp = requests.post(url, json=None, timeout=(3, 10))
+        if resp.status_code == 200:
+            logger.info("ESN Predictor successfully reloaded.")
+        else:
+            logger.warning("ESN Predictor reload returned status %d.", resp.status_code)
+    except Exception as e:
+        logger.error(f"Could not reach ESN Predictor for reload: {e}")
 
 def notify_predictor():
     logger.info("Notifying Predictor...")
