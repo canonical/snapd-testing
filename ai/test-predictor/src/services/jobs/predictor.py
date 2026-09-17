@@ -415,6 +415,7 @@ def audit_prediction(X_input, probability, params, model_manager):
     }
 
     # Save to a rolling log file
+    os.makedirs(config.LOGS_DIR, exist_ok=True)
     audit_log_path = os.path.join(config.LOGS_DIR, config.PREDICTION_LOG)
     with open(audit_log_path, "a") as f:
         f.write(json.dumps(audit_record) + "\n")
@@ -460,6 +461,7 @@ def audit_history(history, model_manager):
 
     # Log to the audit file
     # We use a separate log or the main prediction log
+    os.makedirs(config.LOGS_DIR, exist_ok=True)
     audit_log_path = os.path.join(config.LOGS_DIR, config.HISTORY_LOG)
     try:
         with open(audit_log_path, "a") as f:

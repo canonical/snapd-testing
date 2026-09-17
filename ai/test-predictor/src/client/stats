@@ -5,11 +5,11 @@ import argparse
 
 def normalize_base_url(raw_url):
     """
-    Ensure the base URL is well-formed, defaulting to http://test-predictor.canonical.com if empty.
+    Ensure the base URL is well-formed, defaulting to http://test-predictor.snapd.canonical.com if empty.
     """
     url = (raw_url or "").strip()
     if not url:
-        return "http://test-predictor.canonical.com"
+        return "http://test-predictor.snapd.canonical.com"
     if not url.startswith(("http://", "https://")):
         url = f"http://{url}"
     return url.rstrip('/')
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Audit Client for Historical Test Results")
 
     # Connection
-    parser.add_argument("--url", default="http://test-predictor.canonical.com", help="API URL")
+    parser.add_argument("--url", default="http://test-predictor.snapd.canonical.com", help="API URL")
     parser.add_argument("--port", type=int, default=5000, help="API Port")
 
     # Filters

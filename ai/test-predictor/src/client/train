@@ -6,11 +6,11 @@ import json
 
 def normalize_base_url(raw_url):
     """
-    Ensure the base URL is well-formed, defaulting to http://test-predictor.canonical.com if empty.
+    Ensure the base URL is well-formed, defaulting to http://test-predictor.snapd.canonical.com if empty.
     """
     url = (raw_url or "").strip()
     if not url:
-        url = "http://test-predictor.canonical.com"
+        url = "http://test-predictor.snapd.canonical.com"
     if not url.startswith(("http://", "https://")):
         url = f"http://{url}"
     return url.rstrip('/')
@@ -52,7 +52,7 @@ def handle_status(base_url, port):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Control the Model Trainer Service.")
-    parser.add_argument("--url", default="http://test-predictor.canonical.com", help="Base URL")
+    parser.add_argument("--url", default="http://test-predictor.snapd.canonical.com", help="Base URL")
     parser.add_argument("--port", type=int, default=5000, help="Port")
     
     subparsers = parser.add_subparsers(dest="command", required=True)

@@ -5,11 +5,11 @@ import requests
 
 def normalize_base_url(raw_url):
     """
-    Ensure the base URL is well-formed, defaulting to http://test-predictor.canonical.com if empty.
+    Ensure the base URL is well-formed, defaulting to http://test-predictor.snapd.canonical.com if empty.
     """
     url = (raw_url or "").strip()
     if not url:
-        return "http://test-predictor.canonical.com"
+        return "http://test-predictor.snapd.canonical.com"
     if not url.startswith(("http://", "https://")):
         url = f"http://{url}"
     return url.rstrip('/')
@@ -309,7 +309,7 @@ def handle_cache_status(base_url, args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test dependency analysis client")
-    parser.add_argument("--url", default="http://test-predictor.canonical.com")
+    parser.add_argument("--url", default="http://test-predictor.snapd.canonical.com")
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--limit", type=int, default=20,
                         help="Max rows to display (default: 20)")
