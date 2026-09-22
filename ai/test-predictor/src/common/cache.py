@@ -163,8 +163,8 @@ class SystemStateCache:
 
     def get_context(self, system, name, verb, attempt=None, scenario=None, backend=None):
         """
-        Retrieves filtered history, falling back to general history if needed,
-        and caps the result to (SEQUENCE_LENGTH - 1) to fit the model window.
+        Retrieves filtered history and caps the result to
+        (SEQUENCE_LENGTH - 1) to fit the model window.
         """
         try:
             # Access the base bucket
@@ -179,16 +179,10 @@ class SystemStateCache:
             if attempt is not None:
                 filtered = [i for i in filtered if i.get('attempt') == int(attempt)]
             
-            # Determine the best history to use (filtered or fallback)
-            result = filtered if filtered else full_history
-            
-            if not filtered and full_history:
-                logger.debug(f"No specific match for {name} (Scenario: {scenario}). Falling back to general history.")
-
             # We need (Length - 1) because the 'predict' function adds the current test data.
             max_history = max(0, config.SEQUENCE_LENGTH - 1)
             
-            return result[-max_history:]
+            return filtered[-max_history:]
             
         except (KeyError, ValueError, TypeError):
             # Returns empty list if system/test/verb doesn't exist in cache yet

@@ -507,7 +507,7 @@ def predict():
             name=name,
             verb=verb,
             attempt=None,
-            scenario=None,
+            scenario=scenario,
             backend=backend_filter,
         )
 
@@ -630,12 +630,13 @@ def get_internal_context():
     name = request.args.get('name')
     verb = request.args.get('verb')
     backend = request.args.get('backend')
+    scenario = request.args.get('scenario') or config.DEFAULT_SCENARIO
 
     if not system:
         return jsonify({"error": "System required"}), 400
 
     backend_filter = str(backend).strip() if backend is not None and str(backend).strip() else None
-    history = app.state_cache.get_context(system, name, verb, None, None, backend_filter)
+    history = app.state_cache.get_context(system, name, verb, None, scenario, backend_filter)
     return jsonify({
         "system": system,
         "name": name,
@@ -662,6 +663,7 @@ def get_internal_pattern():
     base_data = {
         "name": request.args.get('name'),
         "verb": request.args.get('verb'),
+        "backend": request.args.get('backend'),
         "system": request.args.get('system'),
         "attempt": request.args.get('attempt', config.DEFAULT_ATTEMPT),
         "scenario": request.args.get('scenario', config.DEFAULT_SCENARIO)
@@ -769,6 +771,7 @@ def test_scenarios():
     base_data = {
         "name": request.args.get('name'),
         "verb": request.args.get('verb'),
+        "backend": request.args.get('backend'),
         "system": request.args.get('system'),
         "attempt": request.args.get('attempt', config.DEFAULT_ATTEMPT),
         "scenario": request.args.get('scenario', config.DEFAULT_SCENARIO)

@@ -94,7 +94,8 @@ def rank_risk():
     for n in names:
         payload = {
             "name": n, "verb": p['verb'], "system": p['system'], 
-            "attempt": p['attempt'], "scenario": p['scenario']
+            "backend": p['backend'], "attempt": p['attempt'],
+            "scenario": p['scenario']
         }
         result, status_code = call_internal_predictor(payload)
         
@@ -145,7 +146,10 @@ def worst_systems():
     results = []
     # Predict for the given name and verb across all systems to find the riskiest ones
     for s in systems:
-        payload = {"name": p['name'], "verb": p['verb'], "system": s, "attempt": p['attempt'], "scenario": p['scenario']}
+        payload = {
+            "name": p['name'], "verb": p['verb'], "backend": p['backend'],
+            "system": s, "attempt": p['attempt'], "scenario": p['scenario']
+        }
         result, status_code = call_internal_predictor(payload)
         if status_code != 200:
             return jsonify(result), status_code
