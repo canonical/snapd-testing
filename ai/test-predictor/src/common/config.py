@@ -69,6 +69,8 @@ NUM_FEATURES = len(FEATURE_COLUMNS)
 # This is the minimum set of columns that must be present in the .ts files for the model to train and predict correctly.
 MANDATORY_TS_COLUMNS = [ 
     'runid',
+    'job_id',
+    'run_id',
     'instance',
     'start',
     'duration_ms',

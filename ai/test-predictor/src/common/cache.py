@@ -42,6 +42,8 @@ class SystemStateCache:
             'backend': str(data.get('backend') or 'unknown'),
             'system': str(data.get('system') or 'unknown'),
             'scenario': str(data.get('scenario') or config.DEFAULT_SCENARIO),
+            'job_id': safe_int(data.get('job_id'), None),
+            'run_id': safe_int(data.get('run_id'), None),
             'success': safe_int(data.get('success'), 0),
             'attempt': safe_int(data.get('attempt'), config.DEFAULT_ATTEMPT),
             'start': str(data.get('start') or '')

@@ -17,6 +17,8 @@ class TestSystemStateCache(unittest.TestCase):
                 "verb": "executing",
                 "backend": backend,
                 "scenario": scenario,
+                "job_id": 107455174491,
+                "run_id": 35731362637,
                 "success": success,
             })
 
@@ -47,6 +49,15 @@ class TestSystemStateCache(unittest.TestCase):
 
         self.assertEqual(len(history), 1)
         self.assertEqual(history[0]["scenario"], "master")
+
+    def test_context_includes_github_ids(self):
+        history = self.cache.get_context(
+            "ubuntu-22.04-64", "tests/main/example", "executing",
+            scenario="master", backend="openstack",
+        )
+
+        self.assertEqual(history[0]["job_id"], 107455174491)
+        self.assertEqual(history[0]["run_id"], 35731362637)
 
 
 if __name__ == "__main__":

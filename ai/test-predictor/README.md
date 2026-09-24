@@ -168,6 +168,9 @@ curl "http://test-predictor.canonical.com:5000/list/systems"
 curl "http://test-predictor.canonical.com:5000/predict-pattern?name=tests/smoke/foo&verb=install&system=ubuntu-core-24-64&pattern=0,1,0,1,0,1"
 ```
 
+Each `history` entry returned by `predict-with-history` includes the ingestion
+`job_id` and `run_id` for the corresponding result.
+
 ### 3. Trainer
 
 ```bash

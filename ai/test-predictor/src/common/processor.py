@@ -14,6 +14,12 @@ def _extract_attempt(filename):
     match = re.search(r"attempt_(\d+)", filename)
     return int(match.group(1)) if match else config.DEFAULT_ATTEMPT
 
+def _extract_github_ids(filename):
+    match = re.search(r"results_job_(\d+)_run_(\d+)", filename)
+    if not match:
+        raise ValueError(f"Cannot extract job_id and run_id from filename: {filename}")
+    return int(match.group(1)), int(match.group(2))
+
 
 def get_files_for_attempt(file_paths, attempt, extension="ts"):
     """Return only files whose name ends with `_attempt_<n>.<extension>`."""
@@ -30,11 +36,11 @@ def get_files_for_attempt(file_paths, attempt, extension="ts"):
 
     return matched
 
-def _clean_and_transform_data(raw_data, scenario, attempt):
+def _clean_and_transform_data(raw_data, scenario, attempt, job_id, run_id):
     """
     Core logic to transform raw JSON items into the specific TS format.
     """
-    run_id = secrets.token_hex(4)
+    batch_id = secrets.token_hex(4)
 
     if 'items' not in raw_data:
         logger.error("Invalid data format: 'items' key missing")
@@ -60,7 +66,9 @@ def _clean_and_transform_data(raw_data, scenario, attempt):
     df = df[df['verb'] != 'checking'].copy()
     
     # METADATA
-    df['runid'] = run_id
+    df['runid'] = batch_id
+    df['job_id'] = job_id
+    df['run_id'] = run_id
     df['scenario'] = scenario 
     df['attempt'] = attempt
 
@@ -96,7 +104,7 @@ def _clean_and_transform_data(raw_data, scenario, attempt):
     df = df.dropna()
 
     logger.info(f"Transformed data for run_id={run_id} with {len(df)} items and columns: {final_cols}")
-    return df[final_cols], run_id
+    return df[final_cols], batch_id
 
 
 def process_results(json_files, ts_dir):
@@ -112,8 +120,11 @@ def process_results(json_files, ts_dir):
         try:
             attempt = _extract_attempt(filename)
             scenario = _extract_scenario(filename)
+            job_id, run_id = _extract_github_ids(filename)
             with open(json_path, 'r') as f:
-                df, _ = _clean_and_transform_data(json.load(f), scenario, attempt)
+                df, _ = _clean_and_transform_data(
+                    json.load(f), scenario, attempt, job_id, run_id
+                )
 
             # Save the valid TS file
             df.to_csv(ts_path, index=False)

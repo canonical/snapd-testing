@@ -150,10 +150,12 @@ def handle_context(base_url, args):
                     rows.append([
                         f"Step -{len(history)-i}",
                         entry.get('start', 'N/A')[:19],
-                        f"Atmt {entry.get('attempt', 1)}",
+                        entry.get('run_id') or 'N/A',
+                        entry.get('job_id') or 'N/A',
+                        entry.get('attempt', 1),
                         res
                     ])
-                print_table(["OFFSET", "START TIME", "TRY", "RESULT"], rows)
+                print_table(["OFFSET", "START TIME", "RUN ID", "JOB ID", "ATTEMPT", "RESULT"], rows)
             else:
                 print("No history available for this specific test/system/verb.")
         else:
