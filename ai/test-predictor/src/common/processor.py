@@ -14,7 +14,7 @@ def _extract_attempt(filename):
     match = re.search(r"attempt_(\d+)", filename)
     return int(match.group(1)) if match else config.DEFAULT_ATTEMPT
 
-def _extract_github_ids(filename):
+def extract_github_ids(filename):
     match = re.search(r"results_job_(\d+)_run_(\d+)", filename)
     if not match:
         raise ValueError(f"Cannot extract job_id and run_id from filename: {filename}")
@@ -120,7 +120,7 @@ def process_results(json_files, ts_dir):
         try:
             attempt = _extract_attempt(filename)
             scenario = _extract_scenario(filename)
-            job_id, run_id = _extract_github_ids(filename)
+            job_id, run_id = extract_github_ids(filename)
             with open(json_path, 'r') as f:
                 df, _ = _clean_and_transform_data(
                     json.load(f), scenario, attempt, job_id, run_id

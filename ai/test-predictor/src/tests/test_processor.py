@@ -1,11 +1,11 @@
 import unittest
 
-from common.processor import _clean_and_transform_data, _extract_github_ids
+from common.processor import _clean_and_transform_data, extract_github_ids
 
 
 class TestProcessorProvenance(unittest.TestCase):
     def test_extracts_github_ids_from_ingestion_filename(self):
-        job_id, run_id = _extract_github_ids(
+        job_id, run_id = extract_github_ids(
             "results_job_107455174491_run_35731362637_scenario_master_attempt_6.json"
         )
 

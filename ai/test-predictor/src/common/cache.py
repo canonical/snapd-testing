@@ -5,6 +5,7 @@ import threading
 import pandas as pd
 import pickle
 from common import config
+from common.processor import extract_github_ids
 from common.utils import setup_logging
 
 logger = setup_logging("cache-manager")
@@ -59,6 +60,14 @@ class SystemStateCache:
         except Exception as e:
             logger.error(f"Failed to load snapshot: {e}")
             return None
+
+    def _has_missing_provenance(self, cache):
+        for names in cache.values():
+            for verbs in names.values():
+                for history in verbs.values():
+                    if any(item.get('job_id') is None or item.get('run_id') is None for item in history):
+                        return True
+        return False
 
     def _force_prime_and_save(self):
         """Internal helper to consolidate the 'Prime -> Save' workflow."""
@@ -139,11 +148,15 @@ class SystemStateCache:
         """Standard entry point: Restore if possible, otherwise prime."""
         restored_data = self._restore_from_snapshot()
         
-        if restored_data is not None:
+        if restored_data is not None and not self._has_missing_provenance(restored_data):
             self.cache = restored_data
             logger.info("SystemStateCache initialized from disk snapshot.")
         else:
-            logger.info("No snapshot found. Starting first-time priming...")
+            if restored_data is None:
+                logger.info("No snapshot found. Starting first-time priming...")
+            else:
+                logger.info("Snapshot lacks GitHub provenance. Rebuilding from .ts files...")
+            self.cache = {}
             self._force_prime_and_save()
         
         self._log_stats()
@@ -205,6 +218,15 @@ class SystemStateCache:
             try:
                 # Force types on read to prevent pandas from guessing 'system' is a number
                 df = pd.read_csv(f, dtype={'system': str, 'name': str, 'verb': str})
+                try:
+                    job_id, run_id = extract_github_ids(os.path.basename(f))
+                    for column, value in (('job_id', job_id), ('run_id', run_id)):
+                        if column not in df.columns:
+                            df[column] = value
+                        else:
+                            df[column] = df[column].replace(r'^\s*$', pd.NA, regex=True).fillna(value)
+                except ValueError:
+                    logger.warning(f"Could not recover GitHub IDs from {f}")
                 all_chunks.append(df)
             except Exception as e:
                 logger.error(f"Error reading {f}: {e}")
