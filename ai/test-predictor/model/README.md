@@ -1,1 +1,1 @@
-This directory is used to store the .keras models and metadata.pkl encoders
+This directory stores predictor and dependency cache snapshots.

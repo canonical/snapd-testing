@@ -18,6 +18,10 @@ if not os.path.exists(config.RESULTS_DIR):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() == 'json'
 
+def build_results_filename(job_id, run_id, pr, scenario, attempt):
+    pr_part = f"_pr_{pr}" if pr else ""
+    return f"results_job_{job_id}_run_{run_id}{pr_part}_scenario_{scenario}_attempt_{attempt}.json"
+
 @ingestion_bp.route('/ingest', methods=['POST'])
 def ingest_data():
     # Validate mandatory IDs
@@ -25,7 +29,11 @@ def ingest_data():
     run_id = request.form.get('run_id')
     attempt = request.form.get('attempt', '0')
     scenario = request.form.get('scenario', 'generic')
-    logger.info(f"Received ingestion request: job_id={job_id}, run_id={run_id}, attempt={attempt}, scenario={scenario}")
+    pr = request.form.get('pr')
+    logger.info(
+        f"Received ingestion request: job_id={job_id}, run_id={run_id}, "
+        f"attempt={attempt}, scenario={scenario}, pr={pr}"
+    )
 
     if not job_id or not run_id:
         logger.warning("Missing mandatory parameters: job_id and run_id are required")
@@ -34,6 +42,10 @@ def ingest_data():
     if not job_id.isdigit() or not run_id.isdigit():
         logger.warning(f"invalid job_id ({job_id}) or run_id ({run_id}): must be positive numbers")
         return jsonify({"error": "job_id and run_id must be positive integers"}), 400
+
+    if pr and not pr.isdigit():
+        logger.warning(f"invalid pr ({pr}): must be a positive number")
+        return jsonify({"error": "pr must be a positive integer"}), 400
 
     # Check for the file
     if 'file' not in request.files:
@@ -59,7 +71,7 @@ def ingest_data():
         return jsonify({"error": "Invalid JSON content"}), 400
 
     # Construct path and check for existing file    
-    filename = f"results_job_{job_id}_run_{run_id}_scenario_{scenario}_attempt_{attempt}.json"
+    filename = build_results_filename(job_id, run_id, pr, scenario, attempt)
     filepath = os.path.join(config.RESULTS_DIR, filename)
 
     if os.path.exists(filepath):
@@ -75,6 +87,7 @@ def ingest_data():
             "job_id": job_id, 
             "run_id": run_id,
             "scenario": scenario,
+            "pr": pr,
             "filename": filename
         }), 201
     except Exception as e:

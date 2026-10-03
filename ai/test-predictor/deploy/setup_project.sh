@@ -34,10 +34,8 @@ python3 -m pip install --upgrade pip
 
 echo "Installing project Python dependencies..."
 python3 -m pip install \
-    tensorflow \
     pandas \
     numpy \
-    scikit-learn \
     flask \
     gunicorn \
     requests \

@@ -1,20 +1,18 @@
 # Test Predictor
 
-This project uses an LSTM (Long Short-Term Memory) Neural Network to predict system test success probabilities. It analyzes historical data—Test Name (including Variants), Verb, Level, System, and Attempt—to identify high-risk scenarios and flaky tests.
+This project predicts system test success probabilities from historical pass/fail patterns. Its probabilistic scoring rules identify high-risk scenarios, sustained failures, recoveries, and flaky tests without a trained model.
 It also includes dependency analysis features to evaluate how failing tests correlate with other tests across systems and scenarios.
 
 ## Project Overview
 
-This project uses an LSTM (Long Short-Term Memory) Neural Network to predict system test success probabilities.
-It analyzes historical data—Test Name (including Variants), Verb, Level, System, and Attempt—to identify
-high-risk scenarios and flaky tests.
+The predictor groups historical results by test context and applies calibrated probabilistic rules to the retained history.
 
 ```text
 .
 ├── README.md
 ├── data/                   # Data lifecycle storage
 │   ├── results/            # Incoming raw JSON files (ingestion layer)
-│   └── ts/                 # Cleaned time-series CSV data for training
+│   └── ts/                 # Cleaned time-series CSV data for cache rebuilds
 ├── deploy/                 # Systemd templates & management scripts
 │   ├── *.service.template  # API, predictor, trainer, cleaner, and dependency templates
 │   ├── setup_project.sh    # One-shot environment + services bootstrap
@@ -23,10 +21,10 @@ high-risk scenarios and flaky tests.
 │   ├── stop_services.sh
 │   └── uninstall_services.sh
 ├── logs/                   # Runtime log files
-├── model/                  # Stored models (.keras) and metadata
+├── model/                  # Predictor and dependency cache snapshots
 └── src/
 	├── client/             # End-user CLI tools (deps, explore, ingest, predict, stats, train)
-	├── common/             # Shared logic (config, model manager, processing, utilities)
+	├── common/             # Shared logic (config, cache, processing, utilities)
 	└── services/
 		├── api/            # Flask gateway routes and handlers
 		└── jobs/           # Background predictor/trainer/cleaner services
@@ -34,7 +32,7 @@ high-risk scenarios and flaky tests.
 
 ## Service Architecture
 
-The system is split into independent services so heavy model work and maintenance jobs never block the public API.
+The system is split into independent services so cache processing and maintenance jobs never block the public API.
 
 1. Main API Gateway (`deploy/api.service.template`)
 Source: `src/services/api/main.py` (Port `5000`)
@@ -44,16 +42,16 @@ Design: Thin HTTP gateway that forwards compute-heavy requests to internal job s
 2. Standalone Predictor (`deploy/predictor.service.template`)
 Source: `src/services/jobs/predictor.py` (Port `5001`)
 Role: Persistent inference engine.
-Logic: Loads model + metadata once, serves predictions and risk queries, and supports `/internal/reload` after model promotion.
+Logic: Loads the history cache, serves probabilistic predictions and risk queries, and supports internal cache reloads.
 
 3. Standalone Trainer (`deploy/trainer.service.template`)
 Source: `src/services/jobs/trainer.py` (Port `5002`)
 Role: Background training orchestrator.
-Logic: Processes incoming JSON into `.ts`, trains in shadow mode, promotes artifacts atomically, and notifies predictor reload.
+Logic: Every two hours, processes incoming JSON into `.ts`, rebuilds the history cache snapshot, and notifies the predictor to reload it. The `/train` endpoint triggers the same operation manually.
 
 4. Standalone Cleaner (`deploy/cleaner.service.template`)
 Source: `src/services/jobs/cleaner.py` (Port `5003`)
-Role: Scheduled data/model hygiene.
+Role: Scheduled data hygiene.
 Logic: Runs periodic cleanup/restore routines and exposes manual `/internal/cleanup` trigger.
 
 5. Standalone Dependency Engine (`deploy/dependency.service.template`)
@@ -85,8 +83,8 @@ sudo apt install python3.10-venv
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Install Core AI and Data stacks
-pip install tensorflow pandas numpy scikit-learn
+# Install data processing dependencies
+pip install pandas numpy
 
 # Install Web and Task management
 pip install flask gunicorn requests apscheduler
@@ -96,35 +94,17 @@ pip install statsmodels networkx
 
 ```
 
-## Model Configuration (src/common/config.py)
+## Predictor Configuration (src/common/config.py)
 
-Tune these key variables in `src/common/config.py`:
+Key runtime settings in `src/common/config.py`:
 
 ```bash
-SEQUENCE_LENGTH=15
-LSTM_UNITS=64
-SECOND_LSTM_UNITS=32
-DENSE_UNITS=32
-DROPOUT_RATE=0.2
-ADAM_LEARNING_RATE=0.0001
-
-EPOCHS=25
-BATCH_SIZE=32
-WEIGHT_CLASS='balanced'
-WEIGHT_POSITIVE_CLASS=1.0
-WEIGHT_NEGATIVE_CLASS=4.0
-FOCAL_LOSS_GAMMA=2.0
-FOCAL_LOSS_ALPHA=0.75
-
-AUGMENT_PROB=0.5
-AUGMENT_FAILURE_RATIO=0.25
-AUGMENT_DETERIORATION_RATIO=0.20
-AUGMENT_FLAKY_RATIO=0.45
-AUGMENT_RECOVERY_RATIO=0.15
-AUGMENT_STABLE_PASS_RATIO=0.35
+CACHE_HISTORY_SIZE=25
+PR_RUNS_LIMIT=2
+CACHE_REFRESH_INTERVAL_HOURS=2
 ```
 
-Runtime service settings (train/cleanup intervals and ports) are also defined in the same file.
+Cleanup intervals, retention settings, and ports are also defined in the same file.
 
 ## Usage (REST API)
 
@@ -261,7 +241,7 @@ python src/client/stats --system ubuntu-core-24-64 --scenario generic
 python src/client/stats --name "tests/smoke/foo" --verb install
 ```
 
-### 5. `train` - Control trainer service
+### 5. `train` - Process results and refresh the cache
 
 ```bash
 python src/client/train start
@@ -312,7 +292,15 @@ charmcraft pack
 ### 2. Deploy with Juju
 
 ```bash
-juju deploy ./test-predictor_amd64.charm --base ubuntu@24.04
+juju deploy ./spread-tests-predictor_amd64.charm \
+	--application-name test-predictor \
+	--base ubuntu@24.04
+```
+
+To update an existing deployment after packing a new charm:
+
+```bash
+juju refresh test-predictor --path=./spread-tests-predictor_amd64.charm
 ```
 
 Note: The application is not externally reachable until it is exposed.
@@ -324,7 +312,8 @@ juju expose test-predictor
 If you need to pass proxy values manually at deploy time:
 
 ```bash
-juju deploy ./test-predictor_amd64.charm \
+juju deploy ./spread-tests-predictor_amd64.charm \
+	--application-name test-predictor \
 	--base ubuntu@24.04 \
 	--config http_proxy=http://egress.ps7.internal:3128 \
 	--config https_proxy=http://egress.ps7.internal:3128 \
@@ -354,7 +343,7 @@ juju debug-log --include test-predictor --replay
 ```
 
 Notes:
-- The charm creates a Python virtual environment on the unit and installs dependencies from `.charm/requirements-app.txt` and `.charm/requirements-ml.txt`.
+- The charm creates a Python virtual environment on the unit and installs dependencies from `.charm/requirements-app.txt`.
 - Proxy config (`http_proxy`, `https_proxy`, `no_proxy`) is exported to all services and synchronized to `/etc/environment` (both uppercase and lowercase variants).
 - It manages a `test-predictor-api` systemd service.
 

@@ -38,7 +38,6 @@ class TestPredictorCharm(CharmBase):
         "python3-numpy",
         "python3-pandas",
         "python3-requests",
-        "python3-sklearn",
         "python3-statsmodels",
     )
     PIP_COMMON_ARGS = (
@@ -69,10 +68,6 @@ class TestPredictorCharm(CharmBase):
     @property
     def app_requirements(self) -> Path:
         return self.app_root / "requirements-app.txt"
-
-    @property
-    def ml_requirements(self) -> Path:
-        return self.app_root / "requirements-ml.txt"
 
     def _run(self, cmd: list[str]) -> None:
         logger.info("Running command: %s", " ".join(cmd))
@@ -181,6 +176,7 @@ class TestPredictorCharm(CharmBase):
         base_env = [
             "Environment=PYTHONUNBUFFERED=1",
             f"Environment=PYTHONPATH={self.app_root / 'src/common'}:{self.app_root / 'src'}",
+            f"Environment=TEST_PREDICTOR_STATE_DIR={self.STATE_DIR}",
         ]
         for key, value in proxy_cfg.items():
             if value:
@@ -203,17 +199,11 @@ class TestPredictorCharm(CharmBase):
             ),
             "test-predictor": (
                 [f"{self.VENV_DIR / 'bin/python3'} src/services/jobs/predictor.py"],
-                [
-                    "Environment=CUDA_VISIBLE_DEVICES=-1",
-                    "Environment=TF_CPP_MIN_LOG_LEVEL=2",
-                ],
+                [],
             ),
             "test-predictor-trainer": (
                 [f"{self.VENV_DIR / 'bin/python3'} src/services/jobs/trainer.py"],
-                [
-                    "Environment=CUDA_VISIBLE_DEVICES=-1",
-                    "Environment=TF_CPP_MIN_LOG_LEVEL=2",
-                ],
+                [],
             ),
             "test-predictor-cleaner": (
                 [f"{self.VENV_DIR / 'bin/python3'} src/services/jobs/cleaner.py"],
@@ -301,19 +291,24 @@ WantedBy=multi-user.target
             )
             self._install_apt_packages(self.CORE_APT_PACKAGES)
 
-        # ML dependencies are required for predictor/trainer services.
-        if self.ml_requirements.exists():
-            self._run(
-                [
-                    venv_python_cmd,
-                    "-m",
-                    "pip",
-                    "install",
-                    *self.PIP_COMMON_ARGS,
-                    "-r",
-                    str(self.ml_requirements),
-                ]
-            )
+    def _ensure_persistent_state(self) -> None:
+        for relative_path in ("data/results", "data/ts", "logs", "model"):
+            source = self.app_root / relative_path
+            destination = self.STATE_DIR / relative_path
+            destination.mkdir(parents=True, exist_ok=True)
+
+            if not source.is_dir() or source.resolve() == destination.resolve():
+                continue
+
+            for source_path in source.rglob("*"):
+                relative_source = source_path.relative_to(source)
+                destination_path = destination / relative_source
+                if source_path.is_dir():
+                    destination_path.mkdir(parents=True, exist_ok=True)
+                elif not destination_path.exists():
+                    destination_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source_path, destination_path)
+                    logger.info("Migrated state file %s to %s", source_path, destination_path)
 
     def _configure_services(self) -> None:
         for service_name in self.SERVICE_NAMES:
@@ -341,6 +336,7 @@ WantedBy=multi-user.target
             proxy_cfg = self._set_runtime_proxy_env()
             self._update_etc_environment(proxy_cfg)
             self._ensure_runtime()
+            self._ensure_persistent_state()
             self._configure_services()
             self._sync_open_ports()
         except (subprocess.CalledProcessError, OSError) as exc:

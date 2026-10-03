@@ -1,13 +1,12 @@
 #!/usr/bin/python3
 
-import requests
 import argparse
 import json
 
+import requests
+
+
 def normalize_base_url(raw_url):
-    """
-    Ensure the base URL is well-formed, defaulting to http://test-predictor.snapd.canonical.com if empty.
-    """
     url = (raw_url or "").strip()
     if not url:
         url = "http://test-predictor.snapd.canonical.com"
@@ -15,58 +14,48 @@ def normalize_base_url(raw_url):
         url = f"http://{url}"
     return url.rstrip('/')
 
-def handle_train(base_url, port):
-    """ Trigger a new training session on the server and handle responses accordingly. """
-    url = f"{base_url.rstrip('/')}:{port}/train"
-    print(f"Triggering training at {url}...")
+
+def handle_start(base_url, port):
+    url = f"{base_url}:{port}/train"
+    print(f"Triggering result processing and cache refresh at {url}...")
 
     try:
-        # We use a slightly longer timeout than the server's internal proxy
         response = requests.post(url, timeout=10)
-
-        if response.status_code in [200, 202]:
-            print(f"{response.json().get('message', 'Training started.')}")
+        if response.status_code in (200, 202):
+            print(response.json().get("message", "Cache refresh started."))
         elif response.status_code == 429:
-            print("Busy: A training session is already in progress.")
+            print("Busy: A cache refresh is already in progress.")
         else:
-            print(f"error ({response.status_code}): {response.text}")
+            print(f"Error ({response.status_code}): {response.text}")
+    except requests.exceptions.RequestException as error:
+        print(f"Failed to reach the trainer API: {error}")
 
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to reach the trainer API: {e}")
 
 def handle_status(base_url, port):
-    """ Check the current training state by querying the status endpoint and displaying results. """
-    url = f"{base_url.rstrip('/')}:{port}/status"
-
+    url = f"{base_url}:{port}/status"
     try:
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
-            status_data = response.json()
-            # Pretty print the status JSON
-            print("Current Trainer Status:")
-            print(json.dumps(status_data, indent=4))
+            print(json.dumps(response.json(), indent=4))
         else:
-            print(f"Could not retrieve status ({response.status_code})")
-    except Exception as e:
-        print(f"Error: {e}")
+            print(f"Could not retrieve status ({response.status_code}): {response.text}")
+    except requests.exceptions.RequestException as error:
+        print(f"Failed to reach the trainer API: {error}")
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Control the Model Trainer Service.")
+    parser = argparse.ArgumentParser(description="Control result processing and cache refreshes.")
     parser.add_argument("--url", default="http://test-predictor.snapd.canonical.com", help="Base URL")
     parser.add_argument("--port", type=int, default=5000, help="Port")
-    
+
     subparsers = parser.add_subparsers(dest="command", required=True)
-    
-    # 'start' command
-    subparsers.add_parser("start", help="Trigger a new training session")
-    
-    # 'status' command
-    subparsers.add_parser("status", help="Check the current training state")
+    subparsers.add_parser("start", help="Process pending results and refresh the cache")
+    subparsers.add_parser("status", help="Show cache refresh status")
 
     args = parser.parse_args()
     base_url = normalize_base_url(args.url)
 
     if args.command == "start":
-        handle_train(base_url, args.port)
-    elif args.command == "status":
+        handle_start(base_url, args.port)
+    else:
         handle_status(base_url, args.port)

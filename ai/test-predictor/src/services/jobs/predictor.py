@@ -1,5 +1,4 @@
 import json
-import numpy as np
 import os
 import time
 
@@ -7,104 +6,17 @@ from flask import Flask, request, jsonify
 
 from common import config
 from common.utils import setup_logging
-from common.model import ModelManager
 from common.cache import SystemStateCache
+from services.jobs.context import register_context_endpoint
 
 logger = setup_logging("predictor-server")
 app = Flask(__name__)
 
 # Initialize the cache
-app.state_cache = SystemStateCache(history_size=config.SEQUENCE_LENGTH - 1)
+app.state_cache = SystemStateCache(history_size=config.CACHE_HISTORY_SIZE)
 app.state_cache.initialize()
 
-# Initialize the manager once
-model_full_path = os.path.join(config.MODEL_DIR, config.MODEL_NAME)
-metadata_full_path = os.path.join(config.MODEL_DIR, config.METADATA_NAME)
-app.model_manager = ModelManager(model_full_path, metadata_full_path)
-app.model_manager.load_or_build_model()
-
-
-def _check_model_input_compatibility(model):
-    """Validate that loaded model input width matches configured feature schema."""
-    expected = int(config.NUM_FEATURES)
-    actual = None
-    try:
-        actual = int(model.input_shape[-1])
-    except Exception:
-        return False, "Unable to inspect model input shape"
-
-    if actual != expected:
-        return False, (
-            f"Model expects {actual} features but code is configured for {expected}. "
-            "Retrain and promote a new model to apply the updated feature schema."
-        )
-    return True, ""
-
-def validate_labels(params, keys_to_check, encoders):
-    """
-    Validates that the values in 'params' exist in the 
-    corresponding LabelEncoder classes.
-    """
-    unknowns = []
-    for k in keys_to_check:
-        val = params.get(k)
-        # Check if the encoder exists for this key (e.g., 'name', 'system')
-        if k in encoders:
-            if val not in encoders[k].classes_:
-                unknowns.append(f"{k}: {val}")
-        else:
-            logger.warning(f"No encoder found for key: {k}")
-    return unknowns
-
-def encode_to_vector(data, encoders):
-    # Extract Strings/Values
-    n = data.get('name', 'unknown')
-    v = data.get('verb', 'unknown')
-    s = data.get('system', 'unknown')
-    sce = data.get('scenario', config.DEFAULT_SCENARIO)
-    b_val = data.get('backend', 'unknown') # Default to unknown if missing
-    succ = data.get('success', config.CURRENT_SUCCESS_MASK_VALUE)
-    
-    # Helper to get raw integer ID
-    def get_id(key, value):
-        enc = encoders[key]
-        try:
-            encoded = float(enc.transform([str(value)])[0])
-            max_index = max(len(enc.classes_) - 1, 1)
-            return encoded / float(max_index)
-        except (ValueError, KeyError):
-            # If label is new/unknown, default to 0 (usually 'unknown')
-            return 0.0
-
-    # Build the vector in the EXACT order of config.FEATURE_COLUMNS
-    # [scenario, verb, backend, system, name, success]
-    # Success is a lag feature; current timestep is masked in build_model_input.
-    return np.array([
-        get_id('scenario', sce),
-        get_id('verb', v),
-        get_id('backend', b_val),
-        get_id('system', s),
-        get_id('name', n),
-        float(succ)
-    ], dtype='float32')
-
-
-def build_model_input(sequence_items, encoders):
-    """Builds a padded model input and masks current-step success to avoid leakage."""
-    X_input = np.zeros((1, config.SEQUENCE_LENGTH, config.NUM_FEATURES), dtype='float32')
-
-    for i, raw_item in enumerate(reversed(sequence_items)):
-        if i >= config.SEQUENCE_LENGTH:
-            break
-
-        item = dict(raw_item)
-        if i == 0:
-            # The most recent item is the target timestep: its success is unknown.
-            item['success'] = config.CURRENT_SUCCESS_MASK_VALUE
-        vector = encode_to_vector(item, encoders)
-        X_input[0, -1 - i, :] = vector
-
-    return X_input
+register_context_endpoint(app)
 
 
 def _clamp01(value):
@@ -186,6 +98,12 @@ def _apply_boundary_flip_rules(
     tail_one_streak,
     prev_zero_streak,
 ):
+    if tail_one_streak == 1 and prev_zero_streak >= 10:
+        trend_strength = _clamp01((prev_zero_streak - 10) / 6.0)
+        target = 0.20 - 0.05 * trend_strength
+        strength = 0.75 + 0.15 * trend_strength
+        return (1.0 - strength) * adjusted + strength * target
+
     if tail_zero_streak >= 1 and prev_one_streak >= 6:
         trend_strength = _clamp01((prev_one_streak - 6) / 8.0)
         confirmation = _clamp01((tail_zero_streak - 1) / 2.0)
@@ -219,11 +137,20 @@ def _apply_mostly_pass_rules(
         floor = 0.45 + 0.25 * pass_strength + 0.18 * tail_conf - 0.18 * noise_penalty
         adjusted = max(adjusted, floor)
 
-    if ones_ratio >= 0.70 and tail_zero_streak == 1 and prev_one_streak >= 3:
+    if ones_ratio >= 0.70 and tail_zero_streak == 1 and prev_one_streak >= 2:
         pass_strength = _clamp01((ones_ratio - 0.70) / 0.30)
         run_strength = _clamp01((prev_one_streak - 3) / 5.0)
+        long_run_start = 10
+        long_run_span = max(config.CACHE_HISTORY_SIZE - 1 - long_run_start, 1)
+        long_run_strength = _clamp01((prev_one_streak - long_run_start) / long_run_span) ** 2
         noise_penalty = _clamp01((transition_rate - 0.30) / 0.40)
-        floor = 0.40 + 0.12 * pass_strength + 0.12 * run_strength - 0.12 * noise_penalty
+        floor = (
+            0.55
+            + 0.20 * pass_strength
+            + 0.10 * run_strength
+            + 0.13 * long_run_strength
+            - 0.12 * noise_penalty
+        )
         adjusted = max(adjusted, floor)
 
     if (
@@ -231,13 +158,12 @@ def _apply_mostly_pass_rules(
         and tail_one_streak <= 4
         and 1 <= prev_zero_streak <= 3
         and ones_ratio >= 0.70
-        and transition_rate <= 0.30
+        and transition_rate <= 0.40
     ):
         recovery_strength = _clamp01((ones_ratio - 0.70) / 0.30)
         dip_penalty = _clamp01((prev_zero_streak - 1) / 2.0)
-        target = 0.55 + 0.25 * recovery_strength - 0.15 * dip_penalty
-        blend = 0.60 + 0.25 * recovery_strength
-        adjusted = (1.0 - blend) * adjusted + blend * target
+        target = 0.72 + 0.18 * recovery_strength - 0.15 * dip_penalty
+        adjusted = max(adjusted, target)
 
     return adjusted
 
@@ -251,6 +177,25 @@ def _apply_flaky_rules(adjusted, flaky_score, balance_score, tail_one_streak, on
         if tail_one_streak >= 3 and ones_ratio >= 0.45:
             adjusted = max(adjusted, 0.80)
 
+    return adjusted
+
+
+def _apply_recovery_rules(adjusted, ones_ratio, tail_one_streak, transition_rate):
+    if tail_one_streak >= 3 and ones_ratio >= 0.40:
+        history_support = _clamp01((ones_ratio - 0.40) / 0.30)
+        noise_penalty = _clamp01((transition_rate - 0.55) / 0.35)
+        floor = 0.60 + 0.15 * history_support - 0.15 * noise_penalty
+        adjusted = max(adjusted, floor)
+
+    return adjusted
+
+
+def _apply_tail_recovery_floor(adjusted, tail_one_streak, prev_zero_streak, ones_ratio):
+    sustained_reversal = tail_one_streak >= 3 and prev_zero_streak >= 6
+    extended_mixed_recovery = tail_one_streak >= 6 and ones_ratio <= 0.60
+    if sustained_reversal or extended_mixed_recovery:
+        recovery_floor = min(0.97, 0.80 + 0.03 * (tail_one_streak - 3))
+        adjusted = max(adjusted, recovery_floor)
     return adjusted
 
 
@@ -273,6 +218,11 @@ def _apply_mixed_extreme_guard(adjusted, ones_ratio, transition_rate, balance_sc
 
 
 def _apply_tail_deterioration_cap(adjusted, successes, prev_one_streak, ones_ratio):
+    tail_zero_streak = _tail_streak(successes, 0)
+    if tail_zero_streak >= 3:
+        deterioration_cap = max(0.03, 0.20 - 0.03 * (tail_zero_streak - 3))
+        adjusted = min(adjusted, deterioration_cap)
+
     if len(successes) >= 2 and successes[-1] == 0 and successes[-2] == 0:
         if prev_one_streak < 8:
             if ones_ratio >= 0.75:
@@ -330,11 +280,20 @@ def adjust_for_flaky_pattern(history_items, probability):
         prev_zero_streak,
         transition_rate,
     )
+    adjusted = _apply_recovery_rules(adjusted, ones_ratio, tail_one_streak, transition_rate)
     adjusted = _apply_flaky_rules(adjusted, flaky_score, balance_score, tail_one_streak, ones_ratio)
     adjusted = _apply_mixed_extreme_guard(adjusted, ones_ratio, transition_rate, balance_score, successes)
+    adjusted = _apply_tail_recovery_floor(adjusted, tail_one_streak, prev_zero_streak, ones_ratio)
     adjusted = _apply_tail_deterioration_cap(adjusted, successes, prev_one_streak, ones_ratio)
 
     return adjusted
+
+
+def probabilistic_prediction(history_items):
+    """Estimate probability from historical success ratio only, bypassing the model."""
+    successes = _extract_successes(history_items)
+    base_probability = (sum(successes) / len(successes)) if successes else 0.5
+    return adjust_for_flaky_pattern(history_items, base_probability)
 
 
 def _prediction_diagnostics(history_items):
@@ -364,73 +323,19 @@ def _prediction_diagnostics(history_items):
     }
 
 
-def predict_from_history_pattern(base_data, pattern_values, model, encoders):
-    """Build prediction input from history pattern and return adjusted probability."""
+def predict_from_history_pattern(base_data, pattern_values):
+    """Build probabilistic prediction input from a history pattern."""
     history_items = []
     for val in pattern_values:
         entry = base_data.copy()
         entry['success'] = val
         history_items.append(app.state_cache._normalize_entry(entry))
 
-    # Predict the NEXT run after the provided history.
-    full_seq = history_items + [app.state_cache._normalize_entry(base_data)]
-    X_input = build_model_input(full_seq, encoders)
-
-    is_compatible, msg = _check_model_input_compatibility(model)
-    if not is_compatible:
-        raise ValueError(msg)
-
-    prob = float(model.predict(X_input, verbose=0)[0][0])
-    prob = adjust_for_flaky_pattern(history_items, prob)
-    return prob, len(history_items)
+    return probabilistic_prediction(history_items), len(history_items)
 
 
-def audit_prediction(X_input, probability, params, model_manager):
-    """
-    Records the exact features, model metadata, and timestamp for a prediction.
-    """
-    model, _, last_updated = model_manager.get_state()
-    
-    # Extract the last timestep of the LSTM sequence (the most relevant data)
-    # X_input shape is (1, sequence_length, num_features)
-    current_features = X_input[0, -1, :].tolist() 
-    
-    # Map features back to names for readability
-    feature_names = config.FEATURE_COLUMNS
-    feature_map = dict(zip(feature_names, current_features))
-
-    # Build the audit record
-    audit_record = {
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "model_info": {
-            "last_trained": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last_updated)),
-            "model_file": os.path.basename(model_manager.model_path)
-        },
-        "request_params": params,       # Original strings from the API request
-        "model_input_raw": feature_map, # The actual encoded/scaled numbers fed to LSTM
-        "prediction": {
-            "success_probability": float(probability),
-            "verdict": "pass" if probability > 0.5 else "fail"
-        }
-    }
-
-    # Save to a rolling log file
-    os.makedirs(config.LOGS_DIR, exist_ok=True)
-    audit_log_path = os.path.join(config.LOGS_DIR, config.PREDICTION_LOG)
-    with open(audit_log_path, "a") as f:
-        f.write(json.dumps(audit_record) + "\n")
-
-    return audit_record
-
-def audit_history(history, model_manager):
-    """
-    Formats the system history (last 49 tests) into a structured 
-    audit record for debugging sequence-based predictions.
-    """
-    model, encoders, last_updated = model_manager.get_state()
-    
-    # Prepare the sequence descriptions
-    # We want to see the readable names of what the LSTM 'remembered'
+def audit_history(history):
+    """Record the history used for a probabilistic prediction."""
     sequence_summary = []
     
     for i, entry in enumerate(history):
@@ -450,10 +355,7 @@ def audit_history(history, model_manager):
     audit_record = {
         "audit_type": "sequence_context",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "model_version": {
-            "last_trained": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last_updated)),
-            "file": os.path.basename(model_manager.model_path)
-        },
+        "model": config.PREDICTION_MODEL,
         "history_length": len(history),
         "events": sequence_summary,
         "summary": " -> ".join([f"{e['name']}({e['result']})" for e in sequence_summary[-5:]]) # Last 5 for quick look
@@ -479,28 +381,12 @@ def predict():
     name = data.get('name')
     verb = data.get('verb')
     backend = data.get('backend')
+    level = data.get('level')
     scenario = data.get('scenario') or config.DEFAULT_SCENARIO
 
-    model, encoders, _ = app.model_manager.get_state()
-    if encoders is None:
-        return jsonify({"error": "Metadata not loaded"}), 503
-
-    is_compatible, msg = _check_model_input_compatibility(model)
-    if not is_compatible:
-        return jsonify({"error": msg}), 503
-
-    # Keep target normalized; build_model_input will mask the current-step success.
     normalized_target = app.state_cache._normalize_entry(data)
 
-    # Validate: use the long names that exist in both normalized_target and encoders
-    keys_to_validate = ['name', 'verb', 'system', 'scenario']
-    unknowns = validate_labels(normalized_target, keys_to_validate, encoders)
-
-    if unknowns:
-        return jsonify({"error": "Unknown labels", "details": unknowns}), 400
-
     try:
-        # GET CONTEXT: Last tests for this system
         backend_filter = str(backend).strip() if backend is not None and str(backend).strip() else None
         history = app.state_cache.get_context(
             system=system,
@@ -509,6 +395,8 @@ def predict():
             attempt=None,
             scenario=scenario,
             backend=backend_filter,
+            max_items=config.CACHE_HISTORY_SIZE,
+            level=level,
         )
 
         # If backend is not explicitly provided, reuse the most recent backend from
@@ -519,24 +407,15 @@ def predict():
                 normalized_target['backend'] = str(recent_backend)
 
         if data.get('audit', config.DEFAULT_AUDIT):
-            audit_history(history, app.model_manager)
-        
-        # Combine history + current request
-        full_sequence = history + [normalized_target]
+            audit_history(history)
 
-        # Build model-ready input with training-consistent masking behavior.
-        X_input = build_model_input(full_sequence, encoders)
-
-        # PREDICT
-        prediction = model.predict(X_input, verbose=config.PREDICTION_VERBOSE)
-        raw_prob = float(prediction[0][0])
-        prob = adjust_for_flaky_pattern(history, raw_prob)
+        prob = probabilistic_prediction(history)
 
         if data.get('audit', config.DEFAULT_AUDIT):
             diag = _prediction_diagnostics(history)
             logger.info(
                 "Prediction diagnostics: system=%s name=%s verb=%s scenario=%s context_len=%d usable_successes=%d "
-                "tail_one=%d tail_zero=%d ones_ratio=%s transition_rate=%s raw_prob=%.4f adjusted_prob=%.4f",
+                "tail_one=%d tail_zero=%d ones_ratio=%s transition_rate=%s raw_prob=%s adjusted_prob=%.4f model=%s",
                 system,
                 name,
                 verb,
@@ -547,16 +426,15 @@ def predict():
                 diag["tail_zero_streak"],
                 "n/a" if diag["ones_ratio"] is None else f"{diag['ones_ratio']:.3f}",
                 "n/a" if diag["transition_rate"] is None else f"{diag['transition_rate']:.3f}",
-                raw_prob,
+                "n/a",
                 prob,
+                config.PREDICTION_MODEL,
             )
-
-        if data.get('audit', config.DEFAULT_AUDIT):
-            audit_prediction(X_input, prob, normalized_target, app.model_manager)
 
         return jsonify({
             "probability": prob,
-            "context_len": len(history)
+            "context_len": len(history),
+            "model": config.PREDICTION_MODEL
         })
 
     except Exception as e:
@@ -569,79 +447,66 @@ def update_context():
     data = request.json
     system = data.get('system')
     if system:
-        app.state_cache.update(system, data)
+        app.state_cache.update(data)
         return jsonify({"status": "updated"}), 200
     return jsonify({"error": "No system provided"}), 400
 
 
 @app.route('/internal/reload', methods=['POST'])
 def reload_model():
-    """Triggered by the Trainer to refresh the model from disk."""
-    logger.info("Reload signal received from Trainer. Refreshing model...")
+    """Triggered by the cache service to refresh the snapshot from disk."""
+    logger.info("Reload signal received. Refreshing cache...")
 
-    # Use your existing ModelManager logic to reload
-    success = app.model_manager.reload_model()
-    
-    if success:
-        # Reload predictor context from the promoted snapshot on disk.
-        app.state_cache.initialize()
+    reloaded_cache = SystemStateCache(history_size=app.state_cache.history_size)
+    reloaded_cache.initialize()
+    app.state_cache = reloaded_cache
 
-        logger.info("Model and cache refreshed successfully.")
-        return jsonify({"status": "success", "message": "Model reloaded"}), 200
-    else:
-        logger.error("Failed to reload model from disk.")
-        return jsonify({"status": "error", "message": "Reload failed"}), 500
+    cache_stats = app.state_cache.stats()
+    logger.info(
+        "Replacement cache active: systems=%d tests=%d verb_buckets=%d "
+        "entries=%d missing_provenance=%d snapshot=%s",
+        cache_stats['systems'],
+        cache_stats['tests'],
+        cache_stats['verb_buckets'],
+        cache_stats['entries'],
+        cache_stats['missing_provenance'],
+        app.state_cache.snapshot_path,
+    )
+
+    logger.info("Cache refreshed successfully.")
+    return jsonify({"status": "success", "message": "Cache reloaded"}), 200
 
 
 @app.route('/internal/list/<category>', methods=['GET'])
 def list_metadata(category):
-    # Access the manager directly from the app instance
-    _, encoders, _ = app.model_manager.get_state()
-    
-    if encoders is None:
-        return jsonify({"error": "Metadata not loaded on server"}), 503
-
     mapping = {
         'names': 'name', 
         'verbs': 'verb', 
         'systems': 'system',
-        'scenarios': 'scenario' 
+        'scenarios': 'scenario',
+        'backends': 'backend',
+        'levels': 'level',
     }
     
     if category not in mapping:
         return jsonify({"error": f"Invalid category. Options: {list(mapping.keys())}"}), 400
 
-    try:
-        # Get classes from the specific LabelEncoder
-        vals = list(encoders[mapping[category]].classes_)
-        return jsonify({
-            "category": category, 
-            "count": len(vals), 
-            "values": vals
-        })
-    except KeyError:
-        return jsonify({"error": f"Encoder for {category} not found"}), 500
+    key = mapping[category]
+    values = set()
+    for system, names in app.state_cache.cache.items():
+        if key == 'system':
+            values.add(system)
+        for name, verbs in names.items():
+            if key == 'name':
+                values.add(name)
+            for verb, history in verbs.items():
+                if key == 'verb':
+                    values.add(verb)
+                if key in ('scenario', 'backend', 'level'):
+                    values.update(str(item.get(key)) for item in history if item.get(key))
 
-@app.route('/internal/context', methods=['GET'])
-def get_internal_context():
-    """Exposes the internal SystemStateCache to the external API."""
-    # Extract keys from query params
-    system = request.args.get('system')
-    name = request.args.get('name')
-    verb = request.args.get('verb')
-    backend = request.args.get('backend')
-    scenario = request.args.get('scenario') or config.DEFAULT_SCENARIO
-
-    if not system:
-        return jsonify({"error": "System required"}), 400
-
-    backend_filter = str(backend).strip() if backend is not None and str(backend).strip() else None
-    history = app.state_cache.get_context(system, name, verb, None, scenario, backend_filter)
-    return jsonify({
-        "system": system,
-        "name": name,
-        "history": history
-    }), 200
+    vals = sorted(values)
+    return jsonify({"category": category, "count": len(vals), "values": vals})
 
 @app.route('/internal/predict-pattern', methods=['GET'])
 def get_internal_pattern():
@@ -668,32 +533,23 @@ def get_internal_pattern():
         "attempt": request.args.get('attempt', config.DEFAULT_ATTEMPT),
         "scenario": request.args.get('scenario', config.DEFAULT_SCENARIO)
     }
-    model, encoders, _ = app.model_manager.get_state()
-    if model is None or encoders is None:
-        return jsonify({"error": "Model or metadata not loaded"}), 503
 
-    is_compatible, msg = _check_model_input_compatibility(model)
-    if not is_compatible:
-        return jsonify({"error": msg}), 503
-
-    # The model predicts on [history + current_target]. Since the current target
-    # consumes one timestep, only (SEQUENCE_LENGTH - 1) history items can be used.
     # Accept any pattern length and keep the most recent history that fits.
     provided_len = len(pattern_list)
-    max_history_len = max(0, config.SEQUENCE_LENGTH - 1)
+    max_history_len = config.CACHE_HISTORY_SIZE
     used_pattern = pattern_list[-max_history_len:] if len(pattern_list) > max_history_len else pattern_list
     truncated = provided_len > len(used_pattern)
 
-    prob, context_len = predict_from_history_pattern(base_data, used_pattern, model, encoders)
-    
+    prob, context_len = predict_from_history_pattern(base_data, used_pattern)
+
     return jsonify({
         "probability": prob,
         "context_len": context_len,
+        "model": config.PREDICTION_MODEL,
         "pattern_info": {
             "provided_length": provided_len,
             "used_length": len(used_pattern),
             "max_history_length": max_history_len,
-            "sequence_length": config.SEQUENCE_LENGTH,
             "truncated": truncated
         }
     })
@@ -778,17 +634,9 @@ def test_scenarios():
     }
     results = {}
 
-    model, encoders, _ = app.model_manager.get_state()
-    if model is None or encoders is None:
-        return jsonify({"error": "Model or metadata not loaded"}), 503
-
-    is_compatible, msg = _check_model_input_compatibility(model)
-    if not is_compatible:
-        return jsonify({"error": msg}), 503
-
     for label, info in scenarios.items():
         pattern = info["pattern"]
-        prob, _ = predict_from_history_pattern(base_data, pattern, model, encoders)
+        prob, _ = predict_from_history_pattern(base_data, pattern)
         
         results[label] = {
             "prediction": f"{prob * 100:.2f}%",

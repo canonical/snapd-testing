@@ -21,6 +21,43 @@ def extract_github_ids(filename):
     return int(match.group(1)), int(match.group(2))
 
 
+def extract_pr(filename):
+    match = re.search(r"_pr_(\d+)(?:_|\.)", filename)
+    return int(match.group(1)) if match else None
+
+
+def select_recent_pr_runs(file_paths, runs_limit=None):
+    """Keep the newest file entries for each PR."""
+    limit = config.PR_RUNS_LIMIT if runs_limit is None else int(runs_limit)
+    if limit <= 0:
+        return list(file_paths)
+
+    parsed = []
+    entries_by_pr = {}
+    for path in file_paths:
+        filename = os.path.basename(path)
+        match = re.search(r"results_job_\d+_run_(\d+)_pr_(\d+)(?:_|\.)", filename)
+        if not match:
+            parsed.append((path, None, None))
+            continue
+
+        run_id = int(match.group(1))
+        pr = int(match.group(2))
+        parsed.append((path, pr, run_id))
+        entries_by_pr.setdefault(pr, []).append((path, run_id))
+
+    selected_paths_by_pr = {}
+    for pr, entries in entries_by_pr.items():
+        ranked_entries = sorted(entries, key=lambda item: (-item[1], item[0]))
+        selected_paths_by_pr[pr] = {path for path, _ in ranked_entries[:limit]}
+
+    return [
+        path
+        for path, pr, run_id in parsed
+        if pr is None or path in selected_paths_by_pr[pr]
+    ]
+
+
 def get_files_for_attempt(file_paths, attempt, extension="ts"):
     """Return only files whose name ends with `_attempt_<n>.<extension>`."""
     target_attempt = int(attempt)

@@ -316,7 +316,7 @@ if __name__ == "__main__":
     parser.add_argument("--timeout", type=int, default=600,
                         help="HTTP timeout in seconds (default: 600)")
     parser.add_argument("--no-cache", action="store_true",
-                        help="Force recomputation (bypass TRAIN_INTERVAL_HOURS cache)")
+                        help="Force recomputation (bypass the dependency cache TTL)")
     # Note: system and scenario filters are passed per-command, not globally
 
     subparsers = parser.add_subparsers(dest="command", required=True)

@@ -5,6 +5,7 @@ import pandas as pd
 from flask import Blueprint, jsonify, request
 
 from common import config
+from common.processor import select_recent_pr_runs
 from common.utils import setup_logging
 
 logger = setup_logging("stats-api")
@@ -16,7 +17,7 @@ def count_filtered_success(directory, filters):
     only for rows matching the provided filters.
     """
     pattern = os.path.join(directory, "*.ts")
-    files = glob.glob(pattern)
+    files = select_recent_pr_runs(glob.glob(pattern))
     
     passes = 0
     fails = 0
@@ -46,7 +47,7 @@ def count_filtered_success(directory, filters):
 def get_all_systems_stats(directory, filters):
     """Aggregates stats for every unique system found in the directory."""
     pattern = os.path.join(directory, "*.ts")
-    files = glob.glob(pattern)
+    files = select_recent_pr_runs(glob.glob(pattern))
     
     system_stats = {} # { "system_name": {"pass": 0, "fail": 0} }
 
@@ -79,7 +80,7 @@ def get_all_systems_stats(directory, filters):
 def get_filtered_history(directory, filters, limit=None):
     """Returns historical rows matching the provided filters."""
     pattern = os.path.join(directory, "*.ts")
-    files = glob.glob(pattern)
+    files = select_recent_pr_runs(glob.glob(pattern))
 
     frames = []
     for f in files:
@@ -118,6 +119,7 @@ def get_filtered_stats():
     filters = {
         "name": request.args.get('name'),
         "system": request.args.get('system'),
+        "backend": request.args.get('backend'),
         "attempt": request.args.get('attempt'),
         "scenario": request.args.get('scenario'),
         "verb": request.args.get('verb')

@@ -39,13 +39,14 @@ def handle_predict(base_url, args):
         "name": args.name, "verb": args.verb,
         "system": args.system, "backend": args.backend,
         "attempt": args.attempt, "scenario": args.scenario,
+        "level": args.level,
         "audit": args.audit
     }
-    
     try:
         resp = requests.get(url, params=params, timeout=10)
         if resp.status_code == 200:
-            prob = resp.json().get("success_probability", 0)
+            data = resp.json()
+            prob = data.get("success_probability", 0)
             print(f"\nPrediction for {args.name} on {args.system}:")
             print(f"   Success Probability: {prob * 100:.4f}%")
         else:
@@ -58,9 +59,9 @@ def handle_risk(base_url, args):
     url = f"{base_url}:{args.port}/rank-risk"
     params = {
         "verb": args.verb, "system": args.system, "backend": args.backend,
-        "attempt": args.attempt, "scenario": args.scenario, "audit": args.audit
+        "attempt": args.attempt, "scenario": args.scenario, "level": args.level,
+        "audit": args.audit
     }
-    
     if args.limit is not None:
         params["limit"] = args.limit
         print(f"Analyzing top {args.limit} riskiest items for {args.system}...")
@@ -86,7 +87,6 @@ def handle_worst_systems(base_url, args):
         "name": args.name, "verb": args.verb,
         "attempt": args.attempt, "scenario": args.scenario, "audit": args.audit
     }
-
     print(f"Comparing system performance for {args.name}...")
     try:
         resp = requests.get(url, params=params, timeout=60)
@@ -100,7 +100,7 @@ def handle_worst_systems(base_url, args):
         print(f"Failed: {e}")
 
 def handle_list(base_url, args):
-    """ List metadata (names, systems, verbs) based on the specified category and display the results. """
+    """ List metadata (names, systems, verbs, scenarios, backends) based on the specified category. """
     url = f"{base_url}:{args.port}/list/{args.category}"
 
     try:
@@ -128,9 +128,9 @@ def handle_context(base_url, args):
         "name": args.name, "verb": args.verb,
         "system": args.system, "backend": args.backend,
         "attempt": args.attempt, "scenario": args.scenario,
+        "level": args.level,
         "audit": args.audit
     }
-
     try:
         resp = requests.get(url, params=params, timeout=15)
         if resp.status_code == 200:
@@ -152,10 +152,12 @@ def handle_context(base_url, args):
                         entry.get('start', 'N/A')[:19],
                         entry.get('run_id') or 'N/A',
                         entry.get('job_id') or 'N/A',
+                        entry.get('pr') or 'N/A',
                         entry.get('attempt', 1),
+                        entry.get('level', 'unknown'),
                         res
                     ])
-                print_table(["OFFSET", "START TIME", "RUN ID", "JOB ID", "ATTEMPT", "RESULT"], rows)
+                print_table(["OFFSET", "START TIME", "RUN ID", "JOB ID", "PR", "ATTEMPT", "LEVEL", "RESULT"], rows)
             else:
                 print("No history available for this specific test/system/verb.")
         else:
@@ -172,11 +174,11 @@ def handle_predict_pattern(base_url, args):
         "attempt": args.attempt, "scenario": args.scenario,
         "pattern": args.pattern, "audit": args.audit
     }
-
     try:
         resp = requests.get(url, params=params, timeout=10)
         if resp.status_code == 200:
-            prob = resp.json().get("success_probability", 0)
+            data = resp.json()
+            prob = data.get("success_probability", 0)
             print(f"\nPrediction for {args.name} on {args.system}:")
             print(f"   Success Probability: {prob * 100:.2f}%")
         else:
@@ -185,7 +187,7 @@ def handle_predict_pattern(base_url, args):
         print(f"Connection Failed: {e}")
 
 def handle_test_scenarios(base_url, args):
-    """ Verify model against synthetic scenarios based on provided arguments and display the results. """
+    """Verify probabilistic scoring against synthetic scenarios."""
     url = f"{base_url}:{args.port}/test"
     params = {
         "name": args.name,
@@ -199,7 +201,7 @@ def handle_test_scenarios(base_url, args):
         resp = requests.get(url, params=params, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
-            print("\nMODEL SCENARIO VERIFICATION:")
+            print("\nSCORING SCENARIO VERIFICATION:")
             rows = []
             for label, info in data.items():
                 name = label.upper().replace("_", " ")
@@ -225,6 +227,7 @@ if __name__ == "__main__":
     p_parser.add_argument("--backend")
     p_parser.add_argument("--attempt", type=int)
     p_parser.add_argument("--scenario")
+    p_parser.add_argument("--level")
     p_parser.add_argument("--audit", action="store_true", help="Enable prediction auditing")
     p_parser.add_argument("--name", required=True)
     p_parser.add_argument("--system", required=True)
@@ -237,6 +240,7 @@ if __name__ == "__main__":
     r_parser.add_argument("--audit", action="store_true", help="Enable prediction auditing")
     r_parser.add_argument("--attempt", type=int)
     r_parser.add_argument("--scenario")
+    r_parser.add_argument("--level")
     r_parser.add_argument("--system", required=True)
     
     # Worst Systems Command
@@ -246,6 +250,7 @@ if __name__ == "__main__":
     s_parser.add_argument("--attempt", type=int)
     s_parser.add_argument("--audit", action="store_true", help="Enable prediction auditing")
     s_parser.add_argument("--scenario")
+    s_parser.add_argument("--level")
     s_parser.add_argument("--name", required=True)
 
     # List Command
@@ -254,12 +259,13 @@ if __name__ == "__main__":
 
     # Context Command
     c_parser = subparsers.add_parser("context", help="See prediction with historical context")
-    c_parser.add_argument("--name", required=True)
+    c_parser.add_argument("--name", help="Defaults to unknown_name for project-level context")
     c_parser.add_argument("--system", required=True)
     c_parser.add_argument("--verb", default="executing")
     c_parser.add_argument("--backend")
     c_parser.add_argument("--attempt", type=int)
     c_parser.add_argument("--scenario")
+    c_parser.add_argument("--level")
     c_parser.add_argument("--audit", action="store_true")
 
     # Pattern Command
@@ -273,7 +279,7 @@ if __name__ == "__main__":
     pt_parser.add_argument("--scenario", default="generic")
     pt_parser.add_argument("--audit", action="store_true")
 
-    t_parser = subparsers.add_parser("test", help="Verify model against synthetic scenarios")
+    t_parser = subparsers.add_parser("test", help="Verify scoring against synthetic scenarios")
     t_parser.add_argument("--name", default="tests/main/abort")
     t_parser.add_argument("--system", default="ubuntu-24.04-64")
     t_parser.add_argument("--verb", default="executing")
@@ -282,6 +288,11 @@ if __name__ == "__main__":
     t_parser.add_argument("--scenario", default="generic")
 
     args = parser.parse_args()
+    if args.command == "context" and not args.name:
+        if args.level == "project":
+            args.name = "unknown_name"
+        else:
+            parser.error("context requires --name unless --level project is used")
     base_url = normalize_base_url(args.url)
 
     # Mapping commands to functions

@@ -38,6 +38,7 @@ def get_audit(args):
     base_url = normalize_base_url(args.url)
     filters = {
         "name": args.name,
+        "backend": args.backend,
         "attempt": args.attempt,
         "scenario": args.scenario,
         "verb": args.verb
@@ -107,9 +108,14 @@ def get_audit(args):
             rate = f"{(p/t*100):.2f}%" if t > 0 else "0%"
 
             filters_applied = data.get('filters_applied', {})
-            target = filters_applied.get('system') or filters_applied.get('name') or 'Unknown'
+            target = (
+                filters_applied.get('system')
+                or filters_applied.get('backend')
+                or filters_applied.get('name')
+                or 'Unknown'
+            )
 
-            print("\n SINGLE SYSTEM AUDIT")
+            print("\n STATS SUMMARY")
             print(f"Target: {target}")
             print("-" * 30)
             print(f"PASS:  {p}")
@@ -135,6 +141,7 @@ if __name__ == "__main__":
     parser.add_argument("--scenario", default="generic")
     parser.add_argument("--verb", default="executing")
     parser.add_argument("--attempt", type=int, default=1)
+    parser.add_argument("--backend", help="Backend name")
     parser.add_argument("--system", help="System name or 'all' for breakdown")
     parser.add_argument("--name", help="Test name")
     parser.add_argument("--history", action="store_true", help="Return historical rows for --name and --system")
@@ -145,7 +152,7 @@ if __name__ == "__main__":
     if args.history and not (args.system and args.name):
         parser.error("--history requires both --system and --name.")
 
-    if not any([args.system, args.name, args.attempt, args.scenario, args.verb]):
-        parser.error("At least one filter (e.g., --system all or --name) must be provided.")
+    if not any([args.backend, args.system, args.name, args.attempt, args.scenario, args.verb]):
+        parser.error("At least one filter (e.g., --backend or --system all) must be provided.")
 
     get_audit(args)

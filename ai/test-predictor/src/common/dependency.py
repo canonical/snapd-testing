@@ -10,6 +10,7 @@ from statsmodels.tsa.stattools import grangercausalitytests
 
 from common import config
 from common.cache import DependencyMatrixCache
+from common.processor import select_recent_pr_runs
 from common.utils import setup_logging
 
 logger = setup_logging("dependency-manager")
@@ -44,7 +45,7 @@ class DependencyManager:
 
     def _list_available_system_scenario_pairs(self):
         """Return unique (system, scenario) pairs available in task/executing rows."""
-        files = glob.glob(os.path.join(self.ts_dir, "*.ts"))
+        files = select_recent_pr_runs(glob.glob(os.path.join(self.ts_dir, "*.ts")))
         pairs = set()
         for f in files:
             try:
@@ -138,7 +139,7 @@ class DependencyManager:
         return status
 
     def load_all_data(self, system=None, scenario=None, min_rows=10):
-        files = glob.glob(os.path.join(self.ts_dir, "*.ts"))
+        files = select_recent_pr_runs(glob.glob(os.path.join(self.ts_dir, "*.ts")))
         if not files:
             logger.warning(f"No .ts files found in {self.ts_dir}")
             return pd.DataFrame()

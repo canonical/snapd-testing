@@ -14,15 +14,17 @@ TEST_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/test"
 PATTERN_URL = f"http://{config.SERVER_HOST}:{config.PREDICTOR_PORT}/internal/predict-pattern"
 
 def get_params():
-    return {
+    params = {
         "name": request.args.get('name'),
         "verb": request.args.get('verb'),
         "backend": request.args.get('backend', None),
         "system": request.args.get('system'),
         "attempt": request.args.get('attempt', None),
         "scenario": request.args.get('scenario', None),
+        "level": request.args.get('level', None),
         "audit": request.args.get('audit', config.DEFAULT_AUDIT)
     }
+    return params
 
 def call_internal_predictor(payload):
     """Helper to call the standalone predictor service."""
@@ -37,7 +39,8 @@ def call_internal_predictor(payload):
             body = resp.json()
             return {
                 "probability": body.get('probability'),
-                "context_len": int(body.get('context_len', 0) or 0)
+                "context_len": int(body.get('context_len', 0) or 0),
+                "model": body.get('model'),
             }, 200
 
         # Any other server error (500, 404, etc)
@@ -64,6 +67,7 @@ def predict_scenario():
     # If successful, return the clean probability
     return jsonify({
         "success_probability": result.get("probability"), 
+        "model": result.get("model"),
         "params": p
     }), 200
 
@@ -95,7 +99,7 @@ def rank_risk():
         payload = {
             "name": n, "verb": p['verb'], "system": p['system'], 
             "backend": p['backend'], "attempt": p['attempt'],
-            "scenario": p['scenario']
+            "scenario": p['scenario'], "level": p['level']
         }
         result, status_code = call_internal_predictor(payload)
         
@@ -107,7 +111,8 @@ def rank_risk():
             results.append({
                 "name": n,
                 "prob": float(result.get("probability")),
-                "context_len": context_len
+                "context_len": context_len,
+                "model": result.get("model"),
             })
 
     # Sort by probability (minor/lowest first)
@@ -148,7 +153,8 @@ def worst_systems():
     for s in systems:
         payload = {
             "name": p['name'], "verb": p['verb'], "backend": p['backend'],
-            "system": s, "attempt": p['attempt'], "scenario": p['scenario']
+            "system": s, "attempt": p['attempt'], "scenario": p['scenario'],
+            "level": p['level']
         }
         result, status_code = call_internal_predictor(payload)
         if status_code != 200:
@@ -161,7 +167,8 @@ def worst_systems():
         results.append({
             "system": s,
             "prob": float(result.get("probability")),
-            "context_len": context_len
+            "context_len": context_len,
+            "model": result.get("model"),
         })
     
     results.sort(key=lambda x: x['prob'])
@@ -177,7 +184,7 @@ def proxy_list_metadata(category):
 
 @predictor_bp.route('/predict-with-history', methods=['GET'])
 def predict_with_history():
-    """Returns the prediction + the steps history used for the LSTM."""
+    """Return the prediction and the historical results used to calculate it."""
     p = get_params()
     if not all([p['name'], p['verb'], p['system']]):
         return jsonify({"error": "Missing params"}), 400
@@ -190,13 +197,15 @@ def predict_with_history():
     # Get the Context Cache from the internal server
     try:
         cache_resp = requests.get(CACHE_URL, params=p, timeout=5)
-        history = cache_resp.json().get('history', []) if cache_resp.status_code == 200 else []
+        cache_body = cache_resp.json() if cache_resp.status_code == 200 else {}
+        history = cache_body.get('history', [])
     except Exception as e:
         logger.error(f"Failed to fetch history: {e}")
         history = []
 
     return jsonify({
         "success_probability": result.get("probability"), 
+        "model": result.get("model"),
         "history_length": len(history),
         "history": history,
         "params": p
@@ -234,6 +243,7 @@ def predict_pattern():
         data = response.json()
         return jsonify({
             "success_probability": data.get("probability"),
+            "model": data.get("model"),
             "pattern_info": data.get("pattern_info"),
             "params": p
         }), 200

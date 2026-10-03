@@ -1,1 +1,1 @@
-This directory is used to store the processed Time-Series data ready for the LSTM.
+This directory stores processed time-series data used to rebuild prediction caches.

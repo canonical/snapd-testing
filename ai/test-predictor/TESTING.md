@@ -54,3 +54,24 @@ python -m py_compile \
 - Tests call `adjust_for_flaky_pattern` directly and do not require starting the API server.
 - `PYTHONPATH=src` is required so imports like `services.jobs.predictor` resolve correctly.
 - Range-based assertions are used for calibration behavior to keep tests robust to minor tuning changes.
+
+## End-to-End Smoke Test (run before deploy)
+
+`src/tests/e2e_smoke.py` boots the internal predictor service and the external
+API service as real HTTP servers on isolated ports, seeds a small synthetic
+history, and exercises the full probabilistic request chain, including legacy
+model rejection and full cache-depth context. It does not touch the live
+deployment: it uses a temp `STATE_DIR` and dedicated ports (5100/5101 by
+default).
+
+```bash
+cd ./ai/test-predictor
+.venv/bin/python3 src/tests/e2e_smoke.py
+```
+
+Exits non-zero if any check fails. No trained model or metadata is required.
+
+`/rank-risk` and `/worst-systems` are intentionally not exercised here since
+they iterate every known name/system and are too slow for a quick smoke test;
+their request/response contract is covered by the checks against `/predict`,
+`/predict-with-history`, and `/predict-pattern` instead.

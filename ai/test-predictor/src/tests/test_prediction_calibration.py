@@ -25,6 +25,82 @@ def generate_scenarios(prefixes, tail_size):
 
 
 class TestPredictionCalibration(unittest.TestCase):
+    def test_reported_mostly_pass_histories_have_high_confidence(self):
+        cases = {
+            "fresh_failure_after_thirteen_passes": (
+                [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                0.79,
+                0.82,
+            ),
+            "three_pass_recovery": (
+                [1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1],
+                0.80,
+                0.83,
+            ),
+            "two_pass_recovery": (
+                [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
+                0.80,
+                0.83,
+            ),
+        }
+
+        for label, (pattern, lower, upper) in cases.items():
+            with self.subTest(label=label):
+                probability = prob_for(pattern, base_probability=0.0)
+                assert_in_range(self, probability, lower, upper, label)
+
+    def test_mostly_pass_history_recovers_from_isolated_failure(self):
+        pattern = [1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1]
+
+        probability = prob_for(pattern, base_probability=0.0038)
+
+        assert_in_range(self, probability, 0.80, 0.83, "isolated failure recovery")
+
+    def test_mostly_pass_history_recovers_from_three_isolated_failures(self):
+        pattern = [0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1]
+
+        probability = prob_for(pattern, base_probability=0.1464)
+
+        assert_in_range(self, probability, 0.76, 0.79, "three isolated failures")
+
+    def test_mixed_history_recovers_after_three_recent_passes(self):
+        pattern = [0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1]
+
+        probability = prob_for(pattern, base_probability=0.0112)
+
+        assert_in_range(self, probability, 0.65, 0.75, "three-pass mixed recovery")
+
+    def test_mostly_pass_history_with_fresh_failure_after_two_passes(self):
+        pattern = [1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0]
+
+        probability = prob_for(pattern, base_probability=0.0046)
+
+        assert_in_range(self, probability, 0.62, 0.66, "fresh failure after two passes")
+
+    def test_failure_position_variants_report_probabilities(self):
+        variants = {
+            "early": ((0,), (0, 2), (0, 2, 4), (0, 2, 4, 6)),
+            "spread": ((1,), (1, 6), (1, 6, 11), (1, 4, 6, 11)),
+            "recent": ((12,), (2, 12), (2, 10, 12), (2, 8, 10, 12)),
+            "clustered_recent": ((12,), (11, 12), (10, 11, 12), (9, 10, 11, 12)),
+        }
+
+        for label, failure_variants in variants.items():
+            probabilities = []
+            for failure_positions in failure_variants:
+                pattern = [0 if i in failure_positions else 1 for i in range(14)]
+                probability = prob_for(pattern, base_probability=0.0038)
+                probabilities.append(probability)
+                print(
+                    f"{label}: failures={failure_positions}, "
+                    f"success_probability={probability:.2%}"
+                )
+                assert_in_range(self, probability, 0.0, 1.0, label)
+
+            with self.subTest(label=label):
+                self.assertGreaterEqual(probabilities[0], probabilities[1])
+                self.assertGreater(probabilities[1], probabilities[2])
+
     def test_flaky_corner_ranges(self):
         """
         Cover major corner paths in the prediction calibration pipeline and
@@ -42,12 +118,12 @@ class TestPredictionCalibration(unittest.TestCase):
             "low_ones_tail_zero_early_return": ([0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0], 0.50, 0.00, 0.03),
 
             # Boundary flip rules
-            "boundary_pass_to_fail": ([1] * 13 + [0], 0.00, 0.56, 0.66),
-            "boundary_fail_to_pass": ([0] * 13 + [1], 0.00, 0.30, 0.40),
+            "boundary_pass_to_fail": ([1] * 13 + [0], 0.00, 0.79, 0.82),
+            "boundary_fail_to_pass": ([0] * 13 + [1], 0.00, 0.14, 0.25),
 
             # Mostly-pass rules
             "mostly_pass_positive_tail_floor": ([1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1], 0.00, 0.70, 0.82),
-            "single_fresh_fail_floor": ([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0], 0.00, 0.56, 0.66),
+            "single_fresh_fail_floor": ([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0], 0.00, 0.79, 0.82),
             "brief_dip_then_pass_recovery": ([1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1], 0.00, 0.88, 0.92),
             "stale_single_fail_long_pass_tail": ([0] + [1] * 13, 0.00, 0.89, 0.91),
 
@@ -68,9 +144,9 @@ class TestPredictionCalibration(unittest.TestCase):
     def test_core_scenario_ranges(self):
         # Regression anchors for key edge cases discussed during tuning.
         scenarios = {
-            "all_fail_then_pass": ([0] * 13 + [1], 0.30, 0.50),
+            "all_fail_then_pass": ([0] * 13 + [1], 0.14, 0.25),
             "all_fail_then_two_passes": ([0] * 12 + [1, 1], 0.70, 0.90),
-            "all_pass_then_fail": ([1] * 13 + [0], 0.50, 0.70),
+            "all_pass_then_fail": ([1] * 13 + [0], 0.79, 0.82),
             "all_pass_then_two_fails": ([1] * 12 + [0, 0], 0.20, 0.50),
         }
 

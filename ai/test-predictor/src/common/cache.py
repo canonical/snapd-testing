@@ -5,13 +5,13 @@ import threading
 import pandas as pd
 import pickle
 from common import config
-from common.processor import extract_github_ids
+from common.processor import extract_github_ids, extract_pr
 from common.utils import setup_logging
 
 logger = setup_logging("cache-manager")
 
 class SystemStateCache:
-    def __init__(self, history_size=config.SEQUENCE_LENGTH-1):
+    def __init__(self, history_size=config.CACHE_HISTORY_SIZE):
         # Flattened structure: self.cache[system][name][verb] = [list of result_dicts]
         self.cache = {}
         self.history_size = history_size
@@ -24,7 +24,7 @@ class SystemStateCache:
         
         # Handle the NaN Name issue from pandas or empty API strings
         if not name or name.lower() == 'nan':
-            name = 'unknown_step'
+            name = 'unknown_name'
 
         # Helper to safely convert strings/NaNs to integers
         def safe_int(val, default):
@@ -43,8 +43,10 @@ class SystemStateCache:
             'backend': str(data.get('backend') or 'unknown'),
             'system': str(data.get('system') or 'unknown'),
             'scenario': str(data.get('scenario') or config.DEFAULT_SCENARIO),
+            'level': str(data.get('level') or 'unknown'),
             'job_id': safe_int(data.get('job_id'), None),
             'run_id': safe_int(data.get('run_id'), None),
+            'pr': safe_int(data.get('pr'), None),
             'success': safe_int(data.get('success'), 0),
             'attempt': safe_int(data.get('attempt'), config.DEFAULT_ATTEMPT),
             'start': str(data.get('start') or '')
@@ -65,7 +67,14 @@ class SystemStateCache:
         for names in cache.values():
             for verbs in names.values():
                 for history in verbs.values():
-                    if any(item.get('job_id') is None or item.get('run_id') is None for item in history):
+                    if any(
+                        item.get('job_id') is None
+                        or item.get('run_id') is None
+                        or 'pr' not in item
+                        or 'level' not in item
+                        or item.get('name') == 'unknown_step'
+                        for item in history
+                    ):
                         return True
         return False
 
@@ -80,18 +89,46 @@ class SystemStateCache:
 
     def _log_stats(self):
         """Calculates and logs the density of the current cache."""
-        total_systems = len(self.cache)
-        total_unique_tests = 0
-        total_verb_buckets = 0
-
-        for _, names in self.cache.items():
-            total_unique_tests += len(names)
-            for _, verbs in names.items():
-                total_verb_buckets += len(verbs)
-
+        stats = self.stats()
         logger.info(
-            f"Cache Stats: {total_unique_tests} Tests"
+            "Cache Stats: %d systems, %d tests, %d verb buckets, %d entries, "
+            "%d entries missing GitHub provenance",
+            stats['systems'],
+            stats['tests'],
+            stats['verb_buckets'],
+            stats['entries'],
+            stats['missing_provenance'],
         )
+
+    def stats(self):
+        """Return cache density and GitHub provenance counts."""
+        result = {
+            'systems': len(self.cache),
+            'tests': 0,
+            'verb_buckets': 0,
+            'entries': 0,
+            'missing_provenance': 0,
+            'provenance_samples': [],
+        }
+
+        for names in self.cache.values():
+            result['tests'] += len(names)
+            for verbs in names.values():
+                result['verb_buckets'] += len(verbs)
+                for history in verbs.values():
+                    result['entries'] += len(history)
+                    for item in history:
+                        job_id = item.get('job_id')
+                        run_id = item.get('run_id')
+                        if job_id is None or run_id is None:
+                            result['missing_provenance'] += 1
+                        elif len(result['provenance_samples']) < 3:
+                            result['provenance_samples'].append({
+                                'job_id': job_id,
+                                'run_id': run_id,
+                            })
+
+        return result
 
     def restore_backup(self, backup_dir):
         """Restores the cache snapshot from a specified backup directory."""
@@ -131,8 +168,10 @@ class SystemStateCache:
                 pickle.dump(self.cache, f)
             
             logger.info(f"Cache snapshot saved to {target_path}")
+            return True
         except Exception as e:
             logger.error(f"Failed to save snapshot to {target_path}: {e}")
+            return False
 
 
     def reinitialize(self):
@@ -155,7 +194,7 @@ class SystemStateCache:
             if restored_data is None:
                 logger.info("No snapshot found. Starting first-time priming...")
             else:
-                logger.info("Snapshot lacks GitHub provenance. Rebuilding from .ts files...")
+                logger.info("Snapshot lacks required cache fields. Rebuilding from .ts files...")
             self.cache = {}
             self._force_prime_and_save()
         
@@ -172,14 +211,12 @@ class SystemStateCache:
         history = self.cache[s][n][v]
         history.append(item)
 
-        # Maintain sliding window across all attempts/scenarios for this test
-        if len(history) > self.history_size:
-            self.cache[s][n][v] = history[-self.history_size:]
-
-    def get_context(self, system, name, verb, attempt=None, scenario=None, backend=None):
+    def get_context(
+        self, system, name, verb, attempt=None, scenario=None, backend=None,
+        max_items=None, level=None,
+    ):
         """
-        Retrieves filtered history and caps the result to
-        (SEQUENCE_LENGTH - 1) to fit the model window.
+        Retrieves filtered history, capped by default to CACHE_HISTORY_SIZE.
         """
         try:
             # Access the base bucket
@@ -193,9 +230,24 @@ class SystemStateCache:
                 filtered = [i for i in filtered if i.get('scenario') == scenario]
             if attempt is not None:
                 filtered = [i for i in filtered if i.get('attempt') == int(attempt)]
+            if level:
+                filtered = [i for i in filtered if i.get('level') == level]
+
+            if config.PR_RUNS_LIMIT > 0:
+                remaining_by_pr = {}
+                limited = []
+                for item in reversed(filtered):
+                    pr = item.get('pr')
+                    if pr is None:
+                        limited.append(item)
+                        continue
+                    used = remaining_by_pr.get(pr, 0)
+                    if used < config.PR_RUNS_LIMIT:
+                        limited.append(item)
+                        remaining_by_pr[pr] = used + 1
+                filtered = list(reversed(limited))
             
-            # We need (Length - 1) because the 'predict' function adds the current test data.
-            max_history = max(0, config.SEQUENCE_LENGTH - 1)
+            max_history = self.history_size if max_items is None else max(0, max_items)
             
             return filtered[-max_history:]
             
@@ -220,13 +272,16 @@ class SystemStateCache:
                 df = pd.read_csv(f, dtype={'system': str, 'name': str, 'verb': str})
                 try:
                     job_id, run_id = extract_github_ids(os.path.basename(f))
-                    for column, value in (('job_id', job_id), ('run_id', run_id)):
+                    pr = extract_pr(os.path.basename(f))
+                    for column, value in (('job_id', job_id), ('run_id', run_id), ('pr', pr)):
                         if column not in df.columns:
                             df[column] = value
                         else:
-                            df[column] = df[column].replace(r'^\s*$', pd.NA, regex=True).fillna(value)
+                            numeric = pd.to_numeric(df[column], errors='coerce')
+                            df[column] = numeric if value is None else numeric.fillna(value)
                 except ValueError:
                     logger.warning(f"Could not recover GitHub IDs from {f}")
+                df['_source_file'] = f
                 all_chunks.append(df)
             except Exception as e:
                 logger.error(f"Error reading {f}: {e}")
@@ -255,16 +310,13 @@ class SystemStateCache:
             history = self.cache[s][n][v]
             history.append(item)
             
-            if len(history) > self.history_size:
-                self.cache[s][n][v] = history[-self.history_size:]
-            
         logger.info(f"Cache primed successfully.")
 
 
 class DependencyMatrixCache:
     """
     In-memory cache for dependency analysis results (matrices, graphs, rankings).
-    Automatically expires entries after TRAIN_INTERVAL_HOURS.
+    Automatically expires entries after DEPENDENCY_CACHE_TTL_HOURS.
     Thread-safe with locks.
     Persists to disk (MODEL_DIR/DEPENDENCY_CACHE_SNAPSHOT).
     """
@@ -279,11 +331,11 @@ class DependencyMatrixCache:
         return (system, scenario)
 
     def _is_stale(self, entry):
-        """Check if a cache entry is older than TRAIN_INTERVAL_HOURS."""
+        """Check if a cache entry is older than DEPENDENCY_CACHE_TTL_HOURS."""
         if entry is None:
             return True
         age_seconds = time.time() - entry["timestamp"]
-        max_age_seconds = config.TRAIN_INTERVAL_HOURS * 3600
+        max_age_seconds = config.DEPENDENCY_CACHE_TTL_HOURS * 3600
         return age_seconds > max_age_seconds
 
     def get(self, system, scenario):
