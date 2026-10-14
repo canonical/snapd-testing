@@ -19,10 +19,6 @@ app.state_cache.initialize()
 register_context_endpoint(app)
 
 
-def _clamp01(value):
-    return max(0.0, min(1.0, value))
-
-
 def _extract_successes(history_items):
     successes = []
     for item in history_items:
@@ -33,294 +29,124 @@ def _extract_successes(history_items):
     return successes
 
 
-def _tail_streak(values, target):
-    streak = 0
-    for v in reversed(values):
-        if v == target:
-            streak += 1
+def _history_part_bounds(history_size, part_sizes):
+    bounds = []
+    end = history_size
+    for part_size in part_sizes:
+        start = max(0, end - part_size)
+        bounds.append((start, end))
+        end = start
+    bounds.append((0, end))
+    return bounds
+
+
+def _prs_with_matching_endpoint_results(history_items):
+    endpoints = {}
+    for item in history_items:
+        pr = item.get('pr')
+        if pr is None:
+            continue
+        try:
+            success = int(float(item.get('success', 0)))
+        except (TypeError, ValueError):
+            continue
+        if pr not in endpoints:
+            endpoints[pr] = [success, success, 1]
         else:
-            break
-    return streak
-
-
-def _prev_streak_before_tail(values, tail_len, target):
-    if tail_len <= 0:
-        return 0
-
-    streak = 0
-    for v in reversed(values[:-tail_len]):
-        if v == target:
-            streak += 1
-        else:
-            break
-    return streak
-
-
-def _compute_history_metrics(successes):
-    transitions = sum(1 for i in range(1, len(successes)) if successes[i] != successes[i - 1])
-    transition_rate = transitions / float(len(successes) - 1)
-    ones_ratio = sum(successes) / float(len(successes))
-
-    transition_score = _clamp01((transition_rate - 0.45) / 0.55)
-    balance_score = _clamp01(1.0 - abs(ones_ratio - 0.5) / 0.5)
-    flaky_score = transition_score * balance_score
+            endpoints[pr][1] = success
+            endpoints[pr][2] += 1
 
     return {
-        "transition_rate": transition_rate,
-        "ones_ratio": ones_ratio,
-        "balance_score": balance_score,
-        "flaky_score": flaky_score,
+        pr
+        for pr, (oldest, newest, count) in endpoints.items()
+        if count > 1 and oldest == newest
     }
 
 
-def _apply_strong_trend_rules(adjusted, ones_ratio, tail_one_streak, tail_zero_streak, transition_rate):
-    if ones_ratio >= 0.99 and tail_one_streak >= 6 and transition_rate <= 0.05:
-        return max(adjusted, 0.99), True
-    if ones_ratio >= 0.98:
-        return max(adjusted, 0.98), True
-    if ones_ratio <= 0.01:
-        return min(adjusted, 0.03), True
-
-    if ones_ratio >= 0.85 and tail_one_streak >= 2 and transition_rate <= 0.25:
-        adjusted = max(adjusted, 0.90)
-    if tail_zero_streak >= 3 and ones_ratio <= 0.20:
-        return min(adjusted, 0.03), True
-    if tail_one_streak >= 6 and ones_ratio >= 0.50 and transition_rate <= 0.20:
-        adjusted = max(adjusted, 0.90)
-
-    return adjusted, False
+def _duplicate_pr_index(history_items, start, end, reorderable_prs):
+    seen_prs = set()
+    for index in range(end - 1, start - 1, -1):
+        pr = history_items[index].get('pr')
+        if pr not in reorderable_prs:
+            continue
+        if pr in seen_prs:
+            return index
+        seen_prs.add(pr)
+    return None
 
 
-def _apply_boundary_flip_rules(
-    adjusted,
-    tail_zero_streak,
-    prev_one_streak,
-    tail_one_streak,
-    prev_zero_streak,
-):
-    if tail_one_streak == 1 and prev_zero_streak >= 10:
-        trend_strength = _clamp01((prev_zero_streak - 10) / 6.0)
-        target = 0.20 - 0.05 * trend_strength
-        strength = 0.75 + 0.15 * trend_strength
-        return (1.0 - strength) * adjusted + strength * target
+def _demote_duplicate_prs(history_items, part_sizes):
+    """Demote duplicate PRs only when their oldest and newest outcomes match."""
+    reordered = list(history_items)
+    reorderable_prs = _prs_with_matching_endpoint_results(history_items)
+    for start, end in _history_part_bounds(len(reordered), part_sizes)[:-1]:
+        if start == 0:
+            break
 
-    if tail_zero_streak >= 1 and prev_one_streak >= 6:
-        trend_strength = _clamp01((prev_one_streak - 6) / 8.0)
-        confirmation = _clamp01((tail_zero_streak - 1) / 2.0)
-        target = 0.50 + 0.15 * trend_strength - 0.30 * confirmation
-        strength = 0.65 + 0.30 * trend_strength
-        adjusted = (1.0 - strength) * adjusted + strength * target
+        while True:
+            duplicate_index = _duplicate_pr_index(
+                reordered,
+                start,
+                end,
+                reorderable_prs,
+            )
+            if duplicate_index is None:
+                break
 
-    if tail_one_streak >= 1 and prev_zero_streak >= 6:
-        trend_strength = _clamp01((prev_zero_streak - 6) / 8.0)
-        confirmation = _clamp01((tail_one_streak - 1) / 2.0)
-        target = _clamp01(0.50 - 0.15 * trend_strength + 0.85 * confirmation)
-        strength = 0.65 + 0.30 * trend_strength
-        adjusted = (1.0 - strength) * adjusted + strength * target
+            current_prs = {
+                item.get('pr')
+                for item in reordered[start:end]
+                if item.get('pr') is not None
+            }
+            replacement_index = next(
+                (
+                    index
+                    for index in range(start - 1, -1, -1)
+                    if reordered[index].get('pr') is None
+                    or reordered[index].get('pr') not in current_prs
+                ),
+                None,
+            )
+            if replacement_index is None:
+                break
 
-    return adjusted
+            duplicate = reordered.pop(duplicate_index)
+            reordered.insert(replacement_index, duplicate)
+
+    return reordered
 
 
-def _apply_mostly_pass_rules(
-    adjusted,
-    ones_ratio,
-    tail_one_streak,
-    tail_zero_streak,
-    prev_one_streak,
-    prev_zero_streak,
-    transition_rate,
-):
-    if ones_ratio >= 0.70 and tail_one_streak >= 2:
-        pass_strength = _clamp01((ones_ratio - 0.70) / 0.30)
-        tail_conf = _clamp01((tail_one_streak - 2) / 3.0)
-        noise_penalty = _clamp01((transition_rate - 0.30) / 0.40)
-        floor = 0.45 + 0.25 * pass_strength + 0.18 * tail_conf - 0.18 * noise_penalty
-        adjusted = max(adjusted, floor)
+def _weighted_history_probability(history_items, part_sizes, part_weights):
+    if len(part_weights) != len(part_sizes) + 1:
+        raise ValueError("history part weights must include the unbounded oldest partition")
+    if any(size <= 0 for size in part_sizes):
+        raise ValueError("history part sizes must be positive")
+    if any(weight < 0 for weight in part_weights) or not part_weights:
+        raise ValueError("history part weights must be non-negative")
 
-    if ones_ratio >= 0.70 and tail_zero_streak == 1 and prev_one_streak >= 2:
-        pass_strength = _clamp01((ones_ratio - 0.70) / 0.30)
-        run_strength = _clamp01((prev_one_streak - 3) / 5.0)
-        long_run_start = 10
-        long_run_span = max(config.CACHE_HISTORY_SIZE - 1 - long_run_start, 1)
-        long_run_strength = _clamp01((prev_one_streak - long_run_start) / long_run_span) ** 2
-        noise_penalty = _clamp01((transition_rate - 0.30) / 0.40)
-        floor = (
-            0.55
-            + 0.20 * pass_strength
-            + 0.10 * run_strength
-            + 0.13 * long_run_strength
-            - 0.12 * noise_penalty
-        )
-        adjusted = max(adjusted, floor)
-
-    if (
-        tail_one_streak >= 1
-        and tail_one_streak <= 4
-        and 1 <= prev_zero_streak <= 3
-        and ones_ratio >= 0.70
-        and transition_rate <= 0.40
+    weighted_successes = 0.0
+    active_weight = 0.0
+    for (start, end), part_weight in zip(
+        _history_part_bounds(len(history_items), part_sizes),
+        part_weights,
     ):
-        recovery_strength = _clamp01((ones_ratio - 0.70) / 0.30)
-        dip_penalty = _clamp01((prev_zero_streak - 1) / 2.0)
-        target = 0.72 + 0.18 * recovery_strength - 0.15 * dip_penalty
-        adjusted = max(adjusted, target)
+        successes = _extract_successes(history_items[start:end])
+        if not successes:
+            continue
+        weighted_successes += part_weight * sum(successes) / len(successes)
+        active_weight += part_weight
 
-    return adjusted
-
-
-def _apply_flaky_rules(adjusted, flaky_score, balance_score, tail_one_streak, ones_ratio):
-    if flaky_score >= 0.30:
-        target_prob = 0.50 - (1.0 - balance_score) * 0.20
-        strength = _clamp01((flaky_score - 0.30) / 0.70)
-        adjusted = (1.0 - strength) * adjusted + strength * target_prob
-
-        if tail_one_streak >= 3 and ones_ratio >= 0.45:
-            adjusted = max(adjusted, 0.80)
-
-    return adjusted
-
-
-def _apply_recovery_rules(adjusted, ones_ratio, tail_one_streak, transition_rate):
-    if tail_one_streak >= 3 and ones_ratio >= 0.40:
-        history_support = _clamp01((ones_ratio - 0.40) / 0.30)
-        noise_penalty = _clamp01((transition_rate - 0.55) / 0.35)
-        floor = 0.60 + 0.15 * history_support - 0.15 * noise_penalty
-        adjusted = max(adjusted, floor)
-
-    return adjusted
-
-
-def _apply_tail_recovery_floor(adjusted, tail_one_streak, prev_zero_streak, ones_ratio):
-    sustained_reversal = tail_one_streak >= 3 and prev_zero_streak >= 6
-    extended_mixed_recovery = tail_one_streak >= 6 and ones_ratio <= 0.60
-    if sustained_reversal or extended_mixed_recovery:
-        recovery_floor = min(0.97, 0.80 + 0.03 * (tail_one_streak - 3))
-        adjusted = max(adjusted, recovery_floor)
-    return adjusted
-
-
-def _apply_mixed_extreme_guard(adjusted, ones_ratio, transition_rate, balance_score, successes):
-    is_extreme = adjusted <= 0.02 or adjusted >= 0.98
-    mixed_history = 0.20 <= ones_ratio <= 0.80 and transition_rate >= 0.25
-
-    clear_tail = False
-    if len(successes) >= 3:
-        tail3 = successes[-3:]
-        clear_tail = all(v == 1 for v in tail3) or all(v == 0 for v in tail3)
-
-    if is_extreme and mixed_history and not clear_tail:
-        extremeness = _clamp01((abs(adjusted - 0.5) - 0.45) / 0.05)
-        mixedness = min(1.0, transition_rate / 0.50) * balance_score
-        strength = 0.60 * extremeness * mixedness
-        adjusted = (1.0 - strength) * adjusted + strength * ones_ratio
-
-    return adjusted
-
-
-def _apply_tail_deterioration_cap(adjusted, successes, prev_one_streak, ones_ratio):
-    tail_zero_streak = _tail_streak(successes, 0)
-    if tail_zero_streak >= 3:
-        deterioration_cap = max(0.03, 0.20 - 0.03 * (tail_zero_streak - 3))
-        adjusted = min(adjusted, deterioration_cap)
-
-    if len(successes) >= 2 and successes[-1] == 0 and successes[-2] == 0:
-        if prev_one_streak < 8:
-            if ones_ratio >= 0.75:
-                adjusted = min(adjusted, 0.04)
-            else:
-                adjusted = min(adjusted, 0.08)
-    return adjusted
-
-
-def adjust_for_flaky_pattern(history_items, probability):
-    """Post-process raw model probability to avoid brittle extremes on mixed history."""
-    if not history_items:
-        return max(probability, 0.93)
-
-    successes = _extract_successes(history_items)
-    if len(successes) < 6:
-        return probability
-
-    tail_one_streak = _tail_streak(successes, 1)
-    tail_zero_streak = _tail_streak(successes, 0)
-    prev_zero_streak = _prev_streak_before_tail(successes, tail_one_streak, 0)
-    prev_one_streak = _prev_streak_before_tail(successes, tail_zero_streak, 1)
-
-    metrics = _compute_history_metrics(successes)
-    transition_rate = metrics["transition_rate"]
-    ones_ratio = metrics["ones_ratio"]
-    balance_score = metrics["balance_score"]
-    flaky_score = metrics["flaky_score"]
-
-    adjusted = probability
-
-    adjusted, should_return = _apply_strong_trend_rules(
-        adjusted,
-        ones_ratio,
-        tail_one_streak,
-        tail_zero_streak,
-        transition_rate,
-    )
-    if should_return:
-        return adjusted
-
-    adjusted = _apply_boundary_flip_rules(
-        adjusted,
-        tail_zero_streak,
-        prev_one_streak,
-        tail_one_streak,
-        prev_zero_streak,
-    )
-    adjusted = _apply_mostly_pass_rules(
-        adjusted,
-        ones_ratio,
-        tail_one_streak,
-        tail_zero_streak,
-        prev_one_streak,
-        prev_zero_streak,
-        transition_rate,
-    )
-    adjusted = _apply_recovery_rules(adjusted, ones_ratio, tail_one_streak, transition_rate)
-    adjusted = _apply_flaky_rules(adjusted, flaky_score, balance_score, tail_one_streak, ones_ratio)
-    adjusted = _apply_mixed_extreme_guard(adjusted, ones_ratio, transition_rate, balance_score, successes)
-    adjusted = _apply_tail_recovery_floor(adjusted, tail_one_streak, prev_zero_streak, ones_ratio)
-    adjusted = _apply_tail_deterioration_cap(adjusted, successes, prev_one_streak, ones_ratio)
-
-    return adjusted
+    return weighted_successes / active_weight if active_weight else 0.5
 
 
 def probabilistic_prediction(history_items):
-    """Estimate probability from historical success ratio only, bypassing the model."""
-    successes = _extract_successes(history_items)
-    base_probability = (sum(successes) / len(successes)) if successes else 0.5
-    return adjust_for_flaky_pattern(history_items, base_probability)
-
-
-def _prediction_diagnostics(history_items):
-    """Summarize history-derived signals used by flaky post-processing."""
-    successes = _extract_successes(history_items)
-    if not successes:
-        return {
-            "usable_successes": 0,
-            "ones_ratio": None,
-            "transition_rate": None,
-            "tail_one_streak": 0,
-            "tail_zero_streak": 0,
-        }
-
-    tail_one_streak = _tail_streak(successes, 1)
-    tail_zero_streak = _tail_streak(successes, 0)
-    transitions = sum(1 for i in range(1, len(successes)) if successes[i] != successes[i - 1])
-    transition_rate = 0.0 if len(successes) < 2 else transitions / float(len(successes) - 1)
-    ones_ratio = sum(successes) / float(len(successes))
-
-    return {
-        "usable_successes": len(successes),
-        "ones_ratio": ones_ratio,
-        "transition_rate": transition_rate,
-        "tail_one_streak": tail_one_streak,
-        "tail_zero_streak": tail_zero_streak,
-    }
+    """Estimate probability from configurable, PR-aware history partitions."""
+    reordered_history = _demote_duplicate_prs(history_items, config.PREDICTION_PART_SIZES)
+    return _weighted_history_probability(
+        reordered_history,
+        config.PREDICTION_PART_SIZES,
+        config.PREDICTION_PART_WEIGHTS,
+    )
 
 
 def predict_from_history_pattern(base_data, pattern_values):
@@ -412,21 +238,15 @@ def predict():
         prob = probabilistic_prediction(history)
 
         if data.get('audit', config.DEFAULT_AUDIT):
-            diag = _prediction_diagnostics(history)
             logger.info(
-                "Prediction diagnostics: system=%s name=%s verb=%s scenario=%s context_len=%d usable_successes=%d "
-                "tail_one=%d tail_zero=%d ones_ratio=%s transition_rate=%s raw_prob=%s adjusted_prob=%.4f model=%s",
+                "Prediction diagnostics: system=%s name=%s verb=%s scenario=%s context_len=%d "
+                "usable_successes=%d probability=%.4f model=%s",
                 system,
                 name,
                 verb,
                 scenario,
                 len(history),
-                diag["usable_successes"],
-                diag["tail_one_streak"],
-                diag["tail_zero_streak"],
-                "n/a" if diag["ones_ratio"] is None else f"{diag['ones_ratio']:.3f}",
-                "n/a" if diag["transition_rate"] is None else f"{diag['transition_rate']:.3f}",
-                "n/a",
+                len(_extract_successes(history)),
                 prob,
                 config.PREDICTION_MODEL,
             )
@@ -557,70 +377,35 @@ def get_internal_pattern():
 
 @app.route('/internal/test', methods=['GET'])
 def test_scenarios():
-    """Tests the model against synthetic patterns and includes expected ranges."""
+    """Demonstrate partition weights with synthetic history patterns."""
     scenarios = {
-        "death_spiral": {
-            "pattern": [1, 1] + [0] * 12,
-            "expected": "< 5%"
-        },
         "stable_pass": {
             "pattern": [1] * 14,
-            "expected": ">= 99%"
+            "expected": "100.00%"
         },
-        "flaky_recovery": {
-            # Flaky history that ends with recovery; flaky-aware scoring keeps this
-            # in a medium-risk band instead of classifying as fully stable.
-            "pattern": [1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1],
-            "expected": "> 75%"
-        },
-        "flaky_alternating": {
-            # Canonical flaky signal: frequent alternation with balanced outcomes.
-            "pattern": [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-            "expected": "45-55%"
-        },
-        "flaky_with_tail_fail": {
-            # Mostly alternating, ending with deterioration should be even riskier.
-            "pattern": [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0],
-            "expected": "< 10%"
-        },
-        "flaky_mixed_noise": {
-            # Alternation with a small noisy pass streak, still flaky but less severe.
-            "pattern": [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1],
-            "expected": "40-70%"
-        },
-        "recent_deterioration": {
-            # Long pass streak with a very recent drop; this model predicts high risk.
-            "pattern": [1] * 10 + [0] * 4,
-            "expected": "< 25%"
-        },
-        "zombie_test": {
-            "pattern": [0] * 10 + [1] + [0] * 3,
-            "expected": "< 10%"
+        "stable_fail": {
+            "pattern": [0] * 14,
+            "expected": "0.00%"
         },
         "new_test_no_history": {
-            # No prior history defaults to optimistic baseline on the current model.
             "pattern": [],
-            "expected": "> 90%"
+            "expected": "50.00%"
         },
-        "improving_trend": {
-            "pattern": [0] * 6 + [1] * 8,
-            "expected": "> 85%"
+        "newest_partition_passes": {
+            "pattern": [0] * 11 + [1] * 3,
+            "expected": "50.00%"
         },
-        "all_pass_then_fail": {
-            "pattern": [1] * 13 + [0],
-            "expected": "50-70%"
+        "second_partition_passes": {
+            "pattern": [0] * 8 + [1] * 3 + [0] * 3,
+            "expected": "25.00%"
         },
-        "all_pass_then_two_fails": {
-            "pattern": [1] * 12 + [0, 0],
-            "expected": "20-50%"
+        "third_partition_passes": {
+            "pattern": [0] * 4 + [1] * 4 + [0] * 6,
+            "expected": "15.00%"
         },
-        "all_fail_then_pass": {
-            "pattern": [0] * 13 + [1],
-            "expected": "30-50%"
-        },
-        "all_fail_then_two_passes": {
-            "pattern": [0] * 12 + [1, 1],
-            "expected": "70-90%"
+        "oldest_partition_passes": {
+            "pattern": [1] * 4 + [0] * 10,
+            "expected": "10.00%"
         }
     }
     

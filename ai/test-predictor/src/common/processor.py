@@ -144,8 +144,28 @@ def _clean_and_transform_data(raw_data, scenario, attempt, job_id, run_id):
     return df[final_cols], batch_id
 
 
-def process_results(json_files, ts_dir):
+def _extract_aborted_data(raw_data, scenario, attempt, job_id, run_id):
+    """Return aborted source rows with ingestion metadata for CSV archival."""
+    aborted = pd.DataFrame(raw_data.get('items', []))
+    if aborted.empty or 'aborted' not in aborted.columns:
+        return pd.DataFrame()
+
+    aborted = aborted[
+        aborted['aborted'].astype(str).str.strip().str.lower() == 'true'
+    ].copy()
+    if aborted.empty:
+        return aborted
+
+    aborted['job_id'] = job_id
+    aborted['run_id'] = run_id
+    aborted['scenario'] = scenario
+    aborted['attempt'] = attempt
+    return aborted
+
+
+def process_results(json_files, ts_dir, archive_dir=None):
     """The heavy lifting: Convert -> Train -> Archive"""
+    archive_dir = archive_dir or config.ARCHIVE_DIR
     logger.info(f"Processing batch of {len(json_files)} files...")
     
     ts_batch_paths = []    
@@ -159,20 +179,34 @@ def process_results(json_files, ts_dir):
             scenario = _extract_scenario(filename)
             job_id, run_id = extract_github_ids(filename)
             with open(json_path, 'r') as f:
+                raw_data = json.load(f)
                 df, _ = _clean_and_transform_data(
-                    json.load(f), scenario, attempt, job_id, run_id
+                    raw_data, scenario, attempt, job_id, run_id
+                )
+                aborted = _extract_aborted_data(
+                    raw_data, scenario, attempt, job_id, run_id
                 )
 
             # Save the valid TS file
             df.to_csv(ts_path, index=False)
             ts_batch_paths.append((json_path, ts_path))
-            logger.info(f"Successfully processed and removed: {filename}")
+            archive_path = os.path.join(
+                archive_dir, filename.replace(".json", ".csv")
+            )
+            if not aborted.empty:
+                os.makedirs(archive_dir, exist_ok=True)
+                aborted.to_csv(archive_path, index=False)
+            elif os.path.exists(archive_path):
+                os.remove(archive_path)
+            logger.info(
+                f"Successfully processed {filename}; archived {len(aborted)} aborted items"
+            )
 
         except Exception as e:
             logger.warning(f"Skip {filename}: {e}")
 
         finally:
-            # This runs regardless of success or exception
+            # Invalid source files must not remain queued forever.
             if os.path.exists(json_path):
                 os.remove(json_path)
                 logger.debug(f"Removed source file: {filename}")

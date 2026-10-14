@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from common import config
 from common.cache import SystemStateCache
@@ -42,6 +43,32 @@ class TestSystemStateCache(unittest.TestCase):
             [item["backend"] for item in history],
             ["openstack", "openstack"],
         )
+
+    def test_context_keeps_newest_three_results_per_pr_when_configured(self):
+        cache = SystemStateCache(history_size=10)
+        for run_id in range(4):
+            cache.update({
+                "system": "ubuntu-22.04-64",
+                "name": "tests/main/example",
+                "verb": "executing",
+                "backend": "openstack",
+                "scenario": "master",
+                "pr": 17719,
+                "run_id": run_id,
+                "success": run_id % 2,
+            })
+
+        with patch.object(config, "PR_RUNS_LIMIT", 3):
+            history = cache.get_context(
+                "ubuntu-22.04-64",
+                "tests/main/example",
+                "executing",
+                scenario="master",
+                backend="openstack",
+            )
+
+        self.assertEqual([item["run_id"] for item in history], [1, 2, 3])
+        self.assertEqual([item["pr"] for item in history], [17719, 17719, 17719])
 
     def test_context_does_not_fallback_for_unknown_backend(self):
         history = self.cache.get_context(
@@ -130,7 +157,7 @@ class TestSystemStateCache(unittest.TestCase):
             self.assertEqual(history[0]["run_id"], 35731362637)
             self.assertIsNone(history[0]["pr"])
 
-    def test_cache_stores_all_pr_entries_but_context_uses_latest_two(self):
+    def test_cache_primes_latest_pr_runs_and_all_non_pr_runs(self):
         with TemporaryDirectory() as ts_dir:
             files = (
                 (1, 100, 17719, "2026-09-20T10:00:00Z"),
@@ -171,7 +198,7 @@ class TestSystemStateCache(unittest.TestCase):
             stored = cache.cache["ubuntu-24.04-64"]["tests/main/example"]["executing"]
             self.assertEqual(
                 [item["run_id"] for item in stored],
-                [90, 91, 92, 100, 101, 102, 102],
+                [90, 91, 92, 102, 102],
             )
 
             history = cache.get_context(
@@ -296,22 +323,51 @@ class TestSystemStateCacheCapacity(unittest.TestCase):
         stored = cache.cache["ubuntu-22.04-64"]["tests/main/example"]["executing"]
         self.assertEqual(len(stored), total)
 
-    def test_cache_storage_is_not_capped_by_prediction_depth(self):
+    def test_cache_storage_is_capped_by_prediction_depth(self):
         cache = SystemStateCache()
         total = config.CACHE_HISTORY_SIZE + 5
         self._fill(cache, total)
 
         stored = cache.cache["ubuntu-22.04-64"]["tests/main/example"]["executing"]
-        self.assertEqual(len(stored), total)
+        self.assertEqual(len(stored), config.CACHE_HISTORY_SIZE)
 
         history = cache.get_context(
             "ubuntu-22.04-64", "tests/main/example", "executing",
             scenario="master", backend="openstack",
         )
         self.assertEqual(len(history), config.CACHE_HISTORY_SIZE)
-        self.assertEqual(stored[0]["run_id"], 0)
+        self.assertEqual(stored[0]["run_id"], total - config.CACHE_HISTORY_SIZE)
         self.assertEqual(stored[-1]["run_id"], total - 1)
         self.assertEqual(history[0]["run_id"], total - config.CACHE_HISTORY_SIZE)
+
+    def test_cache_capacity_is_applied_per_filter_context(self):
+        cache = SystemStateCache()
+        total = config.CACHE_HISTORY_SIZE + 5
+        for scenario in ("master", "kernels"):
+            for run_id in range(total):
+                cache.update({
+                    "system": "ubuntu-22.04-64",
+                    "name": "tests/main/example",
+                    "verb": "executing",
+                    "backend": "openstack",
+                    "scenario": scenario,
+                    "job_id": 1,
+                    "run_id": run_id,
+                    "success": run_id % 2,
+                })
+
+        stored = cache.cache["ubuntu-22.04-64"]["tests/main/example"]["executing"]
+        self.assertEqual(len(stored), config.CACHE_HISTORY_SIZE * 2)
+        for scenario in ("master", "kernels"):
+            history = cache.get_context(
+                "ubuntu-22.04-64",
+                "tests/main/example",
+                "executing",
+                scenario=scenario,
+                backend="openstack",
+            )
+            self.assertEqual(len(history), config.CACHE_HISTORY_SIZE)
+            self.assertTrue(all(item["scenario"] == scenario for item in history))
 
     def test_get_context_defaults_to_cache_capacity(self):
         cache = SystemStateCache()

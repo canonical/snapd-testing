@@ -10,6 +10,7 @@ def state_path(relative_path):
 
 
 RESULTS_DIR = state_path('data/results')
+ARCHIVE_DIR = state_path('data/archive')
 TS_DIR = state_path('data/ts')
 LOGS_DIR = state_path('logs')
 MODEL_DIR = state_path('model')
@@ -19,11 +20,18 @@ HISTORY_LOG = 'history_audit.jsonl'
 # Cache snapshots used by the predictor and dependency analysis.
 CACHE_SNAPSHOT = "cache_snapshot.pkl"
 DEPENDENCY_CACHE_SNAPSHOT = "dependency_cache_snapshot.pkl"
+STATS_SNAPSHOT = "stats_snapshot.sqlite3"
 
 # Data Settings
 
 # How many historical results the probabilistic predictor retains per test.
 CACHE_HISTORY_SIZE = 25
+# Number of results in the newest history partitions. The final partition
+# contains every older result that remains.
+PREDICTION_PART_SIZES = (3, 3, 4)
+# Total probability weight for the three bounded partitions and the final
+# unbounded partition, ordered from newest to oldest.
+PREDICTION_PART_WEIGHTS = (0.50, 0.30, 0.15, 0.05)
 # Columns required by transformed result files.
 MANDATORY_TS_COLUMNS = [ 
     'runid',

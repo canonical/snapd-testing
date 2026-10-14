@@ -30,18 +30,17 @@ def print_table(headers, rows):
     for row in rows:
         print(fmt.format(*row))
 
-def get_audit(args):
-    """ 
-    Main function to query the API based on provided arguments and display
-    results accordingly.
-    """
+def build_request(args):
+    """Build the stats endpoint URL and non-empty query parameters."""
     base_url = normalize_base_url(args.url)
     filters = {
         "name": args.name,
         "backend": args.backend,
         "attempt": args.attempt,
         "scenario": args.scenario,
-        "verb": args.verb
+        "verb": args.verb,
+        "from": args.from_time,
+        "to": args.to_time,
     }
 
     # Select endpoint based on requested mode
@@ -60,9 +59,19 @@ def get_audit(args):
 
     # Remove None values
     params = {k: v for k, v in filters.items() if v is not None}
+    return url, params
+
+
+def get_audit(args):
+    """
+    Main function to query the API based on provided arguments and display
+    results accordingly.
+    """
+    base_url = normalize_base_url(args.url)
+    url, params = build_request(args)
 
     try:
-        response = requests.get(url, params=params, timeout=60)
+        response = requests.get(url, params=params, timeout=120)
         
         if response.status_code != 200:
             print(f"Error ({response.status_code}): {response.text}")
@@ -94,17 +103,17 @@ def get_audit(args):
             systems = data["systems"]
             rows = []
             for s_name, stats in sorted(systems.items()):
-                p, f = stats['pass'], stats['fail']
-                total = p + f
+                p, f, aborted = stats['pass'], stats['fail'], stats.get('aborted', 0)
+                total = p + f + aborted
                 rate = f"{(p/total*100):.1f}%" if total > 0 else "0%"
-                rows.append([s_name, p, f, total, rate])
+                rows.append([s_name, p, f, aborted, total, rate])
             
-            print_table(["SYSTEM", "PASS", "FAIL", "TOTAL", "RATE"], rows)
+            print_table(["SYSTEM", "PASS", "FAIL", "ABORTED", "TOTAL", "RATE"], rows)
 
         # Handle 'Single System' Summary View
         elif "results" in data:
             res = data["results"]
-            p, f, t = res['pass'], res['fail'], res['total']
+            p, f, aborted, t = res['pass'], res['fail'], res.get('aborted', 0), res['total']
             rate = f"{(p/t*100):.2f}%" if t > 0 else "0%"
 
             filters_applied = data.get('filters_applied', {})
@@ -120,6 +129,7 @@ def get_audit(args):
             print("-" * 30)
             print(f"PASS:  {p}")
             print(f"FAIL:  {f}")
+            print(f"ABORTED: {aborted}")
             print(f"TOTAL: {t}")
             print(f"RATE:  {rate}")
             if "matching_files" in res:
@@ -139,11 +149,13 @@ if __name__ == "__main__":
 
     # Filters
     parser.add_argument("--scenario", default="generic")
-    parser.add_argument("--verb", default="executing")
-    parser.add_argument("--attempt", type=int, default=1)
+    parser.add_argument("--verb", choices=("preparing", "executing", "restoring"), help="Limit failures to one phase")
+    parser.add_argument("--attempt", type=int)
     parser.add_argument("--backend", help="Backend name")
     parser.add_argument("--system", help="System name or 'all' for breakdown")
     parser.add_argument("--name", help="Test name")
+    parser.add_argument("--from", dest="from_time", metavar="YYYY-MM-DD", help="Include results on or after this date")
+    parser.add_argument("--to", dest="to_time", metavar="YYYY-MM-DD", help="Include results on or before this date")
     parser.add_argument("--history", action="store_true", help="Return historical rows for --name and --system")
     parser.add_argument("--limit", type=int, help="Limit number of historical rows")
 
@@ -151,7 +163,6 @@ if __name__ == "__main__":
 
     if args.history and not (args.system and args.name):
         parser.error("--history requires both --system and --name.")
-
     if not any([args.backend, args.system, args.name, args.attempt, args.scenario, args.verb]):
         parser.error("At least one filter (e.g., --backend or --system all) must be provided.")
 

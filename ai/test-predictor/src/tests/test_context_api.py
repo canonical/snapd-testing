@@ -6,10 +6,61 @@ from unittest.mock import patch
 from flask import Flask
 
 from common.cache import SystemStateCache
+from services.jobs import predictor
 from services.jobs.context import register_context_endpoint
 
 
 class TestContextApi(unittest.TestCase):
+    def test_prediction_does_not_reorder_context_results(self):
+        original_cache = predictor.app.state_cache
+        self.addCleanup(setattr, predictor.app, "state_cache", original_cache)
+
+        predictor.app.state_cache = SystemStateCache(history_size=25)
+        prs = [1, None, 3, 4, 5, 6, 4, 3, None, 2, 2, 1]
+        for run_id, pr in enumerate(prs, start=100):
+            predictor.app.state_cache.update({
+                "system": "opensuse-tumbleweed-selinux-64",
+                "name": "tests/main/example",
+                "verb": "executing",
+                "backend": "openstack",
+                "scenario": "generic",
+                "level": "task",
+                "run_id": run_id,
+                "pr": pr,
+                "success": run_id % 2,
+            })
+
+        client = predictor.app.test_client()
+        prediction_response = client.post(
+            "/internal/predict",
+            json={
+                "system": "opensuse-tumbleweed-selinux-64",
+                "name": "tests/main/example",
+                "verb": "executing",
+                "backend": "openstack",
+                "scenario": "generic",
+                "level": "task",
+            },
+        )
+        self.assertEqual(prediction_response.status_code, 200)
+
+        context_response = client.get(
+            "/internal/context",
+            query_string={
+                "system": "opensuse-tumbleweed-selinux-64",
+                "name": "tests/main/example",
+                "verb": "executing",
+                "backend": "openstack",
+                "scenario": "generic",
+                "level": "task",
+            },
+        )
+
+        self.assertEqual(context_response.status_code, 200)
+        history = context_response.get_json()["history"]
+        self.assertEqual([item["pr"] for item in history], prs)
+        self.assertEqual([item["run_id"] for item in history], list(range(100, 112)))
+
     def test_context_filters_by_level(self):
         app = Flask(__name__)
         app.state_cache = SystemStateCache(history_size=14)
@@ -78,7 +129,7 @@ class TestContextApi(unittest.TestCase):
                 payload["cache"]["provenance_samples"],
                 [{"job_id": 107455174491, "run_id": 35731362637}],
             )
-            self.assertTrue((model_dir / "cache_snapshot.pkl").exists())
+            self.assertTrue(Path(app.state_cache.snapshot_path).exists())
 
             history = app.state_cache.get_context(
                 "debian-sid-64", "tests/main/snapd-reexec:snapd", "executing",

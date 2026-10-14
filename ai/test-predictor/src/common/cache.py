@@ -2,6 +2,7 @@ import glob
 import os
 import time
 import threading
+import tempfile
 import pandas as pd
 import pickle
 from common import config
@@ -160,18 +161,27 @@ class SystemStateCache:
         else:
             target_path = self.snapshot_path
 
+        temporary_path = None
         try:
             # Ensure the parent directory exists
-            os.makedirs(os.path.dirname(target_path), exist_ok=True)
-            
-            with open(target_path, 'wb') as f:
-                pickle.dump(self.cache, f)
-            
+            parent = os.path.dirname(target_path)
+            os.makedirs(parent, exist_ok=True)
+            descriptor, temporary_path = tempfile.mkstemp(
+                prefix="cache-snapshot-", suffix=".pkl", dir=parent
+            )
+            with os.fdopen(descriptor, 'wb') as f:
+                pickle.dump(self.cache, f, protocol=pickle.HIGHEST_PROTOCOL)
+            os.replace(temporary_path, target_path)
+            temporary_path = None
+
             logger.info(f"Cache snapshot saved to {target_path}")
             return True
         except Exception as e:
             logger.error(f"Failed to save snapshot to {target_path}: {e}")
             return False
+        finally:
+            if temporary_path and os.path.exists(temporary_path):
+                os.unlink(temporary_path)
 
 
     def reinitialize(self):
@@ -196,11 +206,44 @@ class SystemStateCache:
             else:
                 logger.info("Snapshot lacks required cache fields. Rebuilding from .ts files...")
             self.cache = {}
+            del restored_data
             self._force_prime_and_save()
         
         self._log_stats()
 
-    def update(self, raw_data):
+    def _limit_pr_runs(self, history):
+        if config.PR_RUNS_LIMIT <= 0:
+            return history
+
+        remaining_by_pr = {}
+        limited = []
+        for item in reversed(history):
+            pr = item.get('pr')
+            if pr is None:
+                limited.append(item)
+                continue
+            used = remaining_by_pr.get(pr, 0)
+            if used < config.PR_RUNS_LIMIT:
+                limited.append(item)
+                remaining_by_pr[pr] = used + 1
+        return list(reversed(limited))
+
+    def _compact_history(self, history):
+        contexts = {}
+        for item in history:
+            key = tuple(
+                item.get(column)
+                for column in ('backend', 'scenario', 'attempt', 'level')
+            )
+            contexts.setdefault(key, []).append(item)
+
+        compacted = []
+        for context_history in contexts.values():
+            compacted.extend(context_history[-self.history_size:])
+        compacted.sort(key=lambda item: item.get('start', ''))
+        return compacted
+
+    def update(self, raw_data, compact=True):
         """Updates the [system][name][verb] bucket with a chronological list."""
         item = self._normalize_entry(raw_data)
         s, n, v = item['system'], item['name'], item['verb']
@@ -210,6 +253,9 @@ class SystemStateCache:
 
         history = self.cache[s][n][v]
         history.append(item)
+        if compact:
+            self.cache[s][n][v] = self._compact_history(history)
+        return s, n, v
 
     def get_context(
         self, system, name, verb, attempt=None, scenario=None, backend=None,
@@ -233,19 +279,7 @@ class SystemStateCache:
             if level:
                 filtered = [i for i in filtered if i.get('level') == level]
 
-            if config.PR_RUNS_LIMIT > 0:
-                remaining_by_pr = {}
-                limited = []
-                for item in reversed(filtered):
-                    pr = item.get('pr')
-                    if pr is None:
-                        limited.append(item)
-                        continue
-                    used = remaining_by_pr.get(pr, 0)
-                    if used < config.PR_RUNS_LIMIT:
-                        limited.append(item)
-                        remaining_by_pr[pr] = used + 1
-                filtered = list(reversed(limited))
+            filtered = self._limit_pr_runs(filtered)
             
             max_history = self.history_size if max_items is None else max(0, max_items)
             
@@ -255,18 +289,63 @@ class SystemStateCache:
             # Returns empty list if system/test/verb doesn't exist in cache yet
             return []
 
+    def _select_recent_context_runs(self, ts_files):
+        """Select recent PR files independently for each execution context."""
+        if config.PR_RUNS_LIMIT <= 0:
+            return ts_files
+
+        selected = set()
+        files_by_context = {}
+        for path in ts_files:
+            try:
+                _job_id, run_id = extract_github_ids(os.path.basename(path))
+                pr = extract_pr(os.path.basename(path))
+                if pr is None:
+                    selected.add(path)
+                    continue
+
+                frame = pd.read_csv(
+                    path,
+                    nrows=1,
+                    usecols=lambda column: column in {
+                        'backend', 'system', 'scenario', 'attempt',
+                    },
+                )
+                row = frame.iloc[0].to_dict() if not frame.empty else {}
+                context = (
+                    pr,
+                    str(row.get('backend', '')),
+                    str(row.get('system', '')),
+                    str(row.get('scenario', config.DEFAULT_SCENARIO)),
+                    str(row.get('attempt', config.DEFAULT_ATTEMPT)),
+                )
+                files_by_context.setdefault(context, []).append((run_id, path))
+            except Exception as e:
+                logger.warning(f"Could not classify cache input {path}: {e}")
+                selected.add(path)
+
+        for entries in files_by_context.values():
+            entries.sort(key=lambda entry: (-entry[0], entry[1]))
+            selected.update(path for _run_id, path in entries[:config.PR_RUNS_LIMIT])
+        return [path for path in ts_files if path in selected]
+
 
     def prime_from_disk(self, ts_dir=config.TS_DIR):
         """Reconstructs histories grouped by system/name/verb."""
         logger.info("Scanning .ts files to prime test histories...")
-        ts_files = glob.glob(os.path.join(ts_dir, "*.ts"))
-        logger.info(f"Found {len(ts_files)} .ts files to process for cache priming.")
+        all_ts_files = glob.glob(os.path.join(ts_dir, "*.ts"))
+        ts_files = self._select_recent_context_runs(all_ts_files)
+        logger.info(
+            "Selected %d of %d .ts files for cache priming.",
+            len(ts_files),
+            len(all_ts_files),
+        )
 
         if not ts_files:
             return
 
-        all_chunks = []
-        for f in ts_files:
+        total_files = len(ts_files)
+        for file_index, f in enumerate(ts_files, start=1):
             try:
                 # Force types on read to prevent pandas from guessing 'system' is a number
                 df = pd.read_csv(f, dtype={'system': str, 'name': str, 'verb': str})
@@ -281,36 +360,25 @@ class SystemStateCache:
                             df[column] = numeric if value is None else numeric.fillna(value)
                 except ValueError:
                     logger.warning(f"Could not recover GitHub IDs from {f}")
-                df['_source_file'] = f
-                all_chunks.append(df)
+                df = df.fillna('')
+                touched_histories = set()
+                for item in df.to_dict(orient='records'):
+                    touched_histories.add(self.update(item, compact=False))
+                for system, name, verb in touched_histories:
+                    history = self.cache[system][name][verb]
+                    history.sort(key=lambda item: item.get('start', ''))
+                    self.cache[system][name][verb] = self._compact_history(history)
             except Exception as e:
                 logger.error(f"Error reading {f}: {e}")
 
-        if not all_chunks:
-            return
+            if file_index % 500 == 0 or file_index == total_files:
+                logger.info(
+                    "Cache priming progress: %d/%d files.",
+                    file_index,
+                    total_files,
+                )
 
-        master_df = pd.concat(all_chunks, ignore_index=True)
-        
-        # IMPORTANT: Clean the dataframe before grouping
-        # Fill actual NaNs with empty strings so _normalize_entry works consistently
-        master_df = master_df.fillna('')
-
-        if 'start' in master_df.columns:
-            master_df['start'] = pd.to_datetime(master_df['start'])
-            master_df = master_df.sort_values('start')
-
-        # Now group based on cleaned, normalized keys
-        logger.info("Populating flattened cache...")
-        for _, row in master_df.iterrows():
-            # Use the same normalization for disk data as for API data
-            item = self._normalize_entry(row.to_dict())
-            s, n, v = item['system'], item['name'], item['verb']
-            
-            self.cache.setdefault(s, {}).setdefault(n, {}).setdefault(v, [])
-            history = self.cache[s][n][v]
-            history.append(item)
-            
-        logger.info(f"Cache primed successfully.")
+        logger.info("Cache primed successfully.")
 
 
 class DependencyMatrixCache:

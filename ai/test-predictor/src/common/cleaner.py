@@ -8,21 +8,22 @@ from common.utils import setup_logging
 
 logger = setup_logging("cleaner-job")
 
-def cleanup_ts_files():
-    ts_dir = config.TS_DIR
-    
+def cleanup_expired_files(directory):
     # Calculate retention threshold in seconds
     # 86400 seconds in a day
     now = time.time()
     retention_seconds = config.FILE_RETENTION_DAYS * 86400
     threshold = now - retention_seconds
 
-    logger.info(f"Starting cleanup in {ts_dir} (Retention: {config.FILE_RETENTION_DAYS} days)")
+    logger.info(f"Starting cleanup in {directory} (Retention: {config.FILE_RETENTION_DAYS} days)")
 
     files_deleted = 0
     try:
-        for filename in os.listdir(ts_dir):
-            file_path = os.path.join(ts_dir, filename)
+        if not os.path.exists(directory):
+            return
+
+        for filename in os.listdir(directory):
+            file_path = os.path.join(directory, filename)
             
             # Skip directories, only process files
             if os.path.isfile(file_path):
@@ -40,7 +41,11 @@ def cleanup_ts_files():
         logger.info(f"Cleanup finished. Total files deleted: {files_deleted}")
         
     except Exception as e:
-        logger.error(f"Error accessing directory {ts_dir}: {e}")
+        logger.error(f"Error accessing directory {directory}: {e}")
+
+
+def cleanup_ts_files():
+    cleanup_expired_files(config.TS_DIR)
 
 
 def clean_ts_directory():
@@ -106,4 +111,5 @@ def cleanup_and_restore():
 
     # Run the deletion part
     cleanup_ts_files()
+    cleanup_expired_files(config.ARCHIVE_DIR)
     clean_ts_directory()

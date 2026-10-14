@@ -13,6 +13,7 @@ _manager = DependencyManager()
 def internal_pass_given_fail():
     test_name = request.args.get('test')
     system = request.args.get('system')
+    backend = request.args.get('backend')
     scenario = request.args.get('scenario')
     use_cache = str(request.args.get('use_cache', 'true')).lower() in ('1', 'true', 'yes')
     include_self = str(request.args.get('include_self', 'false')).lower() in ('1', 'true', 'yes')
@@ -24,6 +25,7 @@ def internal_pass_given_fail():
         result = _manager.get_pass_probabilities_given_fail(
             test_name=test_name,
             system=system,
+            backend=backend,
             scenario=scenario,
             use_cache=use_cache,
             include_self=include_self,
@@ -44,6 +46,7 @@ def internal_pass_given_fail():
 def internal_fail_given_fail():
     test_name = request.args.get('test')
     system = request.args.get('system')
+    backend = request.args.get('backend')
     scenario = request.args.get('scenario')
     use_cache = str(request.args.get('use_cache', 'true')).lower() in ('1', 'true', 'yes')
     include_self = str(request.args.get('include_self', 'false')).lower() in ('1', 'true', 'yes')
@@ -55,6 +58,7 @@ def internal_fail_given_fail():
         result = _manager.get_fail_probabilities_given_fail(
             test_name=test_name,
             system=system,
+            backend=backend,
             scenario=scenario,
             use_cache=use_cache,
             include_self=include_self,

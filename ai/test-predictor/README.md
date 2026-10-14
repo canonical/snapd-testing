@@ -1,17 +1,18 @@
 # Test Predictor
 
-This project predicts system test success probabilities from historical pass/fail patterns. Its probabilistic scoring rules identify high-risk scenarios, sustained failures, recoveries, and flaky tests without a trained model.
+This project predicts system test success probabilities from configurable, recency-weighted history partitions without a trained model. Repeated results from the same PR are moved toward older partitions only when that PR's oldest and newest outcomes match.
 It also includes dependency analysis features to evaluate how failing tests correlate with other tests across systems and scenarios.
 
 ## Project Overview
 
-The predictor groups historical results by test context and applies calibrated probabilistic rules to the retained history.
+The predictor groups historical results by test context and calculates a weighted success ratio from the retained history.
 
 ```text
 .
 ├── README.md
 ├── data/                   # Data lifecycle storage
 │   ├── results/            # Incoming raw JSON files (ingestion layer)
+│   ├── archive/            # Aborted source rows retained as CSV
 │   └── ts/                 # Cleaned time-series CSV data for cache rebuilds
 ├── deploy/                 # Systemd templates & management scripts
 │   ├── *.service.template  # API, predictor, trainer, cleaner, and dependency templates
@@ -29,6 +30,56 @@ The predictor groups historical results by test context and applies calibrated p
 		├── api/            # Flask gateway routes and handlers
 		└── jobs/           # Background predictor/trainer/cleaner services
 ```
+
+## Prediction Algorithm
+
+History is stored chronologically, from the oldest result to the newest. For
+prediction only, the predictor copies that history and divides it from newest
+to oldest into these default partitions:
+
+| Partition | Results | Weight | Weight per result when full |
+| --- | --- | --- | --- |
+| A | newest 3 | 50% | $50\% / 3$ |
+| B | next 3 | 30% | $30\% / 3$ |
+| C | next 4 | 15% | $15\% / 4$ |
+| D | all remaining older results | 5% | $5\% / x$ |
+
+Before calculating the probability, the predictor compares the oldest and
+newest retained results for each repeated PR. The PR is eligible for reordering
+only when those two outcomes match: both PASS or both FAIL. When the outcomes
+differ, all results from that PR keep their original positions because the
+change in outcome carries useful chronological information.
+
+Eligible results from the same PR are spread across partitions when possible.
+The newest occurrence keeps its higher priority. An older duplicate is moved
+into an older partition and replaced by a result whose PR is not already
+present in the current partition. Results without a PR are independent and are
+not treated as duplicates.
+
+For example, if the newest partition contains `PR10 PR10 PR11`, the older
+`PR10` is moved into partition B only if both `PR10` results are PASS or both
+are FAIL. If one is PASS and the other is FAIL, neither is moved. This prevents
+equivalent runs of one change from consuming the same partition's weight while
+preserving meaningful result transitions. The configured `PR_RUNS_LIMIT` may
+retain multiple results from one PR; with three retained occurrences, the
+oldest and newest outcomes determine whether all three are eligible for
+distribution across A, B, and C.
+
+For each non-empty partition, the predictor calculates its success ratio and
+multiplies it by the partition weight:
+
+$$
+P = \frac{\sum_i w_i \left(\frac{\text{successful results}_i}{\text{results}_i}\right)}
+		 {\sum_i w_i}
+$$
+
+The denominator contains only non-empty partitions, so shorter histories are
+normalized over the weights that are present. With no history, the prediction
+is neutral at 50%.
+
+PR reordering is temporary and affects prediction only. `/internal/context`
+and `/predict-with-history` return results in their original chronological
+order.
 
 ## Service Architecture
 
@@ -101,6 +152,8 @@ Key runtime settings in `src/common/config.py`:
 ```bash
 CACHE_HISTORY_SIZE=25
 PR_RUNS_LIMIT=2
+PREDICTION_PART_SIZES=(3, 3, 4) # newest partitions; the oldest contains the remainder
+PREDICTION_PART_WEIGHTS=(0.50, 0.30, 0.15, 0.05)
 CACHE_REFRESH_INTERVAL_HOURS=2
 ```
 
@@ -165,7 +218,21 @@ At least one filter is required (`name`, `system`, `attempt`, `scenario`, or `ve
 ```bash
 curl "http://test-predictor.canonical.com:5000/stats?system=ubuntu-core-24-64&scenario=generic"
 curl "http://test-predictor.canonical.com:5000/stats/all-systems?verb=install&scenario=generic"
+curl "http://test-predictor.canonical.com:5000/stats/all-targets?scenario=generic"
 ```
+
+`PASS` counts successful `executing` rows. `FAIL` counts unsuccessful
+`preparing`, `executing`, and `restoring` rows; `--verb` can limit failures to
+one phase. Each test execution is counted at most once, and a failure takes
+precedence over an `executing` pass. Failures are deduplicated by test name,
+scenario, attempt, backend, system, `runid`, and `job_id`. `ABORTED` comes from
+compact CSV archives containing only aborted rows. Pending files in
+`data/results` are not included. `TOTAL` is the sum of these three categories,
+and `RATE` uses that total. Archived files follow the configured data retention
+period.
+
+Aggregate statistics scan every retained processed and archived file; the
+predictor's per-PR history limit does not apply to statistics.
 
 ### 5. Cleaner
 
@@ -239,7 +306,12 @@ Available subcommands:
 python src/client/stats
 python src/client/stats --system ubuntu-core-24-64 --scenario generic
 python src/client/stats --name "tests/smoke/foo" --verb install
+python src/client/stats --from 2026-10-01 --to 2026-10-14
 ```
+
+When `--attempt` is omitted, statistics include results from every attempt.
+`--from` and `--to` are optional inclusive dates in `YYYY-MM-DD` format, applied
+to the result start date.
 
 ### 5. `train` - Process results and refresh the cache
 

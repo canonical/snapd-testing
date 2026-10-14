@@ -1,5 +1,6 @@
 
 import glob
+import gc
 import requests
 import os
 import threading
@@ -11,6 +12,7 @@ from common import config
 from common.utils import setup_logging
 from common.cache import SystemStateCache
 from common.processor import process_results
+from common.stats import build_stats_snapshot
 
 logger = setup_logging("trainer-server")
 app = Flask(__name__)
@@ -39,6 +41,16 @@ def perform_cache_refresh():
         cache.prime_from_disk(config.TS_DIR)
         if not cache.save_snapshot():
             logger.error("Failed to save rebuilt cache snapshot.")
+            return False
+        # Avoid retaining the predictor cache while the stats snapshot is built.
+        del cache
+        gc.collect()
+
+        snapshot_path = os.path.join(config.MODEL_DIR, config.STATS_SNAPSHOT)
+        if not build_stats_snapshot(
+            config.TS_DIR, config.ARCHIVE_DIR, snapshot_path
+        ):
+            logger.error("Failed to save rebuilt stats snapshot.")
             return False
 
         threading.Thread(target=notify_predictor, daemon=True).start()

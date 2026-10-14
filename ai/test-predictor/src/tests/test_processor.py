@@ -1,9 +1,13 @@
 import unittest
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from common.processor import (
     _clean_and_transform_data,
     extract_github_ids,
     extract_pr,
+    process_results,
     select_recent_pr_runs,
 )
 
@@ -75,6 +79,58 @@ class TestProcessorProvenance(unittest.TestCase):
 
         self.assertEqual(frame["job_id"].tolist(), [107455174491])
         self.assertEqual(frame["run_id"].tolist(), [35731362637])
+
+    def test_archives_only_aborted_rows_as_csv(self):
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            results_dir = root / "results"
+            ts_dir = root / "ts"
+            archive_dir = root / "archive"
+            results_dir.mkdir()
+            ts_dir.mkdir()
+            source = results_dir / "results_job_1_run_2_scenario_master_attempt_1.json"
+            source.write_text(json.dumps({"items": [
+                {
+                    "instance": "instance-1",
+                    "start": "2026-09-24T10:00:00Z",
+                    "end": "2026-09-24T10:00:01Z",
+                    "verb": "executing",
+                    "name": "tests/main/example",
+                    "variant": "",
+                    "level": "task",
+                    "backend": "openstack",
+                    "system": "ubuntu-24.04-64",
+                    "success": True,
+                    "aborted": False,
+                },
+                {
+                    "instance": "instance-1",
+                    "start": "2026-09-24T10:00:01Z",
+                    "end": "2026-09-24T10:00:02Z",
+                    "verb": "executing",
+                    "name": "tests/main/aborted",
+                    "variant": "",
+                    "level": "task",
+                    "backend": "openstack",
+                    "system": "ubuntu-24.04-64",
+                    "success": False,
+                    "aborted": True,
+                },
+            ]}), encoding="utf-8")
+
+            process_results([str(source)], str(ts_dir), str(archive_dir))
+
+            self.assertFalse(source.exists())
+            archive = archive_dir / source.name.replace(".json", ".csv")
+            archived = archive.read_text(encoding="utf-8")
+            self.assertIn("tests/main/aborted", archived)
+            self.assertNotIn("tests/main/example", archived)
+            self.assertIn("job_id,run_id,scenario,attempt", archived)
+            transformed = (ts_dir / source.name.replace(".json", ".ts")).read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("tests/main/example", transformed)
+            self.assertNotIn("tests/main/aborted", transformed)
 
 
 if __name__ == "__main__":

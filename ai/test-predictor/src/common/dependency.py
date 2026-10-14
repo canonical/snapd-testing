@@ -138,7 +138,7 @@ class DependencyManager:
         status["cache"] = self.cache.stats()
         return status
 
-    def load_all_data(self, system=None, scenario=None, min_rows=10):
+    def load_all_data(self, system=None, backend=None, scenario=None, min_rows=10):
         files = select_recent_pr_runs(glob.glob(os.path.join(self.ts_dir, "*.ts")))
         if not files:
             logger.warning(f"No .ts files found in {self.ts_dir}")
@@ -152,6 +152,8 @@ class DependencyManager:
                     continue
                 if system:
                     df = df[df['system'] == system]
+                if backend:
+                    df = df[df['backend'] == backend]
                 if scenario:
                     df = df[df['scenario'] == scenario]
                 df = df[(df['level'] == 'task') & (df['verb'] == 'executing')]
@@ -328,7 +330,7 @@ class DependencyManager:
                     continue
         return pd.DataFrame(results)
 
-    def analyze(self, system=None, scenario=None,
+    def analyze(self, system=None, backend=None, scenario=None,
                 prob_threshold=0.3, lift_threshold=1.5,
                 run_granger=False, granger_max_tests=80,
                 use_cache=True):
@@ -336,12 +338,12 @@ class DependencyManager:
         Run full dependency analysis.  Results are cached keyed by (system, scenario).
         Cache is loaded from disk at startup and saved to disk after each recompute.
         """
-        if use_cache:
+        if use_cache and not backend:
             cached = self.cache.get(system, scenario)
             if cached is not None:
                 return cached
 
-        df = self.load_all_data(system=system, scenario=scenario)
+        df = self.load_all_data(system=system, backend=backend, scenario=scenario)
         if df.empty:
             return {}
 
@@ -408,10 +410,11 @@ class DependencyManager:
                 "max_tests":   int(granger_max_tests),
             }
 
-        self.cache.set(system, scenario, result)
+        if not backend:
+            self.cache.set(system, scenario, result)
         return result
 
-    def get_pass_probabilities_given_fail(self, test_name, system=None, scenario=None,
+    def get_pass_probabilities_given_fail(self, test_name, system=None, backend=None, scenario=None,
                                           use_cache=True, include_self=False):
         """
         Compute P(B passes | A fails) for all tests B, where A is ``test_name``.
@@ -423,7 +426,12 @@ class DependencyManager:
         if not test_name:
             raise ValueError("test_name is required")
 
-        result = self.analyze(system=system, scenario=scenario, use_cache=use_cache)
+        result = self.analyze(
+            system=system,
+            backend=backend,
+            scenario=scenario,
+            use_cache=use_cache,
+        )
         if not result:
             return {}
 
@@ -479,7 +487,7 @@ class DependencyManager:
             "probabilities": probabilities,
         }
 
-    def get_fail_probabilities_given_fail(self, test_name, system=None, scenario=None,
+    def get_fail_probabilities_given_fail(self, test_name, system=None, backend=None, scenario=None,
                                           use_cache=True, include_self=False):
         """
         Compute P(B fails | A fails) for all tests B, where A is ``test_name``.
@@ -487,7 +495,12 @@ class DependencyManager:
         if not test_name:
             raise ValueError("test_name is required")
 
-        result = self.analyze(system=system, scenario=scenario, use_cache=use_cache)
+        result = self.analyze(
+            system=system,
+            backend=backend,
+            scenario=scenario,
+            use_cache=use_cache,
+        )
         if not result:
             return {}
 
