@@ -1,0 +1,54 @@
+target:
+  # The runner resolves the download URL for this snap, channel, and
+  # architecture through the Store info API at the start of --run.
+  store_url: https://api.snapcraft.io
+  snap: gimp
+  channel: latest/stable
+  architecture: amd64
+  # gimp revision 561 is 147,734,528 bytes (~141 MiB).
+  expected_size_bytes: 147734528
+  # A 2 MiB range keeps each request wire-bound (~0.5s), so the benchmark
+  # measures throughput rather than per-request latency.
+  byte_range: "0-2097151"
+  store_headers:
+    Snap-Device-Architecture: amd64
+    Snap-Device-Series: "16"
+  download_headers:
+    Accept-Encoding: identity
+
+load:
+  downloads_per_second:
+    start: 1
+    end: 5
+    increment: 1
+  # Stages must exceed 10s: wrk2 discards the first ~10s of latency samples
+  # as calibration, so shorter stages produce empty latency graphs.
+  duration: 30s
+  # Top stage runs at 5 connections and 2 threads.
+  connections: 5
+  threads: 2
+  scale_workers_with_rate: true
+  # Longer timeout so warmup downloads can finish while the CDN ingests a
+  # cold 141 MiB object; warm 4 MiB ranges complete in about a second.
+  timeout: 30s
+  pause_seconds: 5
+
+preflight:
+  expected_redirect_status: 302
+  expected_download_status: 206
+  max_redirects: 5
+
+# Warmup downloads use load.timeout; raise it for large cold snaps.
+warmup:
+  requests: 3
+
+safety:
+  # 15 summed DPS x 30s x 2 MiB = 900 MiB scheduled, 1.8 GiB guarded.
+  estimate_multiplier: 2.0
+  max_estimated_transfer_mib: 2048
+
+output:
+  directory: ../results
+
+wrk2:
+  binary: wrk2

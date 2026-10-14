@@ -1,0 +1,53 @@
+target:
+  # The runner resolves the download URL for this snap, channel, and
+  # architecture through the Store info API at the start of --run.
+  store_url: https://api.snapcraft.io
+  snap: hello-world
+  channel: latest/stable
+  architecture: amd64
+  # Must match the size the Store advertises; used for the offline transfer
+  # estimate and byte-range validation, and checked again at run time.
+  expected_size_bytes: 20480
+  # Set to a range such as 0-1048575 when testing a larger snap.
+  byte_range: null
+  # Alternative to snap/channel/architecture: benchmark an explicit URL,
+  # for example a pinned revision on an enterprise Store.
+  # url: https://api.snapcraft.io/api/v1/snaps/download/....snap
+  store_headers:
+    Snap-Device-Architecture: amd64
+    Snap-Device-Series: "16"
+  download_headers:
+    Accept-Encoding: identity
+
+load:
+  downloads_per_second:
+    start: 1
+    end: 10
+    increment: 1
+  duration: 30s
+  connections: 10
+  threads: 2
+  scale_workers_with_rate: true
+  timeout: 10s
+  pause_seconds: 5
+
+preflight:
+  expected_redirect_status: 302
+  expected_download_status: 200
+  max_redirects: 5
+
+# Send a few best-effort downloads before the measured stages so the CDN
+# cache is warm. Failures are logged but never stop the run.
+warmup:
+  requests: 3
+
+safety:
+  # The multiplier covers wrk2 calibration traffic and scheduling variation.
+  estimate_multiplier: 2.0
+  max_estimated_transfer_mib: 100
+
+output:
+  directory: ../results
+
+wrk2:
+  binary: wrk2

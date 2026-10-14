@@ -1,0 +1,41 @@
+target:
+  # Replace this URL with the full enterprise Store refresh endpoint when needed.
+  url: https://api.snapcraft.io/v2/snaps/refresh
+  # Generate the refresh request for this snap instead of replaying a capture.
+  snap: snapd
+  channel: latest/edge
+  # revision: 27738  # pretend this revision is installed; the default is the
+  # channel's current revision, which answers "no refresh needed".
+  # Device authorization macaroon (a single "Macaroon ..." line) from a real
+  # capture or a device's snapd state.
+  auth_file: ../device-authorization
+
+load:
+  # wrk2 controls aggregate request rate, measured in requests per second.
+  requests_per_second:
+    start: 1
+    end: 10
+    increment: 1
+  duration: 30s
+  # Treat connections and threads as maximums and scale them with each rate.
+  connections: 10
+  threads: 2
+  scale_workers_with_rate: true
+  timeout: 10s
+  pause_seconds: 5
+
+preflight:
+  # Send one request before the load stages and do not follow redirects.
+  enabled: true
+  expected_status: 200
+
+# Send a few best-effort requests before the measured stages so Store-side
+# caches are warm. Failures are logged but never stop the run.
+warmup:
+  requests: 5
+
+output:
+  directory: ../results
+
+wrk2:
+  binary: wrk2
