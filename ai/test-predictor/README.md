@@ -231,8 +231,11 @@ compact CSV archives containing only aborted rows. Pending files in
 and `RATE` uses that total. Archived files follow the configured data retention
 period.
 
-Aggregate statistics scan every retained processed and archived file; the
-predictor's per-PR history limit does not apply to statistics.
+Training materializes daily pass, fail, and aborted counters by test, scenario,
+attempt, backend, and system in `model/stats_snapshot.sqlite3`. Stats requests
+compose those indexed counters; they scan retained processed and archived files
+only when the snapshot is unavailable. The predictor's per-PR history limit
+does not apply to statistics.
 
 ### 5. Cleaner
 

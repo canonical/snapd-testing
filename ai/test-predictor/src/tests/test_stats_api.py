@@ -1,4 +1,5 @@
 import unittest
+import sqlite3
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -6,7 +7,11 @@ from unittest.mock import patch
 from flask import Flask
 
 from common import config
-from common.stats import build_stats_snapshot
+from common.stats import (
+    build_stats_snapshot,
+    query_filtered_outcomes,
+    query_grouped_outcomes,
+)
 from services.api.stats import (
     count_filtered_outcomes,
     get_aborted_stats,
@@ -180,6 +185,73 @@ class TestStatsApi(unittest.TestCase):
             "aborted": 1,
             "total": 2,
             "matching_files": 1,
+        })
+
+    def test_snapshot_stores_and_composes_aggregates(self):
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            ts_dir = root / "ts"
+            archive_dir = root / "archive"
+            ts_dir.mkdir()
+            archive_dir.mkdir()
+            header = (
+                "runid,job_id,backend,system,name,verb,scenario,attempt,success,start\n"
+            )
+            (ts_dir / "pass.ts").write_text(
+                header
+                + "batch-1,1,openstack,ubuntu-24.04-64,tests/main/one,"
+                "executing,generic,1,1,2026-10-14T10:00:00Z\n",
+                encoding="utf-8",
+            )
+            (ts_dir / "fail.ts").write_text(
+                header
+                + "batch-1,1,openstack,ubuntu-24.04-64,tests/main/one,"
+                "restoring,generic,1,0,2026-10-14T10:01:00Z\n",
+                encoding="utf-8",
+            )
+            (ts_dir / "other.ts").write_text(
+                header
+                + "batch-2,2,openstack,ubuntu-24.04-64,tests/main/two,"
+                "executing,generic,1,1,2026-10-14T11:00:00Z\n",
+                encoding="utf-8",
+            )
+            snapshot_path = root / "stats.sqlite3"
+            self.assertTrue(
+                build_stats_snapshot(ts_dir, archive_dir, snapshot_path)
+            )
+
+            overall = query_filtered_outcomes(
+                snapshot_path, {"scenario": "generic"}
+            )
+            preparing = query_filtered_outcomes(
+                snapshot_path, {"scenario": "generic", "verb": "preparing"}
+            )
+            restoring = query_filtered_outcomes(
+                snapshot_path, {"scenario": "generic", "verb": "restoring"}
+            )
+            grouped = query_grouped_outcomes(
+                snapshot_path, {"scenario": "generic"}, ("system",)
+            )
+            with sqlite3.connect(snapshot_path) as connection:
+                tables = {
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT name FROM sqlite_master WHERE type = 'table'"
+                    )
+                }
+
+        self.assertEqual(overall, (1, 1, 3))
+        self.assertEqual(preparing, (2, 0, 2))
+        self.assertEqual(restoring, (1, 1, 3))
+        self.assertEqual(
+            grouped, {("ubuntu-24.04-64",): {"pass": 1, "fail": 1}}
+        )
+        self.assertEqual(tables, {
+            "daily_stats",
+            "source_stats",
+            "aborted_stats",
+            "aborted_sources",
+            "sqlite_stat1",
         })
 
     def test_standard_stats_include_aborted_results(self):
