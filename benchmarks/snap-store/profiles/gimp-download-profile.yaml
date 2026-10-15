@@ -7,9 +7,9 @@ target:
   architecture: amd64
   # gimp revision 561 is 147,734,528 bytes (~141 MiB).
   expected_size_bytes: 147734528
-  # A 2 MiB range keeps each request wire-bound (~0.5s), so the benchmark
-  # measures throughput rather than per-request latency.
-  byte_range: "0-2097151"
+  # A 16 MiB range makes each request take seconds, amortizing per-request
+  # overhead so per-connection throughput approaches the wire ceiling.
+  byte_range: "0-16777215"
   store_headers:
     Snap-Device-Architecture: amd64
     Snap-Device-Series: "16"
@@ -17,16 +17,18 @@ target:
     Accept-Encoding: identity
 
 load:
+  # Target rates deliberately exceed capacity: each stage saturates its
+  # connections (10/20/40), so achieved throughput shows the roof.
   downloads_per_second:
-    start: 1
-    end: 5
-    increment: 1
+    start: 10
+    end: 40
+    increment: 10
   # Stages must exceed 10s: wrk2 discards the first ~10s of latency samples
   # as calibration, so shorter stages produce empty latency graphs.
-  duration: 30s
-  # Top stage runs at 5 connections and 2 threads.
-  connections: 5
-  threads: 2
+  duration: 20s
+  # Top stage runs at 40 connections and 4 threads.
+  connections: 40
+  threads: 4
   scale_workers_with_rate: true
   # Longer timeout so warmup downloads can finish while the CDN ingests a
   # cold 141 MiB object; warm 4 MiB ranges complete in about a second.
@@ -43,7 +45,10 @@ warmup:
   requests: 3
 
 safety:
-  # 15 summed DPS x 30s x 2 MiB = 900 MiB scheduled, 1.8 GiB guarded.
+  # The scheduled estimate (100 summed DPS x 20s x 16 MiB = 31 GiB) assumes
+  # every stage hits its target rate. These targets deliberately exceed
+  # capacity, so actual transfer is bounded by connections (~8-12 GiB);
+  # run with --allow-over-budget.
   estimate_multiplier: 2.0
   max_estimated_transfer_mib: 2048
 

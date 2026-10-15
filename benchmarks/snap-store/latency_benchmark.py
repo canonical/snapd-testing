@@ -22,12 +22,12 @@ import yaml
 
 from wrk2_common import (
     BenchmarkError,
-    NoRedirectHandler,
     ProfileError,
     build_rates,
     create_run_directory,
     fetch_store_info,
     find_channel_map_entry,
+    http_opener,
     lua_long_string,
     parse_channel,
     parse_wrk2_metrics,
@@ -122,6 +122,7 @@ class BenchmarkProfile:
     revision: int | None
     store_url: str
     auth_file: Path | None
+    verify_tls: bool
     rates: tuple[int, ...]
     duration: str
     connections: int
@@ -158,6 +159,10 @@ def load_profile(profile_file: Path) -> BenchmarkProfile:
     wrk2 = require_mapping(root.get("wrk2", {}), "wrk2")
 
     url = require_url(target.get("url"), "target.url")
+
+    verify_tls = target.get("verify_tls", True)
+    if not isinstance(verify_tls, bool):
+        raise ProfileError("target.verify_tls must be true or false")
 
     request_file_value = target.get("request_file")
     snap_value = target.get("snap")
@@ -237,6 +242,7 @@ def load_profile(profile_file: Path) -> BenchmarkProfile:
         revision=revision,
         store_url=store_url,
         auth_file=auth_file,
+        verify_tls=verify_tls,
         rates=rates,
         duration=require_wrk_time(load.get("duration"), "load.duration"),
         connections=connections,
@@ -422,6 +428,7 @@ def generate_refresh_request(profile: BenchmarkProfile) -> CapturedRequest:
         profile.snap_name,
         info_headers,
         wrk_time_seconds(profile.timeout),
+        verify_tls=profile.verify_tls,
     )
     snap_id = snap_id_from_info(info)
     revision = profile.revision
@@ -466,7 +473,7 @@ def send_request(
         headers=dict(request.replay_headers),
         method=request.method,
     )
-    opener = urllib.request.build_opener(NoRedirectHandler())
+    opener = http_opener(verify_tls=profile.verify_tls)
     try:
         with opener.open(
             urllib_request, timeout=wrk_time_seconds(profile.timeout)
@@ -584,7 +591,7 @@ def run_benchmark(
         print(f"Preflighting {profile.url} ...")
         run_preflight(profile, request)
 
-    run_directory = create_run_directory(profile.output_directory, "latency")
+    run_directory = create_run_directory(profile.output_directory, "latency-")
     summary_file = run_directory / "summary.csv"
     rows: list[dict[str, Any]] = []
     failed = False

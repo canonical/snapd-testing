@@ -1,0 +1,58 @@
+target:
+  # Enterprise Store: serves blobs directly (HTTP 200), no CDN redirect.
+  store_url: https://enterprise-store.snapd.canonical.com
+  # The enterprise Store's certificate is signed by an internal CA that the
+  # test machine does not trust.
+  verify_tls: false
+  snap: gimp
+  channel: latest/stable
+  architecture: amd64
+  # Matches production revision 561; the run fails fast with the actual
+  # advertised size if the enterprise Store carries a different revision.
+  expected_size_bytes: 147734528
+  # A 16 MiB range makes each request take seconds, amortizing per-request
+  # overhead so per-connection throughput approaches the wire ceiling.
+  byte_range: "0-16777215"
+  store_headers:
+    Snap-Device-Architecture: amd64
+    Snap-Device-Series: "16"
+  download_headers:
+    Accept-Encoding: identity
+
+load:
+  # Same saturating shape as the production roof run for comparability.
+  downloads_per_second:
+    start: 10
+    end: 40
+    increment: 10
+  # Stages must exceed 10s: wrk2 discards the first ~10s of latency samples
+  # as calibration, so shorter stages produce empty latency graphs.
+  duration: 20s
+  connections: 40
+  threads: 4
+  scale_workers_with_rate: true
+  timeout: 30s
+  pause_seconds: 5
+
+preflight:
+  expected_redirect_status: 302
+  expected_download_status: 206
+  max_redirects: 5
+
+# Warmup downloads use load.timeout; raise it for large cold snaps.
+warmup:
+  requests: 3
+
+safety:
+  # The scheduled estimate (100 summed DPS x 20s x 16 MiB = 31 GiB) assumes
+  # every stage hits its target rate. These targets deliberately exceed
+  # capacity, so actual transfer is bounded by connections;
+  # run with --allow-over-budget.
+  estimate_multiplier: 2.0
+  max_estimated_transfer_mib: 2048
+
+output:
+  directory: ../results
+
+wrk2:
+  binary: wrk2

@@ -8,6 +8,7 @@ import json
 import re
 import shlex
 import shutil
+import ssl
 import subprocess
 import time
 import urllib.error
@@ -217,12 +218,31 @@ class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
         return None
 
 
+def http_opener(*, verify_tls: bool = True) -> urllib.request.OpenerDirector:
+    """Build an opener that never follows redirects.
+
+    With verify_tls false the opener accepts any certificate, for internal
+    test Stores whose CA is not trusted by the client.
+    """
+    handlers: list[Any] = [NoRedirectHandler()]
+    if not verify_tls:
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        handlers.append(urllib.request.HTTPSHandler(context=context))
+    return urllib.request.build_opener(*handlers)
+
+
 def http_get(
-    url: str, headers: Sequence[tuple[str, str]], timeout: float
+    url: str,
+    headers: Sequence[tuple[str, str]],
+    timeout: float,
+    *,
+    verify_tls: bool = True,
 ) -> tuple[int, Mapping[str, str], bytes]:
     """Send one GET request without following redirects."""
     request = urllib.request.Request(url, headers=dict(headers), method="GET")
-    opener = urllib.request.build_opener(NoRedirectHandler())
+    opener = http_opener(verify_tls=verify_tls)
     try:
         response = opener.open(request, timeout=timeout)
     except urllib.error.HTTPError as error:
@@ -245,10 +265,13 @@ def fetch_store_info(
     snap_name: str,
     headers: Sequence[tuple[str, str]],
     timeout: float,
+    *,
+    verify_tls: bool = True,
 ) -> Mapping[str, Any]:
     """Fetch and parse the Store info document for a snap."""
     status, _, body = http_get(
-        f"{store_url}/v2/snaps/info/{snap_name}", headers, timeout
+        f"{store_url}/v2/snaps/info/{snap_name}", headers, timeout,
+        verify_tls=verify_tls,
     )
     if status != 200:
         raise BenchmarkError(

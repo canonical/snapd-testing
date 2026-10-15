@@ -89,6 +89,7 @@ class DownloadProfile:
     channel: str
     architecture: str
     explicit_url: str | None
+    verify_tls: bool
     expected_size_bytes: int
     byte_range: tuple[int, int] | None
     response_size_bytes: int
@@ -182,6 +183,10 @@ def load_profile(profile_file: Path) -> DownloadProfile:
             target.get("architecture", "amd64"), "target.architecture"
         )
 
+    verify_tls = target.get("verify_tls", True)
+    if not isinstance(verify_tls, bool):
+        raise DownloadProfileError("target.verify_tls must be true or false")
+
     expected_size_bytes = require_integer(
         target.get("expected_size_bytes"), "target.expected_size_bytes"
     )
@@ -258,6 +263,7 @@ def load_profile(profile_file: Path) -> DownloadProfile:
         channel=channel,
         architecture=architecture,
         explicit_url=explicit_url,
+        verify_tls=verify_tls,
         expected_size_bytes=expected_size_bytes,
         byte_range=byte_range,
         response_size_bytes=response_size_bytes,
@@ -318,21 +324,36 @@ def resolve_download_url(profile: DownloadProfile, start_url: str) -> str:
     """Resolve Store and CDN redirects while keeping Store headers off the CDN."""
     timeout = wrk_time_seconds(profile.timeout)
     status, headers, _ = http_get(
-        start_url, profile.store_headers, timeout
+        start_url, profile.store_headers, timeout, verify_tls=profile.verify_tls
     )
-    if status != profile.expected_redirect_status:
+    if status in REDIRECT_STATUSES:
+        if status != profile.expected_redirect_status:
+            raise DownloadBenchmarkError(
+                f"Store returned HTTP {status}; expected redirect "
+                f"{profile.expected_redirect_status}"
+            )
+        location = headers.get("Location")
+        if not location:
+            raise DownloadBenchmarkError(
+                "Store redirect did not include a Location header"
+            )
+        current_url = urljoin(start_url, location)
+    elif status == 200:
+        # The Store serves the blob itself (for example an enterprise Store);
+        # there is no CDN redirect to follow. The loop below re-fetches with
+        # the download headers and verifies status and body size.
+        current_url = start_url
+    else:
         raise DownloadBenchmarkError(
             f"Store returned HTTP {status}; expected redirect "
-            f"{profile.expected_redirect_status}"
+            f"{profile.expected_redirect_status} or direct download 200"
         )
-    location = headers.get("Location")
-    if not location:
-        raise DownloadBenchmarkError("Store redirect did not include a Location header")
 
-    current_url = urljoin(start_url, location)
     request_headers = download_request_headers(profile)
     for _ in range(profile.max_redirects):
-        status, headers, body = http_get(current_url, request_headers, timeout)
+        status, headers, body = http_get(
+            current_url, request_headers, timeout, verify_tls=profile.verify_tls
+        )
         if status in REDIRECT_STATUSES:
             location = headers.get("Location")
             if not location:
@@ -366,6 +387,7 @@ def resolve_snap_download_url(profile: DownloadProfile) -> str:
         profile.snap_name,
         profile.store_headers,
         wrk_time_seconds(profile.timeout),
+        verify_tls=profile.verify_tls,
     )
     entry = find_channel_map_entry(
         info, profile.snap_name, profile.channel, profile.architecture
@@ -390,7 +412,10 @@ def resolve_snap_download_url(profile: DownloadProfile) -> str:
 def send_download_once(profile: DownloadProfile, url: str) -> tuple[int, int]:
     """Download the payload once; return its status and body size."""
     status, _, body = http_get(
-        url, download_request_headers(profile), wrk_time_seconds(profile.timeout)
+        url,
+        download_request_headers(profile),
+        wrk_time_seconds(profile.timeout),
+        verify_tls=profile.verify_tls,
     )
     return status, len(body)
 

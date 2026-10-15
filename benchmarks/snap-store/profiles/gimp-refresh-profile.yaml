@@ -10,13 +10,15 @@ target:
   auth_file: ../device-authorization
 
 load:
+  # Connections scale with the rate, so the range must reach 100 for the
+  # 100-connection maximum to take effect.
   requests_per_second:
-    start: 1
-    end: 10
-    increment: 1
+    start: 10
+    end: 100
+    increment: 10
   duration: 30s
-  connections: 10
-  threads: 2
+  connections: 100
+  threads: 4
   scale_workers_with_rate: true
   timeout: 10s
   pause_seconds: 5
