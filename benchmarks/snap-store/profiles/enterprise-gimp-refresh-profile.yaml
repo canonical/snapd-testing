@@ -1,0 +1,39 @@
+target:
+  url: https://enterprise-store.snapd.canonical.com/v2/snaps/refresh
+  # The enterprise Store's certificate is signed by an internal CA that the
+  # test machine does not trust.
+  verify_tls: false
+  # Generate the refresh request for this snap instead of replaying a capture.
+  snap: gimp
+  channel: latest/stable
+  # revision: 560  # pretend this revision is installed; the default is the
+  # channel's current revision, which answers "no refresh needed".
+  # Device authorization macaroon (a single "Macaroon ..." line) from a real
+  # capture or a device's snapd state.
+  auth_file: ../device-authorization
+
+load:
+  # Same shape as the production 100-connection sweep for comparability.
+  requests_per_second:
+    start: 10
+    end: 100
+    increment: 10
+  duration: 30s
+  connections: 100
+  threads: 4
+  scale_workers_with_rate: true
+  timeout: 10s
+  pause_seconds: 5
+
+preflight:
+  enabled: true
+  expected_status: 200
+
+warmup:
+  requests: 5
+
+output:
+  directory: ../results
+
+wrk2:
+  binary: wrk2
