@@ -52,7 +52,6 @@ class SpreadTestSelectorCharm(CharmBase):
         self.framework.observe(self.on.secret_changed, self._on_secret_changed)
 
         self.framework.observe(self.on.calculate_tests_action, self._on_calculate_tests_action)
-        self.framework.observe(self.on.add_tests_action, self._on_add_tests_action)
         self.framework.observe(self.on.mongodb_updated_action, self._on_mongodb_updated_action)
         self.framework.observe(self.on.reconcile_action, self._on_reconcile_action)
         self.framework.observe(self.on.service_status_action, self._on_service_status_action)
@@ -79,13 +78,6 @@ class SpreadTestSelectorCharm(CharmBase):
     @property
     def spread_tests_execution_path(self) -> Path:
         return self.execution_data_dir / "spread-execution-map.json"
-
-    @property
-    def added_spread_tests_path(self) -> Path:
-        configured = str(self.config.get("added-spread-tests-path", "")).strip()
-        if configured:
-            return Path(configured)
-        return self.STATE_DIR / "added-spread-tests.txt"
 
     @property
     def base_tests_path(self) -> Path:
@@ -192,18 +184,6 @@ class SpreadTestSelectorCharm(CharmBase):
             }
         )
 
-    def _on_add_tests_action(self, event: ActionEvent):
-        tests = self._parse_csv_or_lines(str(event.params.get("tests") or ""))
-        if not tests:
-            event.fail("tests must contain at least one test path")
-            return
-        try:
-            response = self._call_service(endpoint="/add-tests", payload={"tests": tests})
-        except RuntimeError as exc:
-            event.fail(str(exc))
-            return
-        event.set_results({"result": response.get("result", "ok"), "added": str(response.get("added", 0))})
-
     def _on_mongodb_updated_action(self, event: ActionEvent):
         try:
             # the refresh command updates the features checkout itself
@@ -254,12 +234,10 @@ class SpreadTestSelectorCharm(CharmBase):
     def _ensure_state_dirs(self) -> None:
         self.STATE_DIR.mkdir(parents=True, exist_ok=True)
         self.execution_data_dir.mkdir(parents=True, exist_ok=True)
-        self.added_spread_tests_path.parent.mkdir(parents=True, exist_ok=True)
 
     def _write_service_config(self) -> bool:
         config = {
             "spread_tests_execution_path": str(self.spread_tests_execution_path),
-            "added_spread_tests_path": str(self.added_spread_tests_path),
             "base_tests_path": str(self.base_tests_path),
             "credentials_path": str(self.MONGODB_CREDENTIALS_PATH),
             "query_features_path": str(self._query_features_path()),
@@ -355,7 +333,6 @@ class SpreadTestSelectorCharm(CharmBase):
             "query-features-path": str(self._query_features_path()),
             "execution-data-dir": str(self.execution_data_dir),
             "spread-execution-map-path": str(self.spread_tests_execution_path),
-            "added-spread-tests-path": str(self.added_spread_tests_path),
             "base-executions-path": str(self.base_tests_path),
             "base-tests-max-minutes": int(self.config.get("base-tests-max-minutes", 15)),
             "refresh-helper-command": str(self.config.get("refresh-helper-command") or "").strip(),

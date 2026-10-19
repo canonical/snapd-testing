@@ -18,7 +18,6 @@ class TestExecutionServiceCalculateTests(unittest.TestCase):
         self,
         spread_map: dict,
         base_tests: dict,
-        added_tests: list[str] | None = None,
     ) -> TestExecutionService:
         self.temp_dir = tempfile.TemporaryDirectory()
         root = Path(self.temp_dir.name)
@@ -29,12 +28,8 @@ class TestExecutionServiceCalculateTests(unittest.TestCase):
         base_path = root / "base-executions.json"
         base_path.write_text(json.dumps(base_tests), encoding="utf-8")
 
-        added_path = root / "added-spread-tests.txt"
-        added_path.write_text("\n".join(added_tests or []), encoding="utf-8")
-
         config = {
             "spread_tests_execution_path": str(spread_path),
-            "added_spread_tests_path": str(added_path),
             "base_tests_path": str(base_path),
             "refresh_command": ["true"],
             "refresh_timeout_seconds": 60,
@@ -57,7 +52,6 @@ class TestExecutionServiceCalculateTests(unittest.TestCase):
                 }
             },
             base_tests={system: [f"{system}:tests/spread/base"]},
-            added_tests=["tests/spread/manual"],
         )
 
         selected = service.calculate_tests(
@@ -83,7 +77,6 @@ class TestExecutionServiceCalculateTests(unittest.TestCase):
                 f"{system}:tests/spread/mod",
                 f"{system}:tests/spread/dir",
                 f"{system}:tests/spread/unknown",
-                f"{system}:tests/spread/manual",
             ],
         )
 
@@ -92,7 +85,6 @@ class TestExecutionServiceCalculateTests(unittest.TestCase):
         service = self._make_service(
             spread_map={system: {"snap/foo.go": [f"{system}:tests/spread/mod"]}},
             base_tests={system: [f"{system}:tests/spread/base"]},
-            added_tests=["tests/spread/manual"],
         )
 
         selected = service.calculate_tests(
@@ -282,7 +274,6 @@ class TestExecutionServiceCalculateTests(unittest.TestCase):
         service = self._make_service(
             spread_map={system: {"snap/foo.go": [f"{system}:tests/spread/mod"]}},
             base_tests={system: [f"{system}:tests/spread/base"]},
-            added_tests=["tests/spread/manual"],
         )
 
         for changed_files in (
@@ -461,38 +452,6 @@ class TestExecutionServiceCalculateTests(unittest.TestCase):
 
         self.assertEqual(selected, [f"{system}:tests/main/some-test", f"{system}:tests/main/mod"])
 
-    def test_calculate_tests_added_tests_stay_within_input(self) -> None:
-        amd64 = "amd64:ubuntu-24.04"
-        arm64 = "arm64:ubuntu-24.04"
-        service = self._make_service(
-            spread_map={
-                amd64: {"other/unchanged.go": [f"{amd64}:tests/main/added:v1", f"{amd64}:tests/main/added:v2"]},
-                arm64: {"other/unchanged.go": [f"{arm64}:tests/main/variant:v1", f"{arm64}:tests/main/variant:v2"]},
-            },
-            base_tests={},
-            added_tests=["tests/main/added", "tests/main/variant:v2", "tests/main/missing"],
-        )
-
-        selected = service.calculate_tests(
-            changed_files={"modified": [], "added": [], "deleted": []},
-            backend_systems=[amd64, arm64],
-            tests=[
-                f"{amd64}:tests/main/added:v1",
-                f"{amd64}:tests/main/added:v2",
-                f"{arm64}:tests/main/variant:v1",
-                f"{arm64}:tests/main/variant:v2",
-            ],
-        )
-
-        self.assertEqual(
-            selected,
-            [
-                f"{amd64}:tests/main/added:v1",
-                f"{amd64}:tests/main/added:v2",
-                f"{arm64}:tests/main/variant:v2",
-            ],
-        )
-
     def test_calculate_tests_filters_allowed_tests_per_backend(self) -> None:
         amd64 = "amd64:ubuntu-24.04"
         arm64 = "arm64:ubuntu-24.04"
@@ -574,7 +533,6 @@ class ApiHttpTests(unittest.TestCase):
         previous = getattr(ApiHandler, "service", None)
         ApiHandler.service = TestExecutionService({
             "spread_tests_execution_path": str(root / "spread-execution-map.json"),
-            "added_spread_tests_path": str(root / "added-spread-tests.txt"),
             "refresh_command": ["true"],
         })
         server = ThreadingHTTPServer(("127.0.0.1", 0), ApiHandler)
@@ -618,7 +576,7 @@ class ApiHttpTests(unittest.TestCase):
             {"changed_files": {"modified": [], "added": [], "deleted": []}, "backend_systems": ["s1"], "tests": ["tests/main/a"]},
         )
         self.assertEqual((status, body["tests"]), (200, ["s1:tests/main/a"]))
-        self.assertEqual(self._request("/add-tests", {"tests": ["tests/main/b"]}), (200, {"result": "ok", "added": 1}))
+        self.assertEqual(self._request("/add-tests", {"tests": ["tests/main/b"]})[0], 404)
         self.assertEqual(self._request("/health"), (200, {"status": "ok"}))
         self.assertEqual(self._request("/calculate-tests", {"changed_files": []})[0], 400)
         self.assertEqual(self._request("/unknown", {})[0], 404)

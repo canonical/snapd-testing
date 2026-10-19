@@ -4,8 +4,8 @@ summary: List tests that should be executed based on file changes
 
 description: |
   Machine charm that runs a local API to calculate spread tests from changed files,
-  append added tests, and refresh spread-tests-execution mapping from mongodb
-  through query_features.py, which it fetches from the snapd repository.
+  and refresh spread-tests-execution mapping from mongodb through
+  query_features.py, which it fetches from the snapd repository.
 
 type: charm
 base: ubuntu@24.04
@@ -49,10 +49,6 @@ config:
       type: string
       default: /var/lib/spread-test-selector
       description: "Directory that contains spread-execution-map.json, interface-users.json and base-executions.json."
-    added-spread-tests-path:
-      type: string
-      default: /var/lib/spread-test-selector/added-spread-tests.txt
-      description: "Path to added-spread-tests.txt consumed by the service."
     refresh-helper-command:
       type: string
       default: ""
@@ -87,16 +83,8 @@ actions:
       - changed-files-json
       - tests
       - backend-systems
-  add-tests:
-    description: Append new spread tests to added-spread-tests.txt.
-    params:
-      tests:
-        type: string
-        description: "Comma or newline separated test paths to append."
-    required:
-      - tests
   mongodb-updated:
-    description: Fetch the latest query_features.py, regenerate the execution data from mongodb, then clear added-spread-tests.txt.
+    description: Fetch the latest query_features.py, then regenerate the execution data from mongodb.
   reconcile:
     description: Rebuild charm state, secret file, and API service.
   service-status:

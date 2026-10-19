@@ -151,7 +151,6 @@ def main() -> None:
     parser.add_argument("--base-tests-max-minutes", default=15, type=int, help="same as the charm config option")
     parser.add_argument("--systems", nargs="+", help="backend:system values to check (default: openstack systems in the execution map)")
     parser.add_argument("--suites", nargs="+", default=["tests/main/"], help="suites passed to spread -list (default: tests/main/)")
-    parser.add_argument("--added-tests", type=Path, help="added-spread-tests.txt to apply, like the charm does")
     parser.add_argument("--focus", default=DEFAULT_FOCUS, help=f"system shown in the table (default: {DEFAULT_FOCUS})")
     parser.add_argument("--details", action="store_true", help="also print the files behind each decision")
     parser.add_argument("--show-tests", metavar="COMMIT", help="print the tests selected on the focus system for this commit")
@@ -183,10 +182,8 @@ def main() -> None:
         raise SystemExit("no systems with tests to check")
     focus = args.focus if args.focus in systems else systems[0]
 
-    added_path = args.added_tests or args.data_dir / "no-added-tests.txt"
     service = TestExecutionService({
         "spread_tests_execution_path": str(map_path),
-        "added_spread_tests_path": str(added_path),
         "refresh_command": ["true"],
     })
 

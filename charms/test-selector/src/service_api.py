@@ -62,10 +62,8 @@ class TestExecutionService:
 
     def __init__(self, config: dict[str, Any]):
         self.spread_tests_execution_path = Path(config["spread_tests_execution_path"])
-        self.added_spread_tests_path = Path(config["added_spread_tests_path"])
         self.refresh_command = config["refresh_command"]
         self.refresh_timeout_seconds = int(config.get("refresh_timeout_seconds", 300))
-        self._add_tests_lock = threading.Lock()
         self._refresh_lock = threading.Lock()
 
     @staticmethod
@@ -125,12 +123,6 @@ class TestExecutionService:
         required = (self.spread_tests_execution_path, data_dir / "base-executions.json")
         return [str(path) for path in required if not path.exists()]
 
-    def _load_added_tests(self) -> list[str]:
-        if not self.added_spread_tests_path.exists():
-            return []
-        lines = self.added_spread_tests_path.read_text(encoding="utf-8").splitlines()
-        return [line.strip() for line in lines if line.strip()]
-
     @staticmethod
     def _normalize_changed_files(changed_files: Any) -> dict[str, list[str]]:
         if not isinstance(changed_files, dict):
@@ -177,10 +169,6 @@ class TestExecutionService:
             for key, paths in self._normalize_changed_files(changed_files).items()
         }
 
-        # Added tests are always selected, but only where they are among the
-        # allowed tests, so the result stays a subset of the input. An added
-        # test without a variant selects all of its variants.
-        added_tests = set(self._load_added_tests())
         allowed_by_system: dict[str, list[str]] = {
             backend_system: self._unique_keep_order(self._tests_for_system(backend_system, tests))
             for backend_system in backend_systems
@@ -234,31 +222,13 @@ class TestExecutionService:
                 for test in allowed_tests
                 if test in selected
                 or self._test_dir(backend_system, test) in changed_test_dirs
-                or test[len(backend_system) + 1:] in added_tests
-                or self._test_dir(backend_system, test) in added_tests
             )
 
         return self._unique_keep_order(resolved_tests)
 
-    def add_tests(self, tests: list[str]) -> int:
-        if not tests:
-            return 0
-        tests_to_add = [t.strip() for t in tests if t.strip()]
-        if not tests_to_add:
-            return 0
-
-        self.added_spread_tests_path.parent.mkdir(parents=True, exist_ok=True)
-        with self._add_tests_lock:
-            with self.added_spread_tests_path.open("a", encoding="utf-8") as f:
-                for test in tests_to_add:
-                    f.write(test)
-                    f.write("\n")
-        return len(tests_to_add)
-
     def mongodb_updated(self) -> None:
         with self._refresh_lock:
             subprocess.run(self.refresh_command, check=True, capture_output=True, text=True, timeout=self.refresh_timeout_seconds)
-            self.added_spread_tests_path.unlink(missing_ok=True)
 
 
 class ApiHandler(BaseHTTPRequestHandler):
@@ -310,14 +280,6 @@ class ApiHandler(BaseHTTPRequestHandler):
                     [str(item) for item in tests],
                 )
                 self._write_json(HTTPStatus.OK, {"tests": tests, "count": len(tests)})
-                return
-
-            if self.path == "/add-tests":
-                tests = payload.get("tests", [])
-                if not isinstance(tests, list):
-                    raise RuntimeError("tests must be a list")
-                added = self.service.add_tests([str(item) for item in tests])
-                self._write_json(HTTPStatus.OK, {"result": "ok", "added": added})
                 return
 
             if self.path == "/mongodb-updated":

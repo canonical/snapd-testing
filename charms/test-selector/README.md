@@ -1,14 +1,13 @@
 # spread-test-selector
 
-`spread-test-selector` is a machine charm that exposes a small local API for deciding which spread tests should run from a set of changed files, tracking manually added tests, and refreshing the test map from MongoDB through `query_features.py` from the snapd repository.
+`spread-test-selector` is a machine charm that exposes a small local API for deciding which spread tests should run from a set of changed files and refreshing the test map from MongoDB through `query_features.py` from the snapd repository.
 
 ## What it does
 
-The charm manages three pieces of state on the unit:
+The charm manages this state on the unit:
 
 - a MongoDB credentials JSON file written from a Juju secret
-- `spread-execution-map.json`, used to look up tests by backend and changed Go file
-- `added-spread-tests.txt`, used to carry tests that should always be included
+- `spread-execution-map.json`, `interface-users.json` and `base-executions.json`, the execution data used to look up tests by backend and changed Go file
 
 The service listens on `listen-host:listen-port` and can handle multiple requests in parallel.
 
@@ -23,7 +22,6 @@ Available config options are defined in [charmcraft.yaml](charmcraft.yaml):
 - `snapd-ref`: branch, tag or full commit SHA of `snapd-repo-url` to fetch it from, default `master`
 - `query-features-path`: optional path to an existing `query_features.py` on the unit; when set, nothing is fetched
 - `execution-data-dir`: directory containing `spread-execution-map.json`, `interface-users.json` and `base-executions.json`
-- `added-spread-tests-path`: path to the added tests text file
 - `refresh-helper-command`: optional override for the helper command that rebuilds `spread-execution-map.json` and `base-executions.json`
 - `base-tests-max-minutes`: maximum execution time, in minutes, for the base test coverage set that runs for every change, default `15`; `0` means no limit (cover every feature)
 - `refresh-timeout-seconds`: timeout used when refreshing from MongoDB
@@ -41,7 +39,6 @@ CI on the same cloud calls the service directly at `http://<unit-address>:<liste
 
 - `GET /health`: returns `{"status": "ok"}`
 - `POST /calculate-tests` with `{"changed_files": {"modified": [...], "added": [...], "deleted": [...]}, "backend_systems": [...], "tests": [...]}`: returns `{"tests": [...], "count": N}`, the subset of `tests` to run. Without execution data (before the first refresh, or if a data file is missing) it returns all of `tests`.
-- `POST /add-tests` with `{"tests": [...]}`: appends to `added-spread-tests.txt`
 - `POST /mongodb-updated`: updates the features checkout and rebuilds the execution data from MongoDB; it answers when the refresh is done (about 30 seconds with 18 systems), so give the request a timeout of at least `refresh-timeout-seconds`
 
 ```bash
@@ -81,8 +78,7 @@ These non-Go files do not trigger rule 2:
 - **B. Changed tests**: a changed file inside a test folder, `tests/<suite>/<test>/...` for the suites in `SPREAD_SUITES` in `src/service_api.py` (e.g. `tests/main/foo/task.yaml`), selects that test with all its variants. A test that is not in the input (e.g. a deleted test) selects nothing.
 - **C. Modified Go files**: the tests that cover that exact file in `spread-execution-map.json`. No tests means everything runs, except for `interfaces/builtin/<name>.go`: there, the tests that connected the interface (`interface-users.json`) are added too, and the file never makes everything run, since many interface files have no coverage of their own. Without `interface-users.json` (or an entry for the system), the normal rule applies.
 - **D. Added or deleted Go files**: the tests that cover any file in the same folder or its subfolders. These never make everything run.
-- **E. Tests missing from the coverage map**: any input test the map does not know, e.g. a new test, or one that failed in the coverage run (failed tests are left out of the map until a run where they pass).
-- **F. Manually added tests**: the tests in `added-spread-tests.txt`. An entry without a variant selects all its variants.
+- **E. Tests missing from the coverage map**: any input test the map does not know, e.g. a test or variant added since the coverage run, or one that failed in it (failed tests are left out of the map until a run where they pass). New tests therefore always run until the coverage data includes them.
 
 ### Go files that do not count
 
@@ -90,7 +86,7 @@ Go unit test files (`_test.go`) and Go files in unit test helper packages (`test
 
 ### In short
 
-Start with the base tests, then add the tests that cover the changed Go files, the tests whose folders changed, the tests the coverage map does not know, and the manually added tests. If anything changed that there is no data for, run everything.
+Start with the base tests, then add the tests that cover the changed Go files, the tests whose folders changed, and the tests the coverage map does not know. If anything changed that there is no data for, run everything.
 
 ## Juju secret format
 
@@ -128,20 +124,17 @@ juju config spread-test-selector mongodb-secret-id=<secret-uri>
 Actions are defined in [charmcraft.yaml](charmcraft.yaml):
 
 - `calculate-tests`: accepts `backend-systems`, `changed-files-json`, and `tests`, then returns the tests that should be executed
-- `add-tests`: appends tests to `added-spread-tests.txt`
-- `mongodb-updated`: rebuilds `spread-execution-map.json`, `interface-users.json` and `base-executions.json`, then clears `added-spread-tests.txt`
+- `mongodb-updated`: rebuilds `spread-execution-map.json`, `interface-users.json` and `base-executions.json`
 - `reconcile`: rebuilds charm-managed files and service state
 - `service-status`: returns the systemd status for the API service
 
-Example action calls (Juju 3.6; `juju run` waits for the action and prints its results):
+Example action calls (Juju 3.6; `juju run` waits for the action and prints its results; `--string-args` stops Juju from parsing the JSON value as YAML):
 
 ```bash
-juju run spread-test-selector/0 calculate-tests \
+juju run spread-test-selector/0 calculate-tests --string-args \
   changed-files-json='{"modified":["snap/foo.go"],"added":["interfaces/new.go"],"deleted":[]}' \
   tests='amd64:ubuntu-24.04:tests/spread/foo,arm64:ubuntu-24.04:tests/spread/foo' \
   backend-systems='amd64:ubuntu-24.04,arm64:ubuntu-24.04'
-
-juju run spread-test-selector/0 add-tests tests='tests/spread/foo,tests/spread/bar'
 
 # a refresh takes a while; allow up to refresh-timeout-seconds plus a minute
 juju run spread-test-selector/0 mongodb-updated --wait 10m
@@ -156,7 +149,6 @@ Default paths:
 
 - `/var/lib/spread-test-selector/mongodb-credentials.json`
 - `/var/lib/spread-test-selector/spread-execution-map.json`
-- `/var/lib/spread-test-selector/added-spread-tests.txt`
 - `/var/lib/spread-test-selector/base-executions.json`
 - `/var/lib/spread-test-selector/service-config.json`
 

@@ -93,10 +93,7 @@ class CharmTestCase(unittest.TestCase):
 
         self.harness = Harness(SpreadTestSelectorCharm)
         self.addCleanup(self.harness.cleanup)
-        self.harness.update_config({
-            "execution-data-dir": str(state),
-            "added-spread-tests-path": str(state / "added-spread-tests.txt"),
-        })
+        self.harness.update_config({"execution-data-dir": str(state)})
 
     def tearDown(self):
         self.tmp.cleanup()
