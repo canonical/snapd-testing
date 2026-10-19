@@ -343,7 +343,7 @@ class ApiHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="test-selector api service")
+    parser = argparse.ArgumentParser(description="spread-test-selector api service")
     parser.add_argument("--config", required=True, type=str)
     parser.add_argument("--host", default="127.0.0.1", type=str)
     parser.add_argument("--port", default=8181, type=int)

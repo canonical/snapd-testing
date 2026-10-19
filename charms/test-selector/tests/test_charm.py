@@ -15,7 +15,7 @@ sys.path.insert(0, str(SRC_DIR))
 import ops  # noqa: E402
 from ops.testing import Harness  # noqa: E402
 
-from charm import TestSelectorCharm  # noqa: E402
+from charm import SpreadTestSelectorCharm  # noqa: E402
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*Harness.*")
@@ -74,7 +74,7 @@ class CharmTestCase(unittest.TestCase):
         systemd = root / "systemd"
         systemd.mkdir()
         patcher = patch.multiple(
-            TestSelectorCharm,
+            SpreadTestSelectorCharm,
             STATE_DIR=state,
             SYSTEMD_DIR=systemd,
             SERVICE_CONFIG_PATH=state / "service-config.json",
@@ -86,12 +86,12 @@ class CharmTestCase(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-        self.system = FakeSystem(TestSelectorCharm, root)
-        run_patcher = patch.object(TestSelectorCharm, "_run", lambda _self, cmd, check=False, env=None: self.system.run(cmd, check, env))
+        self.system = FakeSystem(SpreadTestSelectorCharm, root)
+        run_patcher = patch.object(SpreadTestSelectorCharm, "_run", lambda _self, cmd, check=False, env=None: self.system.run(cmd, check, env))
         run_patcher.start()
         self.addCleanup(run_patcher.stop)
 
-        self.harness = Harness(TestSelectorCharm)
+        self.harness = Harness(SpreadTestSelectorCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.update_config({
             "execution-data-dir": str(state),
@@ -262,7 +262,7 @@ class TestActions(CharmTestCase):
     def test_mongodb_updated_waits_for_the_refresh(self):
         self.harness.update_config({"refresh-timeout-seconds": 600})
         self.system.commands.clear()
-        with patch.object(TestSelectorCharm, "_call_service", return_value={"result": "ok"}) as call:
+        with patch.object(SpreadTestSelectorCharm, "_call_service", return_value={"result": "ok"}) as call:
             output = self.harness.run_action("mongodb-updated")
         self.assertEqual(output.results, {"result": "ok"})
         call.assert_called_once_with(endpoint="/mongodb-updated", payload={}, timeout=660)
@@ -270,14 +270,14 @@ class TestActions(CharmTestCase):
         self.assertFalse(self.system.ran("git"))
 
     def test_mongodb_updated_reports_failures(self):
-        with patch.object(TestSelectorCharm, "_call_service", side_effect=RuntimeError("service request failed: timed out")):
+        with patch.object(SpreadTestSelectorCharm, "_call_service", side_effect=RuntimeError("service request failed: timed out")):
             with self.assertRaises(ops.testing.ActionFailed) as failed:
                 self.harness.run_action("mongodb-updated")
         self.assertIn("timed out", failed.exception.message)
 
     def test_calculate_tests_reports_service_errors(self):
         params = {"changed-files-json": "{}", "tests": "tests/main/a", "backend-systems": "s1"}
-        with patch.object(TestSelectorCharm, "_call_service", side_effect=RuntimeError("service request failed")):
+        with patch.object(SpreadTestSelectorCharm, "_call_service", side_effect=RuntimeError("service request failed")):
             with self.assertRaises(ops.testing.ActionFailed) as failed:
                 self.harness.run_action("calculate-tests", params)
         self.assertIn("service request failed", failed.exception.message)

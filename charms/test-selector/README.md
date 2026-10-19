@@ -1,6 +1,6 @@
-# test-selector
+# spread-test-selector
 
-`test-selector` is a machine charm that exposes a small local API for deciding which spread tests should run from a set of changed files, tracking manually added tests, and refreshing the test map from MongoDB through `query_features.py` from the snapd repository.
+`spread-test-selector` is a machine charm that exposes a small local API for deciding which spread tests should run from a set of changed files, tracking manually added tests, and refreshing the test map from MongoDB through `query_features.py` from the snapd repository.
 
 ## What it does
 
@@ -29,15 +29,15 @@ Available config options are defined in [charmcraft.yaml](charmcraft.yaml):
 - `refresh-timeout-seconds`: timeout used when refreshing from MongoDB
 - `refresh-jobs`: number of systems queried in parallel during a refresh, default `2`; each query can use several hundred MB of memory
 
-The unit does not need a snapd checkout: the charm keeps a shallow, sparse checkout of only `tests/utils/features` from `snapd-repo-url` at `snapd-ref` in `/var/lib/test-selector/snapd`, created on install and updated on upgrade and config changes and by every refresh, whether triggered through the HTTP API or the `mongodb-updated` action. The `query_features.py` there must match how the data was uploaded; for example, coverage stored in its own collection needs a `query_features.py` that reads it.
+The unit does not need a snapd checkout: the charm keeps a shallow, sparse checkout of only `tests/utils/features` from `snapd-repo-url` at `snapd-ref` in `/var/lib/spread-test-selector/snapd`, created on install and updated on upgrade and config changes and by every refresh, whether triggered through the HTTP API or the `mongodb-updated` action. The `query_features.py` there must match how the data was uploaded; for example, coverage stored in its own collection needs a `query_features.py` that reads it.
 
-The charm installs `git` and `python3-venv` with apt when missing, and creates a virtualenv in `/var/lib/test-selector/venv` with `pymongo` (4.9 or newer, from PyPI), in which the refresh helper and `query_features.py` run. The dashboard packages in the features folder's `requirements.txt` are not installed.
+The charm installs `git` and `python3-venv` with apt when missing, and creates a virtualenv in `/var/lib/spread-test-selector/venv` with `pymongo` (4.9 or newer, from PyPI), in which the refresh helper and `query_features.py` run. The dashboard packages in the features folder's `requirements.txt` are not installed.
 
 Failures while installing or configuring leave the unit blocked or waiting with the reason; run the `reconcile` action (or change the config) to retry. Upgrading the charm always restarts the API service.
 
 ## HTTP API
 
-CI on the same cloud calls the service directly at `http://<unit-address>:<listen-port>` (port `8181` by default). The charm opens the port; depending on the cloud, `juju expose test-selector` (optionally with `--to-cidrs` limited to the CI network) is needed to allow traffic to it. The API has no authentication, so only expose it to networks you trust.
+CI on the same cloud calls the service directly at `http://<unit-address>:<listen-port>` (port `8181` by default). The charm opens the port; depending on the cloud, `juju expose spread-test-selector` (optionally with `--to-cidrs` limited to the CI network) is needed to allow traffic to it. The API has no authentication, so only expose it to networks you trust.
 
 - `GET /health`: returns `{"status": "ok"}`
 - `POST /calculate-tests` with `{"changed_files": {"modified": [...], "added": [...], "deleted": [...]}, "backend_systems": [...], "tests": [...]}`: returns `{"tests": [...], "count": N}`, the subset of `tests` to run. Without execution data (before the first refresh, or if a data file is missing) it returns all of `tests`.
@@ -118,9 +118,9 @@ The preferred format is a single JSON string, for example:
 Example secret creation (Juju 3.6). `juju add-secret` prints the secret's URI (`secret:...`); the secret must be granted to the application before the charm can read it:
 
 ```bash
-juju add-secret test-selector-mongodb mongodb-credentials-json='{"host":"mongodb.example.internal","port":27017,"user":"snapd","password":"secret"}'
-juju grant-secret test-selector-mongodb test-selector
-juju config test-selector mongodb-secret-id=<secret-uri>
+juju add-secret spread-test-selector-mongodb mongodb-credentials-json='{"host":"mongodb.example.internal","port":27017,"user":"snapd","password":"secret"}'
+juju grant-secret spread-test-selector-mongodb spread-test-selector
+juju config spread-test-selector mongodb-secret-id=<secret-uri>
 ```
 
 ## Actions
@@ -136,29 +136,29 @@ Actions are defined in [charmcraft.yaml](charmcraft.yaml):
 Example action calls (Juju 3.6; `juju run` waits for the action and prints its results):
 
 ```bash
-juju run test-selector/0 calculate-tests \
+juju run spread-test-selector/0 calculate-tests \
   changed-files-json='{"modified":["snap/foo.go"],"added":["interfaces/new.go"],"deleted":[]}' \
   tests='amd64:ubuntu-24.04:tests/spread/foo,arm64:ubuntu-24.04:tests/spread/foo' \
   backend-systems='amd64:ubuntu-24.04,arm64:ubuntu-24.04'
 
-juju run test-selector/0 add-tests tests='tests/spread/foo,tests/spread/bar'
+juju run spread-test-selector/0 add-tests tests='tests/spread/foo,tests/spread/bar'
 
 # a refresh takes a while; allow up to refresh-timeout-seconds plus a minute
-juju run test-selector/0 mongodb-updated --wait 10m
+juju run spread-test-selector/0 mongodb-updated --wait 10m
 
-juju run test-selector/0 reconcile
-juju run test-selector/0 service-status
+juju run spread-test-selector/0 reconcile
+juju run spread-test-selector/0 service-status
 ```
 
 ## Files on the unit
 
 Default paths:
 
-- `/var/lib/test-selector/mongodb-credentials.json`
-- `/var/lib/test-selector/spread-execution-map.json`
-- `/var/lib/test-selector/added-spread-tests.txt`
-- `/var/lib/test-selector/base-executions.json`
-- `/var/lib/test-selector/service-config.json`
+- `/var/lib/spread-test-selector/mongodb-credentials.json`
+- `/var/lib/spread-test-selector/spread-execution-map.json`
+- `/var/lib/spread-test-selector/added-spread-tests.txt`
+- `/var/lib/spread-test-selector/base-executions.json`
+- `/var/lib/spread-test-selector/service-config.json`
 
 ## Checking the logic against recent snapd commits
 

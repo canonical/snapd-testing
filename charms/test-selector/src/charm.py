@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Canonical Ltd
 
-"""Machine charm for the test-selector service."""
+"""Machine charm for the spread-test-selector service."""
 
 import json
 import logging
@@ -21,12 +21,12 @@ from refresh_spread_tests_execution import FEATURES_SUBDIR, fetch_snapd_features
 logger = logging.getLogger(__name__)
 
 
-class TestSelectorCharm(CharmBase):
+class SpreadTestSelectorCharm(CharmBase):
     """Machine charm that exposes API for test selection and map refresh."""
 
-    SERVICE_NAME = "test-selector-api"
+    SERVICE_NAME = "spread-test-selector-api"
     SYSTEMD_DIR = Path("/etc/systemd/system")
-    STATE_DIR = Path("/var/lib/test-selector")
+    STATE_DIR = Path("/var/lib/spread-test-selector")
     SERVICE_CONFIG_PATH = STATE_DIR / "service-config.json"
     MONGODB_CREDENTIALS_PATH = STATE_DIR / "mongodb-credentials.json"
     SERVICE_STATE_MARKER_PATH = STATE_DIR / "service-state.marker"
@@ -108,10 +108,10 @@ class TestSelectorCharm(CharmBase):
         return int(self.config.get("listen-port") or 8181)
 
     def _on_install(self, _event):
-        self._reconcile_in_hook("installing test-selector")
+        self._reconcile_in_hook("installing spread-test-selector")
 
     def _on_start(self, _event):
-        self._reconcile_in_hook("starting test-selector")
+        self._reconcile_in_hook("starting spread-test-selector")
 
     def _on_config_changed(self, _event):
         self._reconcile_in_hook("applying updated configuration")
@@ -427,14 +427,14 @@ class TestSelectorCharm(CharmBase):
                 raise RuntimeError(f"secret key {key} does not contain valid json: {exc}") from exc
             if not isinstance(parsed, dict):
                 raise RuntimeError(f"secret key {key} must contain a json object")
-            TestSelectorCharm._validate_mongodb_creds(parsed)
+            SpreadTestSelectorCharm._validate_mongodb_creds(parsed)
             return parsed
 
         direct = {k: secret_content.get(k) for k in ("host", "port", "user", "password") if secret_content.get(k)}
         if len(direct) == 4:
             if isinstance(direct.get("port"), str) and direct["port"].isdigit():
                 direct["port"] = int(direct["port"])
-            TestSelectorCharm._validate_mongodb_creds(direct)
+            SpreadTestSelectorCharm._validate_mongodb_creds(direct)
             return direct
 
         raise RuntimeError(
@@ -452,7 +452,7 @@ class TestSelectorCharm(CharmBase):
         host = self.listen_host
         port = self.listen_port
         return f"""[Unit]
-Description=test-selector api service
+Description=spread-test-selector api service
 After=network.target
 
 [Service]
@@ -527,4 +527,4 @@ WantedBy=multi-user.target
 
 
 if __name__ == "__main__":
-    main(TestSelectorCharm)
+    main(SpreadTestSelectorCharm)

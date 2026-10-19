@@ -1,5 +1,5 @@
-name: test-selector
-title: Test Selector
+name: spread-test-selector
+title: Spread Test Selector
 summary: List tests that should be executed based on file changes
 
 description: |
@@ -47,11 +47,11 @@ config:
       description: "Optional path to an existing query_features.py on the unit. When empty, the charm fetches tests/utils/features from snapd-repo-url at snapd-ref."
     execution-data-dir:
       type: string
-      default: /var/lib/test-selector
+      default: /var/lib/spread-test-selector
       description: "Directory that contains spread-execution-map.json, interface-users.json and base-executions.json."
     added-spread-tests-path:
       type: string
-      default: /var/lib/test-selector/added-spread-tests.txt
+      default: /var/lib/spread-test-selector/added-spread-tests.txt
       description: "Path to added-spread-tests.txt consumed by the service."
     refresh-helper-command:
       type: string

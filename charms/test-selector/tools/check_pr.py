@@ -5,7 +5,7 @@
 
 For each job in the pull request's systems matrix (by default
 .github/workflows/data-fundamental-systems.json), this does what
-spread-tests.yaml does to pick the tests, then asks the test-selector
+spread-tests.yaml does to pick the tests, then asks the spread-test-selector
 service which of them to run:
 
 1. the changed files, as CI sees them (added, copied, modified, renamed and
@@ -127,7 +127,7 @@ def main() -> None:
     parser.add_argument("--repo", default="canonical/snapd", help="GitHub repository (default: canonical/snapd)")
     parser.add_argument("--snapd", required=True, type=Path,
                         help="local snapd git checkout: holds the worktree, and provides the scripts the pull request lacks")
-    parser.add_argument("--service", default="http://127.0.0.1:8181", help="test-selector service URL")
+    parser.add_argument("--service", default="http://127.0.0.1:8181", help="spread-test-selector service URL")
     parser.add_argument("--systems-file", action="append",
                         help=f"systems matrix under {WORKFLOWS_DIR}; can be repeated (default: {DEFAULT_SYSTEMS_FILE})")
     parser.add_argument("--no-shared-users", action="store_true",
