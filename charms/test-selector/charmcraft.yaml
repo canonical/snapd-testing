@@ -1,0 +1,103 @@
+name: spread-test-selector
+title: Spread Test Selector
+summary: List tests that should be executed based on file changes
+
+description: |
+  Machine charm that runs a local API to calculate spread tests from changed files,
+  and refresh spread-tests-execution mapping from mongodb through
+  query_features.py, which it fetches from the snapd repository.
+
+type: charm
+base: ubuntu@24.04
+platforms:
+  amd64:
+
+parts:
+  charm:
+    plugin: charm
+    source: .
+    charm-requirements:
+      - requirements.txt
+
+config:
+  options:
+    listen-host:
+      type: string
+      default: 0.0.0.0
+      description: "Address the API service listens on. The default listens on all interfaces, so CI can reach it over the network."
+    listen-port:
+      type: int
+      default: 8181
+      description: "Port for the local API service."
+    mongodb-secret-id:
+      type: string
+      default: ""
+      description: "Juju secret ID containing mongodb credentials json."
+    snapd-repo-url:
+      type: string
+      default: https://github.com/canonical/snapd.git
+      description: "Git repository to fetch tests/utils/features (query_features.py) from."
+    snapd-ref:
+      type: string
+      default: master
+      description: "Branch, tag or commit of snapd-repo-url to fetch tests/utils/features from."
+    query-features-path:
+      type: string
+      default: ""
+      description: "Optional path to an existing query_features.py on the unit. When empty, the charm fetches tests/utils/features from snapd-repo-url at snapd-ref."
+    execution-data-dir:
+      type: string
+      default: /var/lib/spread-test-selector
+      description: "Directory that contains spread-execution-map.json, interface-users.json and base-executions.json."
+    refresh-helper-command:
+      type: string
+      default: ""
+      description: "Optional command used to regenerate the execution data. If unset, built-in helper is used."
+    base-tests-max-minutes:
+      type: int
+      default: 15
+      description: "Maximum amount of execution time, in minutes, for the base test coverage set, which runs for every change. Features mentioning refresh are always covered, even beyond it. 0 means no limit (cover every feature)."
+    refresh-timeout-seconds:
+      type: int
+      default: 300
+      description: "Timeout for mongodb refresh helper command."
+    refresh-jobs:
+      type: int
+      default: 2
+      description: "Number of systems queried in parallel during a refresh. Each query can use several hundred MB of memory."
+    http_proxy:
+      type: string
+      default: ""
+      description: "HTTP proxy URL used by apt, pip and git, and exported to the API service."
+    https_proxy:
+      type: string
+      default: ""
+      description: "HTTPS proxy URL used by apt, pip and git, and exported to the API service."
+    no_proxy:
+      type: string
+      default: ""
+      description: "Comma-separated hosts/IPs to bypass the proxy. 127.0.0.1, localhost and .snapd.canonical.com (e.g. mongodb.snapd.canonical.com) are always added."
+
+actions:
+  calculate-tests:
+    description: Calculate spread tests to execute from changed files and backend:system list using the execution data.
+    params:
+      changed-files-json:
+        type: string
+        description: "JSON object with modified/added/deleted lists of changed file paths."
+      tests:
+        type: string
+        description: "Comma or newline separated allowed tests to evaluate."
+      backend-systems:
+        type: string
+        description: "Comma or newline separated backend:system values."
+    required:
+      - changed-files-json
+      - tests
+      - backend-systems
+  mongodb-updated:
+    description: Fetch the latest query_features.py, then regenerate the execution data from mongodb.
+  reconcile:
+    description: Rebuild charm state, secret file, and API service.
+  service-status:
+    description: Return current systemd status for the API service.
