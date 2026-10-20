@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -82,9 +83,16 @@ class CharmTestCase(unittest.TestCase):
             SERVICE_STATE_MARKER_PATH=state / "service-state.marker",
             SNAPD_DIR=state / "snapd",
             VENV_DIR=state / "venv",
+            ETC_ENVIRONMENT_PATH=root / "environment",
         )
         patcher.start()
         self.addCleanup(patcher.stop)
+        # the charm exports the proxy settings to its own environment
+        env_patcher = patch.dict(os.environ)
+        env_patcher.start()
+        self.addCleanup(env_patcher.stop)
+        for name in ("HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy"):
+            os.environ.pop(name, None)
 
         self.system = FakeSystem(SpreadTestSelectorCharm, root)
         run_patcher = patch.object(SpreadTestSelectorCharm, "_run", lambda _self, cmd, check=False, env=None: self.system.run(cmd, check, env))
@@ -232,13 +240,78 @@ class TestFilesAndService(CharmTestCase):
             def read(self):
                 return b'{"result": "ok"}'
 
-        def urlopen(req, timeout):
-            sent.append((req.full_url, timeout))
-            return Response()
+        class Opener:
+            def open(self, req, timeout):
+                sent.append((req.full_url, timeout))
+                return Response()
 
-        with patch("charm.urllib_request.urlopen", urlopen):
+        handlers = []
+
+        def build_opener(*args):
+            handlers.extend(args)
+            return Opener()
+
+        with patch("charm.urllib_request.build_opener", build_opener):
             self.harness.charm._call_service("/mongodb-updated", {}, timeout=99)
         self.assertEqual(sent, [("http://127.0.0.1:9000/mongodb-updated", 99)])
+        # never through a proxy, even with one in the environment
+        self.assertEqual([h.proxies for h in handlers], [{}])
+
+    def test_no_proxy_always_has_local_and_snapd_hosts(self):
+        self.configure_secret()
+        self.harness.begin()
+        self.harness.charm.on.install.emit()
+        charm = self.harness.charm
+        expected = "127.0.0.1,localhost,.snapd.canonical.com"
+        self.assertEqual(charm.ETC_ENVIRONMENT_PATH.read_text(),
+                         f'NO_PROXY="{expected}"\nno_proxy="{expected}"\n')
+        self.assertEqual(os.environ["NO_PROXY"], expected)
+        self.assertNotIn("HTTP_PROXY", os.environ)
+        unit = (charm.SYSTEMD_DIR / f"{charm.SERVICE_NAME}.service").read_text()
+        self.assertIn(f"Environment=NO_PROXY={expected}\n", unit)
+        self.assertNotIn("HTTP_PROXY", unit)
+
+    def test_proxy_settings(self):
+        self.configure_secret()
+        Path(SpreadTestSelectorCharm.ETC_ENVIRONMENT_PATH).write_text('PATH="/usr/bin"\nhttp_proxy="http://old:1"\n')
+        self.harness.update_config({
+            "http_proxy": "http://egress.ps7.internal:3128",
+            "https_proxy": "http://egress.ps7.internal:3128",
+            "no_proxy": "10.0.0.1, localhost",
+        })
+        self.harness.begin()
+        self.harness.charm.on.install.emit()
+        charm = self.harness.charm
+        no_proxy = "10.0.0.1,localhost,127.0.0.1,.snapd.canonical.com"
+
+        # /etc/environment: other lines kept, proxy variables in both cases
+        lines = charm.ETC_ENVIRONMENT_PATH.read_text().splitlines()
+        self.assertEqual(lines[0], 'PATH="/usr/bin"')
+        self.assertEqual(sorted(lines[1:]), sorted([
+            'http_proxy="http://egress.ps7.internal:3128"', 'HTTP_PROXY="http://egress.ps7.internal:3128"',
+            'https_proxy="http://egress.ps7.internal:3128"', 'HTTPS_PROXY="http://egress.ps7.internal:3128"',
+            f'no_proxy="{no_proxy}"', f'NO_PROXY="{no_proxy}"',
+        ]))
+        # the charm's commands (apt, pip, git) and the service see them too
+        self.assertEqual(os.environ["https_proxy"], "http://egress.ps7.internal:3128")
+        self.assertEqual(os.environ["NO_PROXY"], no_proxy)
+        unit = (charm.SYSTEMD_DIR / f"{charm.SERVICE_NAME}.service").read_text()
+        self.assertIn("Environment=HTTPS_PROXY=http://egress.ps7.internal:3128\n", unit)
+        self.assertIn(f"Environment=no_proxy={no_proxy}\n", unit)
+
+    def test_proxy_change_restarts_service_and_clearing_removes_it(self):
+        self.configure_secret()
+        self.harness.begin()
+        self.harness.charm.on.install.emit()
+        self.system.commands.clear()
+        self.harness.update_config({"https_proxy": "http://egress:3128"})
+        self.assertTrue(self.system.ran("systemctl", "restart"))
+        self.assertIn("HTTPS_PROXY", self.harness.charm.ETC_ENVIRONMENT_PATH.read_text())
+
+        self.system.commands.clear()
+        self.harness.update_config({"https_proxy": ""})
+        self.assertTrue(self.system.ran("systemctl", "restart"))
+        self.assertNotIn("HTTPS_PROXY", self.harness.charm.ETC_ENVIRONMENT_PATH.read_text())
 
     def test_refresh_jobs_in_refresh_command(self):
         self.configure_secret()

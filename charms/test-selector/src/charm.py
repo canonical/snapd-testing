@@ -42,9 +42,16 @@ class SpreadTestSelectorCharm(CharmBase):
     PYMONGO_MIN_VERSION = (4, 9)
     # extra time, beyond the refresh timeout, to wait for the service to answer
     REFRESH_RESPONSE_MARGIN_SECONDS = 60
+    ETC_ENVIRONMENT_PATH = Path("/etc/environment")
+    # always reached directly: the local API service, and the snapd
+    # infrastructure such as mongodb.snapd.canonical.com
+    ALWAYS_NO_PROXY = ("127.0.0.1", "localhost", ".snapd.canonical.com")
 
     def __init__(self, *args):
         super().__init__(*args)
+        # every hook and action, and the commands they run (apt, pip, git),
+        # use the configured proxy
+        self._set_runtime_proxy_env()
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(self.on.start, self._on_start)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
@@ -205,6 +212,7 @@ class SpreadTestSelectorCharm(CharmBase):
         self.unit.status = MaintenanceStatus(maintenance_msg)
         try:
             self._ensure_state_dirs()
+            self._update_etc_environment(self._proxy_config())
             self._install_packages()
             self._ensure_venv()
             self._fetch_snapd_features()
@@ -338,8 +346,72 @@ class SpreadTestSelectorCharm(CharmBase):
             "refresh-helper-command": str(self.config.get("refresh-helper-command") or "").strip(),
             "refresh-timeout-seconds": self.refresh_timeout_seconds,
             "refresh-command": config["refresh_command"],
+            # the service and its refreshes run with the proxy environment
+            "proxy": self._proxy_config(),
         }
         return json.dumps(relevant_state, sort_keys=True)
+
+    def _proxy_config(self) -> dict[str, str]:
+        """The proxy environment: the configured values, with ALWAYS_NO_PROXY added to NO_PROXY."""
+        no_proxy: list[str] = []
+        for host in [*str(self.config.get("no_proxy") or "").split(","), *self.ALWAYS_NO_PROXY]:
+            host = host.strip()
+            if host and host not in no_proxy:
+                no_proxy.append(host)
+        return {
+            "HTTP_PROXY": str(self.config.get("http_proxy") or "").strip(),
+            "HTTPS_PROXY": str(self.config.get("https_proxy") or "").strip(),
+            "NO_PROXY": ",".join(no_proxy),
+        }
+
+    def _proxy_environment(self) -> dict[str, str]:
+        """The proxy variables to set, in upper and lower case; empty ones are left out."""
+        env = {}
+        for key, value in self._proxy_config().items():
+            if value:
+                env[key] = value
+                env[key.lower()] = value
+        return env
+
+    def _set_runtime_proxy_env(self) -> None:
+        env = self._proxy_environment()
+        for key in ("HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"):
+            for name in (key, key.lower()):
+                if name in env:
+                    os.environ[name] = env[name]
+                else:
+                    os.environ.pop(name, None)
+
+    @staticmethod
+    def _quote_env_value(value: str) -> str:
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+
+    def _update_etc_environment(self, proxy_cfg: dict[str, str]) -> None:
+        """Keep the proxy variables in /etc/environment in sync with the config, leaving other lines alone."""
+        values = {}
+        for key, value in proxy_cfg.items():
+            values[key] = value
+            values[key.lower()] = value
+
+        lines = []
+        if self.ETC_ENVIRONMENT_PATH.exists():
+            lines = self.ETC_ENVIRONMENT_PATH.read_text(encoding="utf-8").splitlines()
+        new_lines, seen = [], set()
+        for line in lines:
+            key = line.partition("=")[0].strip()
+            if line.strip().startswith("#") or "=" not in line or key not in values:
+                new_lines.append(line)
+                continue
+            seen.add(key)
+            if values[key]:
+                new_lines.append(f"{key}={self._quote_env_value(values[key])}")
+        for key in sorted(set(values) - seen):
+            if values[key]:
+                new_lines.append(f"{key}={self._quote_env_value(values[key])}")
+        content = "\n".join(new_lines).rstrip() + "\n"
+        if not self.ETC_ENVIRONMENT_PATH.exists() or self.ETC_ENVIRONMENT_PATH.read_text(encoding="utf-8") != content:
+            self.ETC_ENVIRONMENT_PATH.write_text(content, encoding="utf-8")
 
     def _query_features_path(self) -> Path:
         configured = str(self.config.get("query-features-path") or "").strip()
@@ -428,6 +500,10 @@ class SpreadTestSelectorCharm(CharmBase):
     def _render_systemd_unit(self) -> str:
         host = self.listen_host
         port = self.listen_port
+        # the service runs the refreshes, which fetch snapd from git
+        environment = "".join(
+            f"Environment={shlex.quote(f'{key}={value}')}\n" for key, value in sorted(self._proxy_environment().items())
+        )
         return f"""[Unit]
 Description=spread-test-selector api service
 After=network.target
@@ -437,7 +513,7 @@ Type=simple
 User=root
 Group=root
 WorkingDirectory={self.app_root}
-ExecStart=/usr/bin/python3 {self.service_script} --config {self.SERVICE_CONFIG_PATH} --host {host} --port {port}
+{environment}ExecStart=/usr/bin/python3 {self.service_script} --config {self.SERVICE_CONFIG_PATH} --host {host} --port {port}
 Restart=always
 RestartSec=3
 
@@ -488,8 +564,10 @@ WantedBy=multi-user.target
             headers={"Content-Type": "application/json"},
             method="POST",
         )
+        # the service is local: never go through a proxy, whatever the environment says
+        opener = urllib_request.build_opener(urllib_request.ProxyHandler({}))
         try:
-            with urllib_request.urlopen(req, timeout=timeout) as response:
+            with opener.open(req, timeout=timeout) as response:
                 body = response.read().decode("utf-8")
         except urllib_error.HTTPError as exc:
             details = exc.read().decode("utf-8")

@@ -26,12 +26,28 @@ Available config options are defined in [charmcraft.yaml](charmcraft.yaml):
 - `base-tests-max-minutes`: maximum execution time, in minutes, for the base test coverage set that runs for every change, default `15`; `0` means no limit (cover every feature)
 - `refresh-timeout-seconds`: timeout used when refreshing from MongoDB
 - `refresh-jobs`: number of systems queried in parallel during a refresh, default `2`; each query can use several hundred MB of memory
+- `http_proxy`, `https_proxy`, `no_proxy`: proxy settings, see [Proxy](#proxy)
 
 The unit does not need a snapd checkout: the charm keeps a shallow, sparse checkout of only `tests/utils/features` from `snapd-repo-url` at `snapd-ref` in `/var/lib/spread-test-selector/snapd`, created on install and updated on upgrade and config changes and by every refresh, whether triggered through the HTTP API or the `mongodb-updated` action. The `query_features.py` there must match how the data was uploaded; for example, coverage stored in its own collection needs a `query_features.py` that reads it.
 
 The charm installs `git` and `python3-venv` with apt when missing, and creates a virtualenv in `/var/lib/spread-test-selector/venv` with `pymongo` (4.9 or newer, from PyPI), in which the refresh helper and `query_features.py` run. The dashboard packages in the features folder's `requirements.txt` are not installed.
 
 Failures while installing or configuring leave the unit blocked or waiting with the reason; run the `reconcile` action (or change the config) to retry. Upgrading the charm always restarts the API service.
+
+## Proxy
+
+On networks where outgoing HTTP(S) goes through a proxy, set it at deploy time or later:
+
+```bash
+juju config spread-test-selector \
+	http_proxy=http://egress.ps7.internal:3128 \
+	https_proxy=http://egress.ps7.internal:3128 \
+	no_proxy=127.0.0.1,127.0.0.53,localhost
+```
+
+The values are used by the charm's apt, pip and git commands, exported to the API service (and so to the refreshes it runs, which fetch snapd from git), and kept in `/etc/environment` in upper and lower case. Changing them restarts the service. `127.0.0.1`, `localhost` and `.snapd.canonical.com` are always added to `no_proxy`, so the local API and the snapd infrastructure, such as `mongodb.snapd.canonical.com`, are reached directly.
+
+MongoDB itself does not go through HTTP proxies: pymongo connects directly over TCP, whatever the proxy settings, so the unit needs direct network access to the MongoDB host and port.
 
 ## HTTP API
 

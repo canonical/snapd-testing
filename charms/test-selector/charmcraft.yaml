@@ -65,6 +65,18 @@ config:
       type: int
       default: 2
       description: "Number of systems queried in parallel during a refresh. Each query can use several hundred MB of memory."
+    http_proxy:
+      type: string
+      default: ""
+      description: "HTTP proxy URL used by apt, pip and git, and exported to the API service."
+    https_proxy:
+      type: string
+      default: ""
+      description: "HTTPS proxy URL used by apt, pip and git, and exported to the API service."
+    no_proxy:
+      type: string
+      default: ""
+      description: "Comma-separated hosts/IPs to bypass the proxy. 127.0.0.1, localhost and .snapd.canonical.com (e.g. mongodb.snapd.canonical.com) are always added."
 
 actions:
   calculate-tests:
