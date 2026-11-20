@@ -20,14 +20,9 @@ target:
     Accept-Encoding: identity
 
 load:
-  downloads_per_second:
-    start: 1
-    end: 10
-    increment: 1
+  concurrent_downloads: [2, 4, 8, 16]
   duration: 30s
-  connections: 10
   threads: 2
-  scale_workers_with_rate: true
   timeout: 10s
   pause_seconds: 5
 
@@ -42,12 +37,13 @@ warmup:
   requests: 3
 
 safety:
-  # The multiplier covers wrk2 calibration traffic and scheduling variation.
+  # Concurrency has unknown transfer volume; --allow-over-budget is required.
+  # These legacy rate-estimate settings do not enforce a runtime byte cap.
   estimate_multiplier: 2.0
   max_estimated_transfer_mib: 100
 
 output:
   directory: ../results
 
-wrk2:
-  binary: wrk2
+wrk:
+  binary: wrk

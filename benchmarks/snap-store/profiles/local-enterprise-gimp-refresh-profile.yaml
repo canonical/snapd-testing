@@ -1,0 +1,33 @@
+target:
+  url: https://snapd.enterprise-test.com/v2/snaps/refresh
+  snap: gimp
+  channel: latest/stable
+  # Use a device authorization accepted by this enterprise Store.
+  auth_file: ../device-authorization
+  verify_tls: true
+
+load:
+  # Keep the worker pool fixed while sweeping requests per second.
+  requests_per_second:
+    start: 10
+    end: 100
+    increment: 10
+  duration: 30s
+  connections: 20
+  threads: 4
+  scale_workers_with_rate: false
+  timeout: 10s
+  pause_seconds: 5
+
+preflight:
+  enabled: true
+  expected_status: 200
+
+warmup:
+  requests: 5
+
+output:
+  directory: ../results
+
+wrk2:
+  binary: wrk2

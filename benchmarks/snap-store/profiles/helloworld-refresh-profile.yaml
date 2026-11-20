@@ -17,7 +17,7 @@ load:
   duration: 30s
   connections: 10
   threads: 2
-  scale_workers_with_rate: true
+  scale_workers_with_rate: false
   timeout: 10s
   pause_seconds: 5
 

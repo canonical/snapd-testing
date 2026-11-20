@@ -1,0 +1,42 @@
+target:
+  store_url: https://snapd.enterprise-test.com
+  verify_tls: true
+  snap: gimp
+  channel: latest/stable
+  architecture: amd64
+  # Copied from the production profile; verify against this Store at run time.
+  expected_size_bytes: 147804160
+  byte_range: null
+  store_headers:
+    Snap-Device-Architecture: amd64
+    Snap-Device-Series: "16"
+  download_headers:
+    Accept-Encoding: identity
+
+load:
+  concurrent_downloads: [2, 4, 8, 16]
+  # Four five-minute stages, plus preflight, warmup and pauses.
+  duration: 5m
+  threads: 2
+  # Does not extend the stage deadline or drain unfinished downloads.
+  timeout: 5m
+  pause_seconds: 5
+
+preflight:
+  expected_redirect_status: 302
+  expected_download_status: 200
+  max_redirects: 5
+
+warmup:
+  requests: 3
+
+safety:
+  # Concurrency has unknown transfer volume; this is not a runtime byte cap.
+  estimate_multiplier: 2.0
+  max_estimated_transfer_mib: 2048
+
+output:
+  directory: ../results
+
+wrk:
+  binary: wrk
