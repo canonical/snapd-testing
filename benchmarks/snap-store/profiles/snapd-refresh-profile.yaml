@@ -1,5 +1,4 @@
 target:
-  # Replace this URL with the full enterprise Store refresh endpoint when needed.
   url: https://api.snapcraft.io/v2/snaps/refresh
   # Generate the refresh request for this snap instead of replaying a capture.
   snap: snapd
@@ -17,10 +16,10 @@ load:
     end: 10
     increment: 1
   duration: 30s
-  # Treat connections and threads as maximums and scale them with each rate.
+  # Keep the worker pool fixed while sweeping requests per second.
   connections: 10
   threads: 2
-  scale_workers_with_rate: true
+  scale_workers_with_rate: false
   timeout: 10s
   pause_seconds: 5
 
